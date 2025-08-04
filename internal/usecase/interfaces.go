@@ -48,9 +48,8 @@ type AdminRepository interface {
 	GetAdminByID(id string) (*domain.Admin, error)
 	GetAllAdmins() ([]domain.Admin, error)
 	SignIn(email, password string) (*domain.Admin, error)
-	GetAdminByEmail(email string) (*domain.Admin,error)
+	GetAdminByEmail(email string) (*domain.Admin, error)
 }
-
 
 type NotificationRepository interface {
 	AddNotification(notification domain.Notification) (string, error)
@@ -75,4 +74,33 @@ type ContestRegistrationRepository interface {
 	UpdateContestRegistration(id string, update domain.ContestRegistration) error
 	DeleteContestRegistration(id string) error
 	GetRegistrationsByContestAndStudent(contestID string, studentID string) (*domain.ContestRegistration, error)
+}
+
+type FeedbackQuestionRepository interface {
+	AddFeedbackQuestion(question domain.FeedbackQuestion) (string, error)
+	UpdateFeedbackQuestion(id string, update domain.FeedbackQuestion) error
+	DeleteFeedbackQuestion(id string) error
+	GetFeedbackQuestionByID(id string) (*domain.FeedbackQuestion, error)
+	GetAllFeedbackQuestions() ([]domain.FeedbackQuestion, error)
+	GetActiveFeedbackQuestions() ([]domain.FeedbackQuestion, error)
+	GetFeedbackQuestionsByAdmin(adminID string) ([]domain.FeedbackQuestion, error)
+}
+
+type PollOptionRepository interface {
+	AddPollOption(option domain.PollOption) (string, error)
+	UpdatePollOption(id string, update domain.PollOption) error
+	DeletePollOption(id string) error
+	GetPollOptionByID(id string) (*domain.PollOption, error)
+	GetAllPollOptions() ([]domain.PollOption, error)
+	GetPollOptionByScore(score int) (*domain.PollOption, error)
+}
+
+type FeedbackResponseRepository interface {
+	AddFeedbackResponse(response domain.FeedbackResponse) (string, error)
+	UpdateFeedbackResponse(id string, update domain.FeedbackResponse) error
+	DeleteFeedbackResponse(id string) error
+	GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error)
+	GetAllFeedbackResponses() ([]domain.FeedbackResponse, error)
+	GetFeedbackResponsesByStudent(studentID string) ([]domain.FeedbackResponse, error)
+	GetFeedbackResponsesByQuestion(questionID string) ([]domain.FeedbackResponse, error)
 }

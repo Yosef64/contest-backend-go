@@ -20,14 +20,14 @@ type contestRegistrationUsecase struct {
 }
 
 func (u *contestRegistrationUsecase) CheckStudentActiveInContest(contestId string, studentId string) (*bool, error) {
-	registeration,err := u.repo.GetRegistrationsByContestAndStudent(contestId,studentId)
+	registeration, err := u.repo.GetRegistrationsByContestAndStudent(contestId, studentId)
 	if err != nil {
-		return nil, errors.New("The user is not registered for the contest")
+		return nil, errors.New("the user is not registered for the contest")
 	}
 	if registeration.IsActive {
-		return nil,errors.New("The user has been in the contest!")
+		return nil, errors.New("the user has been in the contest")
 	}
-	return &registeration.IsActive,nil
+	return &registeration.IsActive, nil
 }
 
 func NewContestRegistrationUsecase(repo ContestRegistrationRepository) ContestRegistrationUsecase {

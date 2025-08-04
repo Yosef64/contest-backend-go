@@ -18,6 +18,9 @@ type Server struct {
 	notificationHandler        *NotificationHandler
 	achievementHandler         *AchievementHandler
 	contestRegistrationHandler *ContestRegistrationHandler
+	feedbackQuestionHandler    *FeedbackQuestionHandler
+	pollOptionHandler          *PollOptionHandler
+	feedbackResponseHandler    *FeedbackResponseHandler
 }
 
 func NewServer() *Server {
@@ -31,16 +34,26 @@ func NewServer() *Server {
 	notificationRepo := repository.NewNotificationDynamoRepository("eu-north-1", "notification")
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
+	
+	// --- Initialize Feedback Repositories ---
+	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
+	pollOptionRepo := repository.NewPollOptionDynamoRepository("eu-north-1", "poll_options")
+	feedbackResponseRepo := repository.NewFeedbackResponseDynamoRepository("eu-north-1", "feedback_responses")
 
 	// --- Initialize Use Cases ---
 	contestUsecase := usecase.NewContestUsecase(contestRepo, questionRepo)
 	studentUsecase := usecase.NewStudentUsecase(studentRepo)
 	questionUsecase := usecase.NewQuestionUsecase(questionRepo)
-	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase , questionRepo)
+	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo)
 	adminUsecase := usecase.NewAdminUsecase(adminRepo)
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
+	
+	// --- Initialize Feedback Use Cases ---
+	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
+	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
+	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
@@ -52,6 +65,9 @@ func NewServer() *Server {
 		notificationHandler:        NewNotificationHandler(notificationUsecase),
 		achievementHandler:         NewAchievementHandler(achievementUsecase),
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
+		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase),
+		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
+		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase),
 	}
 	return server
 }
@@ -59,10 +75,11 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "https://7wwb0knl-5173.euw.devtunnels.ms","https://victory-contest.vercel.app"},
-		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms"},
+		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 hours
 	}))
 
 	api := r.Group("/api")
@@ -74,6 +91,9 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.notificationHandler.RegisterRoutes(api.Group("/notification"))
 	s.achievementHandler.RegisterRoutes(api.Group("/achievement"))
 	s.contestRegistrationHandler.RegisterRoutes(api.Group("/contest-registration"))
+	s.feedbackQuestionHandler.RegisterRoutes(api.Group("/feedback-question"))
+	s.pollOptionHandler.RegisterRoutes(api.Group("/poll-option"))
+	s.feedbackResponseHandler.RegisterRoutes(api.Group("/feedback-response"))
 
 	return r
 }
