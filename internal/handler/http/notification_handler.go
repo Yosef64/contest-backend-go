@@ -91,6 +91,6 @@ func (h *NotificationHandler) GetNotificationsByRecipient(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"notifications": notifications})
-} 
+}

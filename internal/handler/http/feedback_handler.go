@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 	"victor-contest-go/internal/domain"
@@ -12,11 +13,15 @@ import (
 
 // FeedbackQuestionHandler handles feedback question operations
 type FeedbackQuestionHandler struct {
-	usecase usecase.FeedbackQuestionUsecase
+	usecase             usecase.FeedbackQuestionUsecase
+	notificationService *usecase.NotificationService
 }
 
-func NewFeedbackQuestionHandler(u usecase.FeedbackQuestionUsecase) *FeedbackQuestionHandler {
-	return &FeedbackQuestionHandler{usecase: u}
+func NewFeedbackQuestionHandler(u usecase.FeedbackQuestionUsecase, notificationService *usecase.NotificationService) *FeedbackQuestionHandler {
+	return &FeedbackQuestionHandler{
+		usecase:             u,
+		notificationService: notificationService,
+	}
 }
 
 func (h *FeedbackQuestionHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -40,6 +45,17 @@ func (h *FeedbackQuestionHandler) AddFeedbackQuestion(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Send notifications to all students about the new feedback question
+	if h.notificationService != nil {
+		go func() {
+			err := h.notificationService.SendFeedbackQuestionNotification(question)
+			if err != nil {
+				log.Printf("Failed to send feedback question notifications: %v", err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 

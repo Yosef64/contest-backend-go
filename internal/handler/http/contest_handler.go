@@ -10,11 +10,15 @@ import (
 )
 
 type ContestHandler struct {
-	usecase usecase.ContestUsecase
+	usecase             usecase.ContestUsecase
+	notificationService *usecase.NotificationService
 }
 
-func NewContestHandler(u usecase.ContestUsecase) *ContestHandler {
-	return &ContestHandler{usecase: u}
+func NewContestHandler(u usecase.ContestUsecase, notificationService *usecase.NotificationService) *ContestHandler {
+	return &ContestHandler{
+		usecase:             u,
+		notificationService: notificationService,
+	}
 }
 
 func (h *ContestHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -23,7 +27,7 @@ func (h *ContestHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/", h.GetAllContests)
 	rg.GET("/:id", h.GetContestByID)
 	rg.DELETE("/delete/:id", h.DeleteContest)
-	rg.POST("/announce/:id",h.AnnounceContest)
+	rg.POST("/announce/:id", h.AnnounceContest)
 }
 
 func (h *ContestHandler) AddContest(c *gin.Context) {
@@ -32,7 +36,7 @@ func (h *ContestHandler) AddContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	log.Printf("contest %s",contest)
+	log.Printf("contest %s", contest)
 	id, err := h.usecase.AddContest(contest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -83,19 +87,31 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
-} 
+}
 
-func (h *ContestHandler) AnnounceContest(c *gin.Context){
-	id:= c.Param("id")
+func (h *ContestHandler) AnnounceContest(c *gin.Context) {
+	id := c.Param("id")
 	var contest domain.Contest
-	if err := c.ShouldBindJSON(&contest);err != nil{
-		c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()})
-	} 
-
-	err := h.usecase.UpdateContest(id,contest)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+	if err := c.ShouldBindJSON(&contest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{"message":"success"})
+	err := h.usecase.UpdateContest(id, contest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Send notifications to all students about the new contest
+	if h.notificationService != nil {
+		go func() {
+			err := h.notificationService.SendContestAnnouncementNotification(contest)
+			if err != nil {
+				log.Printf("Failed to send contest announcement notifications: %v", err)
+			}
+		}()
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }

@@ -131,4 +131,4 @@ func (h *StudentHandler) GetUserProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": profile})
-} 
+}

@@ -17,7 +17,7 @@ type NotificationDynamoRepository struct {
 	tableName string
 }
 
-func NewNotificationDynamoRepository(region string,tablename string) *NotificationDynamoRepository {
+func NewNotificationDynamoRepository(region string, tablename string) *NotificationDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 	)
@@ -129,4 +129,4 @@ func (r *NotificationDynamoRepository) GetNotificationsByRecipient(recipientID s
 		return nil, err
 	}
 	return notifications, nil
-} 
+}
