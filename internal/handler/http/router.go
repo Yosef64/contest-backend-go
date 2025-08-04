@@ -18,6 +18,7 @@ type Server struct {
 	notificationHandler        *NotificationHandler
 	achievementHandler         *AchievementHandler
 	contestRegistrationHandler *ContestRegistrationHandler
+	paymentHandler  *PaymentHandler
 }
 
 func NewServer() *Server {
@@ -31,6 +32,7 @@ func NewServer() *Server {
 	notificationRepo := repository.NewNotificationDynamoRepository("eu-north-1", "notification")
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
+	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
 
 	// --- Initialize Use Cases ---
 	contestUsecase := usecase.NewContestUsecase(contestRepo, questionRepo)
@@ -41,6 +43,7 @@ func NewServer() *Server {
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
+	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
@@ -52,6 +55,7 @@ func NewServer() *Server {
 		notificationHandler:        NewNotificationHandler(notificationUsecase),
 		achievementHandler:         NewAchievementHandler(achievementUsecase),
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
+		paymentHandler : NewPaymentHandler(paymentUsecase,*imgRepo),
 	}
 	return server
 }
@@ -59,7 +63,7 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "https://7wwb0knl-5173.euw.devtunnels.ms","https://victory-contest.vercel.app"},
+		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173","http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms","https://victory-contest.vercel.app"},
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -74,6 +78,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.notificationHandler.RegisterRoutes(api.Group("/notification"))
 	s.achievementHandler.RegisterRoutes(api.Group("/achievement"))
 	s.contestRegistrationHandler.RegisterRoutes(api.Group("/contest-registration"))
+	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
 
 	return r
 }

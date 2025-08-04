@@ -1,6 +1,9 @@
 package usecase
 
-import "victor-contest-go/internal/domain"
+import (
+	"time"
+	"victor-contest-go/internal/domain"
+)
 
 type ContestRepository interface {
 	GetAllContests() ([]domain.Contest, error)
@@ -75,4 +78,14 @@ type ContestRegistrationRepository interface {
 	UpdateContestRegistration(id string, update domain.ContestRegistration) error
 	DeleteContestRegistration(id string) error
 	GetRegistrationsByContestAndStudent(contestID string, studentID string) (*domain.ContestRegistration, error)
+}
+
+type PaymentRepository interface {
+	Create( req *domain.PaymentRequest) error
+	GetByID(id string) (*domain.PaymentRequest, error)
+	UpdateStatus( id string,newStatus domain.PaymentStatus,reason domain.PaymentReason) error
+	ListByStatus( status domain.PaymentStatus) ([]domain.PaymentRequest, error)
+	ListByUser( userID string) ([]domain.PaymentRequest, error)
+	ListExpired(now time.Time) ([]domain.PaymentRequest,error)
+	ListAll() ([]domain.PaymentRequest,error)
 }
