@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -145,7 +146,7 @@ func (r *FeedbackResponseDynamoRepository) GetFeedbackResponsesByQuestion(questi
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter responses that contain the specific question
 	var filteredResponses []domain.FeedbackResponse
 	for _, response := range allResponses {
@@ -154,4 +155,171 @@ func (r *FeedbackResponseDynamoRepository) GetFeedbackResponsesByQuestion(questi
 		}
 	}
 	return filteredResponses, nil
-} 
+}
+
+func (r *FeedbackResponseDynamoRepository) GetFeedbackAnalytics(filter domain.AnalyticsFilter) (*domain.AnalyticsData, error) {
+	// Get all feedback responses
+	responses, err := r.GetAllFeedbackResponses()
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply time filter if specified
+	if filter.TimeRange != "all" {
+		responses = r.filterByTimeRange(responses, filter.TimeRange)
+	}
+
+	// Calculate analytics
+	analytics := &domain.AnalyticsData{
+		TotalResponses: len(responses),
+		QuestionStats:  r.calculateQuestionStats(responses),
+		PollStats:      r.calculatePollStats(responses),
+		ContactList:    r.getContactList(responses),
+		CommentSummary: r.calculateCommentSummary(responses),
+	}
+
+	return analytics, nil
+}
+
+func (r *FeedbackResponseDynamoRepository) DeleteContactByPhoneNumber(phoneNumber string) error {
+	// Get all responses to find the one with the matching phone number
+	responses, err := r.GetAllFeedbackResponses()
+	if err != nil {
+		return err
+	}
+
+	// Find the response with the matching phone number
+	for _, response := range responses {
+		if response.ContactInfo != nil && response.ContactInfo.PhoneNumber == phoneNumber {
+			// Remove the contact info
+			response.ContactInfo = nil
+			// Update the response
+			return r.UpdateFeedbackResponse(response.ID, response)
+		}
+	}
+
+	return nil // Contact not found, consider it already deleted
+}
+
+// Helper methods for analytics calculations
+func (r *FeedbackResponseDynamoRepository) filterByTimeRange(responses []domain.FeedbackResponse, timeRange string) []domain.FeedbackResponse {
+	now := time.Now()
+	var filtered []domain.FeedbackResponse
+
+	for _, response := range responses {
+		var cutoff time.Time
+		switch timeRange {
+		case "7d":
+			cutoff = now.AddDate(0, 0, -7)
+		case "30d":
+			cutoff = now.AddDate(0, 0, -30)
+		case "90d":
+			cutoff = now.AddDate(0, 0, -90)
+		default:
+			return responses // Return all if invalid time range
+		}
+
+		if response.SubmittedAt.After(cutoff) {
+			filtered = append(filtered, response)
+		}
+	}
+
+	return filtered
+}
+
+func (r *FeedbackResponseDynamoRepository) calculateQuestionStats(responses []domain.FeedbackResponse) []domain.QuestionStat {
+	questionStats := make(map[string]map[string]int)
+	questionTexts := make(map[string]string)
+
+	// Collect all question responses
+	for _, response := range responses {
+		for questionID, questionResponse := range response.QuestionResponses {
+			if questionStats[questionID] == nil {
+				questionStats[questionID] = make(map[string]int)
+			}
+			questionStats[questionID][questionResponse.SelectedOption]++
+			// Store question text (we'll need to get this from the question repository)
+			questionTexts[questionID] = questionResponse.SelectedOption // This is a placeholder
+		}
+	}
+
+	// Convert to slice
+	var stats []domain.QuestionStat
+	for questionID, responses := range questionStats {
+		stats = append(stats, domain.QuestionStat{
+			QuestionID: questionID,
+			Question:   questionTexts[questionID], // This should be the actual question text
+			Responses:  responses,
+		})
+	}
+
+	return stats
+}
+
+func (r *FeedbackResponseDynamoRepository) calculatePollStats(responses []domain.FeedbackResponse) []domain.PollStat {
+	pollCounts := make(map[string]int)
+	totalResponses := len(responses)
+
+	// Count poll responses
+	for _, response := range responses {
+		if response.PollResponse != "" {
+			pollCounts[response.PollResponse]++
+		}
+	}
+
+	// Convert to slice with percentages
+	var stats []domain.PollStat
+	for option, count := range pollCounts {
+		percentage := 0.0
+		if totalResponses > 0 {
+			percentage = float64(count) / float64(totalResponses) * 100
+		}
+		stats = append(stats, domain.PollStat{
+			OptionID:   option, // Using option as ID for now
+			Option:     option,
+			Count:      count,
+			Percentage: percentage,
+		})
+	}
+
+	return stats
+}
+
+func (r *FeedbackResponseDynamoRepository) getContactList(responses []domain.FeedbackResponse) []domain.ContactListItem {
+	var contacts []domain.ContactListItem
+
+	for _, response := range responses {
+		if response.ContactInfo != nil {
+			contacts = append(contacts, domain.ContactListItem{
+				Name:        response.StudentName,
+				Score:       response.ContactInfo.Score,
+				PhoneNumber: response.ContactInfo.PhoneNumber,
+				SubmittedAt: response.SubmittedAt,
+			})
+		}
+	}
+
+	return contacts
+}
+
+func (r *FeedbackResponseDynamoRepository) calculateCommentSummary(responses []domain.FeedbackResponse) domain.CommentSummary {
+	totalComments := 0
+	totalLength := 0
+
+	for _, response := range responses {
+		if response.Comment != "" {
+			totalComments++
+			totalLength += len(response.Comment)
+		}
+	}
+
+	averageLength := 0.0
+	if totalComments > 0 {
+		averageLength = float64(totalLength) / float64(totalComments)
+	}
+
+	return domain.CommentSummary{
+		TotalComments: totalComments,
+		AverageLength: averageLength,
+	}
+}

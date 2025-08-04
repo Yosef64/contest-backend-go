@@ -109,6 +109,8 @@ type FeedbackResponseUsecase interface {
 	GetAllFeedbackResponses() ([]domain.FeedbackResponse, error)
 	GetFeedbackResponsesByStudent(studentID string) ([]domain.FeedbackResponse, error)
 	GetFeedbackResponsesByQuestion(questionID string) ([]domain.FeedbackResponse, error)
+	GetFeedbackAnalytics(filter domain.AnalyticsFilter) (*domain.AnalyticsData, error)
+	DeleteContactByPhoneNumber(phoneNumber string) error
 }
 
 type feedbackResponseUsecase struct {
@@ -146,4 +148,12 @@ func (u *feedbackResponseUsecase) GetFeedbackResponsesByStudent(studentID string
 
 func (u *feedbackResponseUsecase) GetFeedbackResponsesByQuestion(questionID string) ([]domain.FeedbackResponse, error) {
 	return u.repo.GetFeedbackResponsesByQuestion(questionID)
+}
+
+func (u *feedbackResponseUsecase) GetFeedbackAnalytics(filter domain.AnalyticsFilter) (*domain.AnalyticsData, error) {
+	return u.repo.GetFeedbackAnalytics(filter)
+}
+
+func (u *feedbackResponseUsecase) DeleteContactByPhoneNumber(phoneNumber string) error {
+	return u.repo.DeleteContactByPhoneNumber(phoneNumber)
 } 

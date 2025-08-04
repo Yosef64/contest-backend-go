@@ -34,7 +34,7 @@ func NewServer() *Server {
 	notificationRepo := repository.NewNotificationDynamoRepository("eu-north-1", "notification")
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
-	
+
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
 	pollOptionRepo := repository.NewPollOptionDynamoRepository("eu-north-1", "poll_options")
@@ -49,7 +49,7 @@ func NewServer() *Server {
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
-	
+
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
@@ -75,7 +75,7 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms"},
+		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms", "https://txnfqqn7-8081.euw.devtunnels.ms"},
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,

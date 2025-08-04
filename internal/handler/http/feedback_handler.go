@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"time"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
 
@@ -211,9 +212,12 @@ func (h *FeedbackResponseHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.PUT("/:id", h.UpdateFeedbackResponse)
 	rg.DELETE("/:id", h.DeleteFeedbackResponse)
 	rg.GET("/", h.GetAllFeedbackResponses)
-	rg.GET("/:id", h.GetFeedbackResponseByID)
 	rg.GET("/student/:student_id", h.GetFeedbackResponsesByStudent)
 	rg.GET("/question/:question_id", h.GetFeedbackResponsesByQuestion)
+	rg.GET("/analytics", h.GetFeedbackAnalytics)
+	rg.GET("/test", h.TestEndpoint)
+	rg.DELETE("/contact/:phone_number", h.DeleteContactByPhoneNumber)
+	rg.GET("/:id", h.GetFeedbackResponseByID)
 }
 
 func (h *FeedbackResponseHandler) AddFeedbackResponse(c *gin.Context) {
@@ -292,4 +296,51 @@ func (h *FeedbackResponseHandler) GetFeedbackResponsesByQuestion(c *gin.Context)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"responses": responses})
-} 
+}
+
+func (h *FeedbackResponseHandler) GetFeedbackAnalytics(c *gin.Context) {
+	// Get query parameters
+	timeRange := c.Query("range")
+	if timeRange == "" {
+		timeRange = "all"
+	}
+	adminID := c.Query("admin_id")
+
+	filter := domain.AnalyticsFilter{
+		TimeRange: timeRange,
+		AdminID:   adminID,
+	}
+
+	analytics, err := h.usecase.GetFeedbackAnalytics(filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+}
+
+func (h *FeedbackResponseHandler) TestEndpoint(c *gin.Context) {
+	fmt.Printf("Test endpoint called\n")
+	c.JSON(http.StatusOK, gin.H{"message": "Test endpoint working", "timestamp": time.Now().Unix()})
+}
+
+func (h *FeedbackResponseHandler) DeleteContactByPhoneNumber(c *gin.Context) {
+	phoneNumber := c.Param("phone_number")
+	fmt.Printf("DeleteContactByPhoneNumber called with phone number: %s\n", phoneNumber)
+
+	if phoneNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
+		return
+	}
+
+	err := h.usecase.DeleteContactByPhoneNumber(phoneNumber)
+	if err != nil {
+		fmt.Printf("Error deleting contact: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("Contact deleted successfully: %s\n", phoneNumber)
+	c.JSON(http.StatusOK, gin.H{"message": "Contact deleted successfully"})
+}
