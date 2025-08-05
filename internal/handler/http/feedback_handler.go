@@ -216,11 +216,12 @@ func (h *PollOptionHandler) GetPollOptionByScore(c *gin.Context) {
 
 // FeedbackResponseHandler handles feedback response operations
 type FeedbackResponseHandler struct {
-	usecase usecase.FeedbackResponseUsecase
+	usecase             usecase.FeedbackResponseUsecase
+	notificationService *usecase.NotificationService
 }
 
-func NewFeedbackResponseHandler(u usecase.FeedbackResponseUsecase) *FeedbackResponseHandler {
-	return &FeedbackResponseHandler{usecase: u}
+func NewFeedbackResponseHandler(u usecase.FeedbackResponseUsecase, notificationService *usecase.NotificationService) *FeedbackResponseHandler {
+	return &FeedbackResponseHandler{usecase: u, notificationService: notificationService}
 }
 
 func (h *FeedbackResponseHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -247,6 +248,14 @@ func (h *FeedbackResponseHandler) AddFeedbackResponse(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Send notification to admins about new feedback response
+	go func() {
+		if h.notificationService != nil {
+			h.notificationService.SendFeedbackResponseNotification(response)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 

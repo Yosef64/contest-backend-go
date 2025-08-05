@@ -56,12 +56,12 @@ func NewServer() *Server {
 	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
 
 	// --- Initialize Notification Service ---
-	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
+	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo, adminRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
 		contestHandler:             NewContestHandler(contestUsecase, notificationService),
-		studentHandler:             NewStudentHandler(studentUsecase),
+		studentHandler:             NewStudentHandler(studentUsecase, notificationService),
 		questionHandler:            NewQuestionHandler(questionUsecase, imgRepo), // Corrected line
 		submissionHandler:          NewSubmissionHandler(submissionUsecase),
 		adminHandler:               NewAdminHandler(adminUsecase),
@@ -70,7 +70,7 @@ func NewServer() *Server {
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
 		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase, notificationService),
 		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
-		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase),
+		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationService),
 	}
 	return server
 }
