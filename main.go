@@ -10,6 +10,6 @@ func main() {
 	godotenv.Load()
 	server := http.NewServer()
 	r := server.NewRouter()
-	
-	r.Run(":8080") 
-} 
+
+	r.Run(":8081")
+}

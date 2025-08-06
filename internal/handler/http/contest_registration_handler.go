@@ -21,7 +21,7 @@ func (h *ContestRegistrationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.PUT("/:id", h.UpdateContestRegistration)
 	rg.DELETE("/:id", h.DeleteContestRegistration)
 	rg.GET("/check/:student_id/:contest_id", h.IsStudentRegisteredForContest)
-	rg.GET("/isActive/:contest_id/:student_id",h.CheckStudentActiveInContest)
+	rg.GET("/isActive/:contest_id/:student_id", h.CheckStudentActiveInContest)
 }
 
 func (h *ContestRegistrationHandler) AddContestRegistration(c *gin.Context) {
@@ -43,7 +43,7 @@ func (h *ContestRegistrationHandler) UpdateContestRegistration(c *gin.Context) {
 	var update domain.ContestRegistration
 	if err := c.ShouldBindJSON(&update); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return 
+		return
 	}
 	err := h.usecase.UpdateContestRegistration(id, update)
 	if err != nil {
@@ -63,10 +63,6 @@ func (h *ContestRegistrationHandler) DeleteContestRegistration(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
-
-
-
-
 func (h *ContestRegistrationHandler) IsStudentRegisteredForContest(c *gin.Context) {
 	studentID := c.Param("student_id")
 	contestID := c.Param("contest_id")
@@ -76,14 +72,13 @@ func (h *ContestRegistrationHandler) IsStudentRegisteredForContest(c *gin.Contex
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"is_registered": isRegistered})
-} 
-func (h *ContestRegistrationHandler) CheckStudentActiveInContest(c *gin.Context){
-	conId,studId := c.Param("contest_id"),c.Param("student_id")
-	isActive,err := h.usecase.CheckStudentActiveInContest(conId,studId)
+}
+func (h *ContestRegistrationHandler) CheckStudentActiveInContest(c *gin.Context) {
+	conId, studId := c.Param("contest_id"), c.Param("student_id")
+	isActive, err := h.usecase.CheckStudentActiveInContest(conId, studId)
 	if err != nil {
-		c.JSON(http.StatusConflict,gin.H{"errors":"The user is active"})
+		c.JSON(http.StatusConflict, gin.H{"errors": "The user is active"})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"ok":isActive})
-	return
+	c.JSON(http.StatusOK, gin.H{"ok": isActive})
 }

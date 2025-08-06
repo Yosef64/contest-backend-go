@@ -34,40 +34,40 @@ type submissionUsecase struct {
 
 // GetStudentStatistics implements SubmissionUsecase.
 func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserStatistics, error) {
-	userSubmissions,err := u.subRepo.GetAllSubmissions()
+	userSubmissions, err := u.subRepo.GetAllSubmissions()
 	if err != nil {
 		return nil, err
 	}
 
-	allQuestions,err := u.questionRepo.GetAllQuestions()
+	allQuestions, err := u.questionRepo.GetAllQuestions()
 	if err != nil {
 		return nil, err
 	}
-	allContests,err := u.conUsecase.GetAllContests()
+	allContests, err := u.conUsecase.GetAllContests()
 	if err != nil {
 		return nil, err
 	}
-	 structuredContests := make(map[string]domain.Contest)
-	 for _,con := range allContests{
+	structuredContests := make(map[string]domain.Contest)
+	for _, con := range allContests {
 		structuredContests[con.ID] = con
-	 }
-	 structuredQuestion := make(map[string]domain.Question)
-	 for _,q := range allQuestions{
+	}
+	structuredQuestion := make(map[string]domain.Question)
+	for _, q := range allQuestions {
 		structuredQuestion[q.ID] = q
-	 }
-	 
+	}
+
 	if len(userSubmissions) == 0 {
 		return &domain.UserStatistics{
-	Subjects:         make(map[string]*domain.CategoryStat),
-	Chapters:         make(map[string]*domain.CategoryStat),
-	Grades:           make(map[string]*domain.CategoryStat),
-	PerformanceTrend: make([]domain.PerformanceTrendPoint, 0),
-}, err
+			Subjects:         make(map[string]*domain.CategoryStat),
+			Chapters:         make(map[string]*domain.CategoryStat),
+			Grades:           make(map[string]*domain.CategoryStat),
+			PerformanceTrend: make([]domain.PerformanceTrendPoint, 0),
+		}, err
 	}
 
 	contestsParticipated := make(map[string]struct{}) // Using a map as a Set
 	totalTimeSeconds := 0
-	
+
 	// Using pointers to CategoryStat to modify values in the map directly
 	subjects := make(map[string]*domain.CategoryStat)
 	chapters := make(map[string]*domain.CategoryStat)
@@ -79,7 +79,7 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 		if !ok {
 			continue // Skip if contest data is missing
 		}
-		
+
 		contestsParticipated[contest.ID] = struct{}{}
 		totalTimeSeconds += ParseTimeSpend(sub.TimeSpend)
 
@@ -88,18 +88,18 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 		for _, missed := range sub.MissedQuestions {
 			missedQuestionIDs[missed.ID] = struct{}{}
 		}
-		
+
 		submissionMonth := sub.SubmissionTime.Format("2006-01")
 
 		for _, questionID := range contest.Questions {
 			question, ok := structuredQuestion[questionID]
 			if !ok {
-				continue 
+				continue
 			}
-			
+
 			_, isMissed := missedQuestionIDs[questionID]
 			isCorrect := !isMissed
-			
+
 			// Helper function to update stats map
 			updateStatMap := func(m map[string]*domain.CategoryStat, key string) {
 				if _, exists := m[key]; !exists {
@@ -124,17 +124,17 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 		totalQuestions += stat.Total
 		correctAnswers += stat.Correct
 	}
-	
+
 	totalContests := len(contestsParticipated)
-	
+
 	accuracy := 0.0
 	if totalQuestions > 0 {
-		accuracy = roundTo( (float64(correctAnswers) / float64(totalQuestions)) * 100, 2)
+		accuracy = roundTo((float64(correctAnswers)/float64(totalQuestions))*100, 2)
 	}
-	
+
 	averageTime := 0.0
 	if totalContests > 0 {
-		averageTime = roundTo(float64(totalTimeSeconds) / float64(totalContests), 2)
+		averageTime = roundTo(float64(totalTimeSeconds)/float64(totalContests), 2)
 	}
 
 	// Calculate accuracy for each category
@@ -143,19 +143,19 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 		stat.Accuracy = calculateAccuracy(stat.Correct, stat.Total)
 		finalSubjects[key] = *stat
 	}
-	
+
 	finalChapters := make(map[string]domain.CategoryStat)
 	for key, stat := range chapters {
 		stat.Accuracy = calculateAccuracy(stat.Correct, stat.Total)
 		finalChapters[key] = *stat
 	}
-	
+
 	finalGrades := make(map[string]domain.CategoryStat)
 	for key, stat := range grades {
 		stat.Accuracy = calculateAccuracy(stat.Correct, stat.Total)
 		finalGrades[key] = *stat
 	}
-	
+
 	// Build and sort performance trend
 	var trendList []domain.PerformanceTrendPoint
 	var months []string
@@ -167,24 +167,23 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 	for _, month := range months {
 		data := performanceTrendData[month]
 		trendList = append(trendList, domain.PerformanceTrendPoint{
-			Month: month,
-			Accuracy: calculateAccuracy(data.Correct, data.Total),
+			Month:     month,
+			Accuracy:  calculateAccuracy(data.Correct, data.Total),
 			Questions: data.Total,
 		})
 	}
-	
+
 	return &domain.UserStatistics{
-		TotalContests: totalContests,
-		TotalQuestions: totalQuestions,
-		Accuracy: accuracy,
-		CorrectAnswers: correctAnswers,
-		AverageTime: averageTime,
-		Subjects: subjects,
-		Chapters: chapters,
-		Grades: grades,
+		TotalContests:    totalContests,
+		TotalQuestions:   totalQuestions,
+		Accuracy:         accuracy,
+		CorrectAnswers:   correctAnswers,
+		AverageTime:      averageTime,
+		Subjects:         subjects,
+		Chapters:         chapters,
+		Grades:           grades,
 		PerformanceTrend: trendList,
-		
-	},nil
+	}, nil
 }
 
 // GetStudentProfileStatistics implements SubmissionUsecase.
@@ -243,42 +242,38 @@ func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]
 		return nil, err
 	}
 
-	contest, err :=  u.conUsecase.GetContestByID(conId)
+	contest, err := u.conUsecase.GetContestByID(conId)
 	if err != nil {
-		return nil, errors.New("No contest found with the submission")
+		return nil, errors.New("no contest found with the submission")
 	}
 	if contest == nil {
 		return nil, fmt.Errorf("contest not found")
 	}
-	missedQuestions := make([]domain.SubmissionMissedQuestionDto,0)
 	missedQuestionSet := make(map[string]domain.SubmissionMissedQuestionDto)
 	if submission != nil {
-		missedQuestions = submission.MissedQuestions
-		for _,mQ := range missedQuestions{
-		missedQuestionSet[mQ.ID] =  mQ
+		for _, mQ := range submission.MissedQuestions {
+			missedQuestionSet[mQ.ID] = mQ
+		}
 	}
 
-	}
-	
-	
 	var editorial []domain.Editorial
 	for _, q := range contest.Questions {
 		editorialQuestion := domain.Editorial{
-            Question: q,
-        }
+			Question: q,
+		}
 
-        if missedQuestion, ok := missedQuestionSet[q.ID]; ok {
-            editorialQuestion.UserAnswer = missedQuestion.SelectedAnswer
-            editorialQuestion.IsCorrect = false
-        } else {
+		if missedQuestion, ok := missedQuestionSet[q.ID]; ok {
+			editorialQuestion.UserAnswer = missedQuestion.SelectedAnswer
+			editorialQuestion.IsCorrect = false
+		} else {
 			if submission == nil {
 				editorialQuestion.UserAnswer = -1
 			} else {
 				editorialQuestion.UserAnswer = q.Answer
 			}
 			editorialQuestion.IsCorrect = true
-        }
-        editorial = append(editorial, editorialQuestion)
+		}
+		editorial = append(editorial, editorialQuestion)
 
 	}
 	return editorial, nil
@@ -297,13 +292,13 @@ func (u *submissionUsecase) GetLeaderboardByTimeFrame(timeFrame string) ([]domai
 		log.Print(submissions)
 		return nil, err
 	}
-	subsWithTime := make([]domain.Submission, 0)
+	filteredSubmissions := make([]domain.Submission, 0)
 	for _, sub := range submissions {
 		if sub.SubmissionTime.After(startTime) {
-			subsWithTime = append(subsWithTime, sub)
+			filteredSubmissions = append(filteredSubmissions, sub)
 		}
 	}
-	userAggregates := u.aggregateSubmissions(submissions)
+	userAggregates := u.aggregateSubmissions(filteredSubmissions)
 
 	leaderboard := u.sortAndRank(userAggregates)
 
@@ -350,9 +345,9 @@ func (u *submissionUsecase) GetRankingsForContest(contestId string) ([]domain.Le
 		return nil, err
 	}
 
-	rankings := make([]domain.LeaderboardForContestEntry,0)
+	rankings := make([]domain.LeaderboardForContestEntry, 0)
 	for _, sub := range submissionForContest {
-		rankings = append(rankings, *&domain.LeaderboardForContestEntry{
+		rankings = append(rankings, domain.LeaderboardForContestEntry{
 			UserId:         sub.Student.ID,
 			UserName:       sub.Student.Name,
 			Score:          int(sub.Score),
@@ -376,7 +371,7 @@ func (u *submissionUsecase) calculateStartTime(timeFrame string) (time.Time, err
 	year, month, day := now.Date()
 
 	switch timeFrame {
-		case "today":
+	case "today":
 		return time.Date(year, month, day, 0, 0, 0, 0, time.Local), nil
 	case "week":
 		weekday := int(now.Weekday())
