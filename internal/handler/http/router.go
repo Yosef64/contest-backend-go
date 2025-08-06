@@ -21,6 +21,8 @@ type Server struct {
 	feedbackQuestionHandler    *FeedbackQuestionHandler
 	pollOptionHandler          *PollOptionHandler
 	feedbackResponseHandler    *FeedbackResponseHandler
+	paymentHandler  *PaymentHandler
+
 }
 
 func NewServer() *Server {
@@ -34,6 +36,7 @@ func NewServer() *Server {
 	notificationRepo := repository.NewNotificationDynamoRepository("eu-north-1", "notification")
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
+	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
 
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
@@ -49,6 +52,7 @@ func NewServer() *Server {
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
+	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
 
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
@@ -71,6 +75,7 @@ func NewServer() *Server {
 		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase, notificationService),
 		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
 		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationService),
+		paymentHandler : NewPaymentHandler(paymentUsecase,*imgRepo),
 	}
 	return server
 }
@@ -97,6 +102,6 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.feedbackQuestionHandler.RegisterRoutes(api.Group("/feedback-question"))
 	s.pollOptionHandler.RegisterRoutes(api.Group("/poll-option"))
 	s.feedbackResponseHandler.RegisterRoutes(api.Group("/feedback-response"))
-
+	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
 	return r
 }
