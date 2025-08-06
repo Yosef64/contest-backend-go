@@ -29,7 +29,7 @@ func (u *notificationUsecase) DeleteNotification(id string) error {
 	return u.repo.DeleteNotification(id)
 }
 func (u *notificationUsecase) GetNotificationByID(id string) (*domain.Notification, error) {
-	
+
 	return u.repo.GetNotificationByID(id)
 }
 func (u *notificationUsecase) GetAllNotifications() ([]domain.Notification, error) {
@@ -37,13 +37,13 @@ func (u *notificationUsecase) GetAllNotifications() ([]domain.Notification, erro
 }
 func (u *notificationUsecase) GetNotificationsByRecipient(recipientID string) ([]domain.Notification, error) {
 	notifications := make([]domain.Notification, 0)
-	n,err := u.repo.GetNotificationsByRecipient(recipientID)
+	n, err := u.repo.GetNotificationsByRecipient(recipientID)
 	if err != nil {
 		return nil, err
 	}
 	if n == nil {
-		return notifications,nil
+		return notifications, nil
 	}
-	
-	return  n,nil
-} 
+
+	return n, nil
+}

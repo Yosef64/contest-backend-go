@@ -12,29 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
-type NotificationDynamoRepository struct {
+type PollOptionDynamoRepository struct {
 	db        *dynamodb.Client
 	tableName string
 }
 
-func NewNotificationDynamoRepository(region string, tablename string) *NotificationDynamoRepository {
+func NewPollOptionDynamoRepository(region string, tablename string) *PollOptionDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 	)
 	if err != nil {
 		panic("unable to load AWS SDK config: " + err.Error())
 	}
-	return &NotificationDynamoRepository{
+	return &PollOptionDynamoRepository{
 		db:        dynamodb.NewFromConfig(cfg),
 		tableName: tablename,
 	}
 }
 
-func (r *NotificationDynamoRepository) AddNotification(notification domain.Notification) (string, error) {
-	if notification.ID == "" {
-		notification.ID = uuid.New().String()
+func (r *PollOptionDynamoRepository) AddPollOption(option domain.PollOption) (string, error) {
+	if option.ID == "" {
+		option.ID = uuid.New().String()
 	}
-	item, err := attributevalue.MarshalMap(notification)
+	item, err := attributevalue.MarshalMap(option)
 	if err != nil {
 		return "", err
 	}
@@ -45,10 +45,10 @@ func (r *NotificationDynamoRepository) AddNotification(notification domain.Notif
 	if err != nil {
 		return "", err
 	}
-	return notification.ID, nil
+	return option.ID, nil
 }
 
-func (r *NotificationDynamoRepository) UpdateNotification(id string, update domain.Notification) error {
+func (r *PollOptionDynamoRepository) UpdatePollOption(id string, update domain.PollOption) error {
 	update.ID = id
 	item, err := attributevalue.MarshalMap(update)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *NotificationDynamoRepository) UpdateNotification(id string, update doma
 	return err
 }
 
-func (r *NotificationDynamoRepository) DeleteNotification(id string) error {
+func (r *PollOptionDynamoRepository) DeletePollOption(id string) error {
 	key, err := attributevalue.MarshalMap(map[string]string{"id": id})
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (r *NotificationDynamoRepository) DeleteNotification(id string) error {
 	return err
 }
 
-func (r *NotificationDynamoRepository) GetNotificationByID(id string) (*domain.Notification, error) {
+func (r *PollOptionDynamoRepository) GetPollOptionByID(id string) (*domain.PollOption, error) {
 	key, err := attributevalue.MarshalMap(map[string]string{"id": id})
 	if err != nil {
 		return nil, err
@@ -88,45 +88,48 @@ func (r *NotificationDynamoRepository) GetNotificationByID(id string) (*domain.N
 	if out.Item == nil {
 		return nil, nil
 	}
-	var notification domain.Notification
-	err = attributevalue.UnmarshalMap(out.Item, &notification)
+	var option domain.PollOption
+	err = attributevalue.UnmarshalMap(out.Item, &option)
 	if err != nil {
 		return nil, err
 	}
-	return &notification, nil
+	return &option, nil
 }
 
-func (r *NotificationDynamoRepository) GetAllNotifications() ([]domain.Notification, error) {
+func (r *PollOptionDynamoRepository) GetAllPollOptions() ([]domain.PollOption, error) {
 	out, err := r.db.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &r.tableName,
 	})
 	if err != nil {
 		return nil, err
 	}
-	var notifications []domain.Notification
-	err = attributevalue.UnmarshalListOfMaps(out.Items, &notifications)
+	var options []domain.PollOption
+	err = attributevalue.UnmarshalListOfMaps(out.Items, &options)
 	if err != nil {
 		return nil, err
 	}
-	return notifications, nil
+	return options, nil
 }
 
-func (r *NotificationDynamoRepository) GetNotificationsByRecipient(recipientID string) ([]domain.Notification, error) {
-	recipientVal, _ := attributevalue.Marshal(recipientID)
+func (r *PollOptionDynamoRepository) GetPollOptionByScore(score int) (*domain.PollOption, error) {
+	scoreVal, _ := attributevalue.Marshal(score)
 	out, err := r.db.Scan(context.TODO(), &dynamodb.ScanInput{
-		TableName:        &r.tableName,
-		FilterExpression: aws.String("recipient_id = :recipient_id"),
+		TableName: &r.tableName,
+		FilterExpression: aws.String("min_score <= :score AND max_score >= :score"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":recipient_id": recipientVal,
+			":score": scoreVal,
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	var notifications []domain.Notification
-	err = attributevalue.UnmarshalListOfMaps(out.Items, &notifications)
+	if len(out.Items) == 0 {
+		return nil, nil
+	}
+	var option domain.PollOption
+	err = attributevalue.UnmarshalMap(out.Items[0], &option)
 	if err != nil {
 		return nil, err
 	}
-	return notifications, nil
-}
+	return &option, nil
+} 

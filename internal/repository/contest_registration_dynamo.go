@@ -38,7 +38,7 @@ func (r *ContestRegistrationDynamoRepository) AddContestRegistration(registratio
 	}
 	item, err := attributevalue.MarshalMap(registration)
 	if err != nil {
-		return "", errors.New("Invalid registration data")
+		return "", errors.New("invalid registration data")
 	}
 	_, err = r.db.PutItem(context.TODO(), &dynamodb.PutItemInput{
 		TableName: &r.tableName,

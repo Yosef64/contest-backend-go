@@ -22,11 +22,11 @@ func (h *SubmissionHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/contest/:contest_id", h.GetSubmissionsByContest)
 	rg.GET("/student/:student_id", h.GetSubmissionsByStudent)
 	rg.GET("/leaderboard", h.GetLeaderboardByTimeFrame)
-	rg.GET("/rank/:conId",h.GetRankForContest)
+	rg.GET("/rank/:conId", h.GetRankForContest)
 	rg.GET("/:id", h.GetSubmissionByID)
-	rg.GET("/editorial/:student_id",h.GetStudentEditorial)
-	rg.GET("/statistics-profile/:student_id",h.GetStudentProfileStatistics)
-	rg.GET("/statistics/:student_id",h.GetStudentStatisctis)
+	rg.GET("/editorial/:student_id", h.GetStudentEditorial)
+	rg.GET("/statistics-profile/:student_id", h.GetStudentProfileStatistics)
+	rg.GET("/statistics/:student_id", h.GetStudentStatisctis)
 }
 
 func (h *SubmissionHandler) AddSubmission(c *gin.Context) {
@@ -52,26 +52,24 @@ func (h *SubmissionHandler) GetAllSubmissions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"submissions": submissions})
 }
 
-func (h *SubmissionHandler) GetStudentStatisctis(c *gin.Context){
+func (h *SubmissionHandler) GetStudentStatisctis(c *gin.Context) {
 	userId := c.Param("student_id")
-	userStat,err := h.usecase.GetStudentStatistics(userId)
+	userStat, err := h.usecase.GetStudentStatistics(userId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"statistics":userStat})
-	return
-
+	c.JSON(http.StatusOK, gin.H{"statistics": userStat})
 }
 
-func (h *SubmissionHandler) GetStudentProfileStatistics(c *gin.Context){
+func (h *SubmissionHandler) GetStudentProfileStatistics(c *gin.Context) {
 	userId := c.Param("student_id")
-	stat,err := h.usecase.GetStudentProfileStatistics(userId)
+	stat, err := h.usecase.GetStudentProfileStatistics(userId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"stat":stat})
+	c.JSON(http.StatusOK, gin.H{"stat": stat})
 }
 
 func (h *SubmissionHandler) GetSubmissionByID(c *gin.Context) {
@@ -112,28 +110,27 @@ func (h *SubmissionHandler) GetLeaderboardByTimeFrame(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"leaderboard": leaderboard})
 }
-func (h *SubmissionHandler) GetRankForContest(c *gin.Context){
+func (h *SubmissionHandler) GetRankForContest(c *gin.Context) {
 	conId := c.Param("conId")
-	
-	rankings,err := h.usecase.GetRankingsForContest(conId)
-	if err != nil {
-		c.JSON(http.StatusNoContent,gin.H{"error":"Not found"})
-	}
-	
-	c.JSON(http.StatusOK,gin.H{"rankings":rankings})
 
+	rankings, err := h.usecase.GetRankingsForContest(conId)
+	if err != nil {
+		c.JSON(http.StatusNoContent, gin.H{"error": "Not found"})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"rankings": rankings})
 
 }
-func (h *SubmissionHandler) GetStudentEditorial(c *gin.Context){
-	studId,conId := c.Param("student_id"),c.Query("contest_id")
-	if conId== "" {
-		c.JSON(http.StatusNotFound,gin.H{"message":"please specify the contest Id"})
+func (h *SubmissionHandler) GetStudentEditorial(c *gin.Context) {
+	studId, conId := c.Param("student_id"), c.Query("contest_id")
+	if conId == "" {
+		c.JSON(http.StatusNotFound, gin.H{"message": "please specify the contest Id"})
 		return
 	}
-	editorial,err := h.usecase.GetStudentEditorial(conId,studId)
+	editorial, err := h.usecase.GetStudentEditorial(conId, studId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,gin.H{"message":err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"editorial":editorial})
+	c.JSON(http.StatusOK, gin.H{"editorial": editorial})
 }
