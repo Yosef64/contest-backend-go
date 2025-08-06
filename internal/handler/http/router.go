@@ -19,6 +19,7 @@ type Server struct {
 	achievementHandler         *AchievementHandler
 	contestRegistrationHandler *ContestRegistrationHandler
 	paymentHandler  *PaymentHandler
+	aiHandler  *AiHandler
 }
 
 func NewServer() *Server {
@@ -44,6 +45,7 @@ func NewServer() *Server {
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
 	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
+	aiUsecase := usecase.NewAiUsecase(submissionRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
@@ -56,6 +58,7 @@ func NewServer() *Server {
 		achievementHandler:         NewAchievementHandler(achievementUsecase),
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
 		paymentHandler : NewPaymentHandler(paymentUsecase,*imgRepo),
+		aiHandler : NewAiHandler(aiUsecase),
 	}
 	return server
 }
@@ -79,6 +82,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.achievementHandler.RegisterRoutes(api.Group("/achievement"))
 	s.contestRegistrationHandler.RegisterRoutes(api.Group("/contest-registration"))
 	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
+	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 
 	return r
 }

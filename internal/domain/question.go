@@ -11,3 +11,9 @@ type Question struct {
     Chapter        string   `json:"chapter"          dynamodbav:"chapter"`
     MultipleChoice []string `json:"multiple_choice"  dynamodbav:"multiple_choice"`
 }
+
+type AiPracticeSetting struct{
+    Subject string `json:"subject"`
+    Topic string `json:"topic"`
+    Difficulty string `json:"difficulty"`
+}
