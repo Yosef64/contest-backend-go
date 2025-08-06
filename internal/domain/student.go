@@ -14,6 +14,7 @@ type Student struct {
     IsSuspended bool     `dynamodbav:"isSuspended" json:"isSuspended"`
     PhoneNumber string    `dynamodbav:"phoneNumber" json:"phoneNumber"`
     Badge       []string `dynamodbav:"badge"       json:"badge"`
+    Gender      string    `dynamodbav:"gender"      json:"gender"`
 }
 
 type StudentProfilesStatisticsDto struct{

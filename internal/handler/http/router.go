@@ -22,7 +22,7 @@ type Server struct {
 	pollOptionHandler          *PollOptionHandler
 	feedbackResponseHandler    *FeedbackResponseHandler
 	paymentHandler  *PaymentHandler
-
+	aiHandler  *AiHandler
 }
 
 func NewServer() *Server {
@@ -53,6 +53,7 @@ func NewServer() *Server {
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
 	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
+	aiUsecase := usecase.NewAiUsecase(submissionRepo)
 
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
@@ -76,6 +77,7 @@ func NewServer() *Server {
 		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
 		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationService),
 		paymentHandler : NewPaymentHandler(paymentUsecase,*imgRepo),
+		aiHandler : NewAiHandler(aiUsecase),
 	}
 	return server
 }
@@ -103,5 +105,6 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.pollOptionHandler.RegisterRoutes(api.Group("/poll-option"))
 	s.feedbackResponseHandler.RegisterRoutes(api.Group("/feedback-response"))
 	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
+	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	return r
 }
