@@ -23,7 +23,6 @@ func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/", h.GetNotificationsByRecipient)
 	rg.GET("/:id", h.GetNotificationsByRecipient)
 	rg.GET("/recipient/:recipient_id", h.GetNotificationsByRecipient)
-	rg.GET("/admin/:admin_email", h.GetNotificationsByAdminEmail)
 }
 
 func (h *NotificationHandler) AddNotification(c *gin.Context) {
@@ -88,17 +87,6 @@ func (h *NotificationHandler) GetAllNotifications(c *gin.Context) {
 func (h *NotificationHandler) GetNotificationsByRecipient(c *gin.Context) {
 	recipientID := c.Param("recipient_id")
 	notifications, err := h.usecase.GetNotificationsByRecipient(recipientID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"notifications": notifications})
-}
-
-func (h *NotificationHandler) GetNotificationsByAdminEmail(c *gin.Context) {
-	adminEmail := c.Param("admin_email")
-	notifications, err := h.usecase.GetNotificationsByRecipient(adminEmail)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

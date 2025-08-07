@@ -9,12 +9,11 @@ import (
 )
 
 type StudentHandler struct {
-	usecase             usecase.StudentUsecase
-	notificationService *usecase.NotificationService
+	usecase usecase.StudentUsecase
 }
 
-func NewStudentHandler(u usecase.StudentUsecase, notificationService *usecase.NotificationService) *StudentHandler {
-	return &StudentHandler{usecase: u, notificationService: notificationService}
+func NewStudentHandler(u usecase.StudentUsecase) *StudentHandler {
+	return &StudentHandler{usecase: u}
 }
 
 func (h *StudentHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -41,14 +40,6 @@ func (h *StudentHandler) AddStudent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Send notification to admins about new student registration
-	go func() {
-		if h.notificationService != nil {
-			h.notificationService.SendStudentRegistrationNotification(student)
-		}
-	}()
-
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
