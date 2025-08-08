@@ -83,7 +83,6 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 		contestsParticipated[contest.ID] = struct{}{}
 		totalTimeSeconds += ParseTimeSpend(sub.TimeSpend)
 
-		// Create a set of missed question IDs for quick lookup
 		missedQuestionIDs := make(map[string]struct{})
 		for _, missed := range sub.MissedQuestions {
 			missedQuestionIDs[missed.ID] = struct{}{}
@@ -157,7 +156,7 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 	}
 
 	// Build and sort performance trend
-	var trendList []domain.PerformanceTrendPoint
+	trendList := make([]domain.PerformanceTrendPoint,0)
 	var months []string
 	for month := range performanceTrendData {
 		months = append(months, month)
@@ -259,8 +258,12 @@ func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]
 	var editorial []domain.Editorial
 	for _, q := range contest.Questions {
 		editorialQuestion := domain.Editorial{
-			Question: q,
-		}
+            Question: q,
+        }
+		if editorialQuestion.Question.MultipleChoice == nil {
+            editorialQuestion.Question.MultipleChoice = make([]string, 0)
+        }
+
 
 		if missedQuestion, ok := missedQuestionSet[q.ID]; ok {
 			editorialQuestion.UserAnswer = missedQuestion.SelectedAnswer
