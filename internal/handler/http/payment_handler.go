@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"net/http"
 	"time"
 	"victor-contest-go/internal/domain"
@@ -40,7 +39,7 @@ func (h *PaymentHandler) GetAllPayments(c *gin.Context){
 func(h *PaymentHandler) UpdatePaymentStatus(c *gin.Context){
 	var reason domain.PaymentReason
 	 c.ShouldBindJSON(&reason)
-	log.Printf(reason.Reason)
+	// log.Printf(reason.Reason)
 	paymentId, status := c.Query("payment_id"), c.Query("status")
 	paymentStatus := domain.PaymentStatus(status)
 	err := h.usecase.UpdatePaymentStatus(paymentId, paymentStatus,reason)
@@ -49,7 +48,6 @@ func(h *PaymentHandler) UpdatePaymentStatus(c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
-	return
 }
 
 func (h *PaymentHandler) CreatePayment(c *gin.Context){
@@ -75,8 +73,7 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context){
 		return
 	}
 	defer openedFile.Close()
-	img_url, err := h.imgRepo.UploadImage(openedFile, "payments")
-
+	img_url, _ := h.imgRepo.UploadImage(openedFile, "payments")
 	expirationDate := time.Now().In(time.Local).AddDate(0,1,0)
 	payment := domain.PaymentRequest{
 		FullName: fullName,
@@ -94,7 +91,6 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context){
 		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
 	}
 	c.JSON(http.StatusOK,gin.H{"message":"ok"})
-	return
 }
 func (h *PaymentHandler) GetExpiredPayments(c *gin.Context){
 	payments,err := h.usecase.GetExpiredPayment()
@@ -103,7 +99,6 @@ func (h *PaymentHandler) GetExpiredPayments(c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"payments":payments})
-	return
 }
 func ( h *PaymentHandler) GetPaymentsWithStatus( c *gin.Context){
 	status := c.Query("status")
@@ -118,7 +113,6 @@ func ( h *PaymentHandler) GetPaymentsWithStatus( c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"payments":payments})
-	return
 }
 func (h *PaymentHandler) GetByUserId(c *gin.Context){
 	userId := c.Param("user_id")
@@ -128,5 +122,4 @@ func (h *PaymentHandler) GetByUserId(c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"payments":payments})
-	return
 }

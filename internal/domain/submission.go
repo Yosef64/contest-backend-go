@@ -7,6 +7,7 @@ import (
 type Submission struct {
     ID    string   `json:"id"     dynamodbav:"id"`
     ContestID       string   `json:"contest_id"        dynamodbav:"contest_id"`
+	Contest  Contest `json:"contest"  dynamodbav:"contest"`
     Student       StudentSub   `json:"student"        dynamodbav:"student"`
     Score           float64  `json:"score"             dynamodbav:"score"`
     MissedQuestions []SubmissionMissedQuestionDto `json:"missed_questions"  dynamodbav:"missed_questions"`
@@ -21,7 +22,7 @@ type SubmissionDto struct{
 	ContestID string `json:"contest_id"`
 	Student StudentSub `json:"student"`
 	Score float64 `json:"score"`
-	MissedQuestions []SubmissionMissedQuestionDto `json:"missed_question"`
+	MissedQuestions []SubmissionMissedQuestionDto `json:"missed_questions"`
 	TimeSpend string `json:"time_spend"`
 }
 
@@ -47,7 +48,8 @@ type LeaderboardForContestEntry struct{
 	Score       int   `json:"score"` 
     CorrectAnswers int	`json:"correct_answers"`
     TotalQuestions int `json:"total_questions"`
-    TimeTaken string `json:"time_taken"`            
+    TimeTaken string `json:"time_taken"`     
+	ImgURL string `json:"imgurl"`       
 }
 type Editorial struct {
 	Question

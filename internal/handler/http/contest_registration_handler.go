@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
@@ -30,11 +31,13 @@ func (h *ContestRegistrationHandler) AddContestRegistration(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Printf("student_id : %s, contest: %s",registration.StudentID,registration.ContestID)
 	id, err := h.usecase.AddContestRegistration(registration)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 
@@ -66,7 +69,7 @@ func (h *ContestRegistrationHandler) DeleteContestRegistration(c *gin.Context) {
 func (h *ContestRegistrationHandler) IsStudentRegisteredForContest(c *gin.Context) {
 	studentID := c.Param("student_id")
 	contestID := c.Param("contest_id")
-	isRegistered, err := h.usecase.CheckRegistrationsByContestAndStudent(studentID, contestID)
+	isRegistered, err := h.usecase.CheckRegistrationsByContestAndStudent(contestID, studentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

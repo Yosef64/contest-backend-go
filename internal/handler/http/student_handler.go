@@ -10,10 +10,10 @@ import (
 
 type StudentHandler struct {
 	usecase             usecase.StudentUsecase
-	notificationService *usecase.NotificationService
+	notificationService usecase.NotificationUsecase
 }
 
-func NewStudentHandler(u usecase.StudentUsecase, notificationService *usecase.NotificationService) *StudentHandler {
+func NewStudentHandler(u usecase.StudentUsecase, notificationService usecase.NotificationUsecase) *StudentHandler {
 	return &StudentHandler{usecase: u, notificationService: notificationService}
 }
 
@@ -28,6 +28,7 @@ func (h *StudentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/:id", h.GetStudentByID)
 	rg.GET("/grades-and-schools", h.GetGradesAndSchools)
 	rg.GET("/profile/:id", h.GetUserProfile)
+	rg.GET("/profile-admin/:student_id",h.GetUserStatForAdmin)
 }
 
 func (h *StudentHandler) AddStudent(c *gin.Context) {
@@ -42,14 +43,13 @@ func (h *StudentHandler) AddStudent(c *gin.Context) {
 		return
 	}
 
-	// Send notification to admins about new student registration
 	go func() {
 		if h.notificationService != nil {
 			h.notificationService.SendStudentRegistrationNotification(student)
 		}
 	}()
-
-	c.JSON(http.StatusOK, gin.H{"message": "success"})
+	student.IsPremium = false
+	c.JSON(http.StatusOK, gin.H{"student": student})
 }
 
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
@@ -120,6 +120,10 @@ func (h *StudentHandler) GetStudentByID(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	
+	if student != nil && student.Badge == nil {
+		student.Badge = make([]string, 0)
+	}
 	c.JSON(http.StatusOK, gin.H{"student": student})
 }
 
@@ -140,4 +144,14 @@ func (h *StudentHandler) GetUserProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": profile})
+}
+func (r *StudentHandler) GetUserStatForAdmin(c * gin.Context) {
+	studId := c.Param("student_id")
+	profile,err := r.usecase.GetUserStatForAdmin(studId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError,gin.H{"error":"something went wrong"})
+		return
+	}
+	c.JSON(http.StatusOK,gin.H{"profile":profile})
+	
 }

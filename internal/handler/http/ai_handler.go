@@ -33,7 +33,6 @@ func(h *AiHandler) Practice(c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"questions":questions})
-	return
 }
 func (h *AiHandler) GetRecommendation(c *gin.Context){
 	var recommendationInput domain.RecommendationInput
@@ -47,5 +46,4 @@ func (h *AiHandler) GetRecommendation(c *gin.Context){
 		return
 	}
 	c.JSON(http.StatusOK,gin.H{"recommendation":recommendation})
-	return
 }

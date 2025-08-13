@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,7 +33,7 @@ func NewNotificationDynamoRepository(region string, tablename string) *Notificat
 
 func (r *NotificationDynamoRepository) AddNotification(notification domain.Notification) (string, error) {
 	if notification.ID == "" {
-		notification.ID = uuid.New().String()
+		notification.ID = fmt.Sprintf("not_%s",uuid.New().String()[:8]) 
 	}
 	item, err := attributevalue.MarshalMap(notification)
 	if err != nil {
@@ -112,21 +113,44 @@ func (r *NotificationDynamoRepository) GetAllNotifications() ([]domain.Notificat
 }
 
 func (r *NotificationDynamoRepository) GetNotificationsByRecipient(recipientID string) ([]domain.Notification, error) {
-	recipientVal, _ := attributevalue.Marshal(recipientID)
-	out, err := r.db.Scan(context.TODO(), &dynamodb.ScanInput{
-		TableName:        &r.tableName,
-		FilterExpression: aws.String("recipient_id = :recipient_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":recipient_id": recipientVal,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	var notifications []domain.Notification
-	err = attributevalue.UnmarshalListOfMaps(out.Items, &notifications)
-	if err != nil {
-		return nil, err
-	}
-	return notifications, nil
+    userQueryInput := &dynamodb.QueryInput{
+        TableName:              aws.String(r.tableName),
+        IndexName:              aws.String("recipient_id-index"),
+        KeyConditionExpression: aws.String("recipient_id = :rid"),
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":rid": &types.AttributeValueMemberS{Value: recipientID},
+        },
+    }
+
+    userOut, err := r.db.Query(context.TODO(), userQueryInput)
+    if err != nil {
+        return nil, fmt.Errorf("error querying user notifications: %w", err)
+    }
+
+    allQueryInput := &dynamodb.QueryInput{
+        TableName:              aws.String(r.tableName),
+        IndexName:              aws.String("recipient_id-index"),
+        KeyConditionExpression: aws.String("recipient_id = :allvalue"),
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":allvalue": &types.AttributeValueMemberS{Value: "all"},
+        },
+    }
+    
+    allOut, err := r.db.Query(context.TODO(), allQueryInput)
+    if err != nil {
+        return nil, fmt.Errorf("error querying 'all' notifications: %w", err)
+    }
+
+    var notifications []domain.Notification
+    if err = attributevalue.UnmarshalListOfMaps(userOut.Items, &notifications); err != nil {
+        return nil, fmt.Errorf("error unmarshalling user notifications: %w", err)
+    }
+
+    var allNotifications []domain.Notification
+    if err = attributevalue.UnmarshalListOfMaps(allOut.Items, &allNotifications); err != nil {
+        return nil, fmt.Errorf("error unmarshalling 'all' notifications: %w", err)
+    }
+
+    notifications = append(notifications, allNotifications...)  
+    return notifications, nil
 }

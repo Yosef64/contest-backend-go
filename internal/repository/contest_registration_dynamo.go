@@ -2,8 +2,9 @@ package repository
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
-	"fmt"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/google/uuid"
 )
 
 type ContestRegistrationDynamoRepository struct {
@@ -34,7 +34,16 @@ func NewContestRegistrationDynamoRepository(region string , tablename string) *C
 
 func (r *ContestRegistrationDynamoRepository) AddContestRegistration(registration domain.ContestRegistration) (string, error) {
 	if registration.ID == "" {
-		registration.ID = uuid.New().String()
+		numBytes := 5 
+	randomBytes := make([]byte, numBytes)
+
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
+	
+	id := base64.RawURLEncoding.EncodeToString(randomBytes)
+	registration.ID = id
 	}
 	item, err := attributevalue.MarshalMap(registration)
 	if err != nil {
@@ -76,13 +85,21 @@ func (r *ContestRegistrationDynamoRepository) DeleteContestRegistration(id strin
 }
 
 func (r *ContestRegistrationDynamoRepository) GetRegistrationsByContestAndStudent(contestID string, user_id string) (*domain.ContestRegistration, error) {
-	compositeID := fmt.Sprintf("%s#%s", contestID, user_id)
-
+	contestId,err:= attributevalue.Marshal(contestID)
+	if err != nil {
+		return nil, err
+	}
+	studentId ,err:= attributevalue.Marshal(user_id)
+	if err != nil {
+		return nil, err
+	}
     out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
         TableName: &r.tableName,
-        KeyConditionExpression: aws.String("id = :id"),
+        KeyConditionExpression: aws.String("contest_id = :contestId AND student_id = :studentId"),
+		IndexName: aws.String("contest_id-student_id-index"),
         ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":id": &types.AttributeValueMemberS{Value: compositeID},
+            ":contestId": contestId,
+			":studentId":studentId,
         },
     })
 	if err != nil {
