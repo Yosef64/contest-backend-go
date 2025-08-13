@@ -7,7 +7,6 @@ type Student struct {
     Age         string   `dynamodbav:"age"         json:"age"`
     Grade       string   `dynamodbav:"grade"       json:"grade"`
     School      string   `dynamodbav:"school"      json:"school"`
-    Paid        bool     `dynamodbav:"paid"        json:"paid"`
     City        string   `dynamodbav:"city"        json:"city"`
     Region      string   `dynamodbav:"region"      json:"region"`
     ImgURL      string   `dynamodbav:"imgurl"      json:"imgurl"`
@@ -15,8 +14,14 @@ type Student struct {
     PhoneNumber string    `dynamodbav:"phoneNumber" json:"phoneNumber"`
     Badge       []string `dynamodbav:"badge"       json:"badge"`
     Gender      string    `dynamodbav:"gender"      json:"gender"`
+    IsPremium bool       `dynamodbav:"is_premium"    json:"is_premium"`
+    ReadNotifications map[string]ReadNotificationModel `dynamodbav:"read_notifications"    json:"read_notifications"`
 }
 
+type ReadNotificationModel struct{
+    Id  string `json:"id"`
+    IsDeleted  bool  `json:"is_deleted"`
+}
 type StudentProfilesStatisticsDto struct{
     TotalContests int `json:"totalContests"`
     TotalQuestions int    `json:"totalQuestions"`
@@ -48,4 +53,12 @@ type UserStatistics struct {
 	Chapters         map[string]*CategoryStat          `json:"chapters"`
 	Grades           map[string]*CategoryStat          `json:"grades"`
 	PerformanceTrend []PerformanceTrendPoint 		 `json:"performance_trend"`
+}
+
+type StudentProfileAdminResponse struct{
+    Student 
+    Payment PaymentRequest `json:"payment"`
+    ContestSubmissions []Submission  `json:"contestSubmissions"`
+    TotalPoints  int64 `json:"totalPoints"`
+
 }

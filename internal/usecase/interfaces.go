@@ -109,7 +109,7 @@ type FeedbackResponseRepository interface {
 	GetFeedbackResponsesByQuestion(questionID string) ([]domain.FeedbackResponse, error)
 	GetFeedbackAnalytics(filter domain.AnalyticsFilter) (*domain.AnalyticsData, error)
 	DeleteContactByPhoneNumber(phoneNumber string) error
-
+}
 type PaymentRepository interface {
 	Create( req *domain.PaymentRequest) error
 	GetByID(id string) (*domain.PaymentRequest, error)

@@ -14,10 +14,10 @@ import (
 // FeedbackQuestionHandler handles feedback question operations
 type FeedbackQuestionHandler struct {
 	usecase             usecase.FeedbackQuestionUsecase
-	notificationService *usecase.NotificationService
+	notificationService usecase.NotificationUsecase
 }
 
-func NewFeedbackQuestionHandler(u usecase.FeedbackQuestionUsecase, notificationService *usecase.NotificationService) *FeedbackQuestionHandler {
+func NewFeedbackQuestionHandler(u usecase.FeedbackQuestionUsecase, notificationService usecase.NotificationUsecase) *FeedbackQuestionHandler {
 	return &FeedbackQuestionHandler{
 		usecase:             u,
 		notificationService: notificationService,
@@ -217,10 +217,10 @@ func (h *PollOptionHandler) GetPollOptionByScore(c *gin.Context) {
 // FeedbackResponseHandler handles feedback response operations
 type FeedbackResponseHandler struct {
 	usecase             usecase.FeedbackResponseUsecase
-	notificationService *usecase.NotificationService
+	notificationService usecase.NotificationUsecase
 }
 
-func NewFeedbackResponseHandler(u usecase.FeedbackResponseUsecase, notificationService *usecase.NotificationService) *FeedbackResponseHandler {
+func NewFeedbackResponseHandler(u usecase.FeedbackResponseUsecase, notificationService usecase.NotificationUsecase) *FeedbackResponseHandler {
 	return &FeedbackResponseHandler{usecase: u, notificationService: notificationService}
 }
 
@@ -248,8 +248,6 @@ func (h *FeedbackResponseHandler) AddFeedbackResponse(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Send notification to admins about new feedback response
 	go func() {
 		if h.notificationService != nil {
 			h.notificationService.SendFeedbackResponseNotification(response)

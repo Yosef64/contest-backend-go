@@ -30,11 +30,12 @@ type submissionUsecase struct {
 	subRepo      SubmissionRepository
 	questionRepo QuestionRepository
 	conUsecase   ContestUsecase
+	studentRepo  StudentRepository
 }
 
 // GetStudentStatistics implements SubmissionUsecase.
 func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserStatistics, error) {
-	userSubmissions, err := u.subRepo.GetAllSubmissions()
+	userSubmissions, err := u.subRepo.GetSubmissionsByStudent(studId)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +212,7 @@ func (u *submissionUsecase) GetStudentProfileStatistics(studId string) (*domain.
 		averageTime = totalTime / totalQuestions
 	}
 
-	rankings, err := u.GetLeaderboardByTimeFrame("year")
+	rankings, err := u.GetLeaderboardByTimeFrame("all")
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +309,8 @@ func (u *submissionUsecase) GetLeaderboardByTimeFrame(timeFrame string) ([]domai
 	return leaderboard, nil
 }
 
-func NewSubmissionUsecase(repo SubmissionRepository, conUsecase ContestUsecase, questionRepo QuestionRepository) SubmissionUsecase {
-	return &submissionUsecase{subRepo: repo, conUsecase: conUsecase, questionRepo: questionRepo}
+func NewSubmissionUsecase(repo SubmissionRepository, conUsecase ContestUsecase, questionRepo QuestionRepository, studentRepo StudentRepository) SubmissionUsecase {
+	return &submissionUsecase{subRepo: repo, conUsecase: conUsecase, questionRepo: questionRepo, studentRepo: studentRepo}
 }
 
 func (u *submissionUsecase) AddSubmission(submission domain.SubmissionDto) (string, error) {
@@ -323,7 +324,17 @@ func (u *submissionUsecase) AddSubmission(submission domain.SubmissionDto) (stri
 		TimeSpend:       submission.TimeSpend,
 	}
 
-	return u.subRepo.AddSubmission(final_submission)
+	id, err := u.subRepo.AddSubmission(final_submission)
+	if err != nil {
+		return "", err
+	}
+
+	// After successful submission, evaluate and award badges
+	if err := u.evaluateAndAwardBadges(final_submission); err != nil {
+		log.Printf("badge evaluation failed: %v", err)
+	}
+
+	return id, nil
 }
 func (u *submissionUsecase) GetSubmissionByID(id string) (*domain.Submission, error) {
 	if id == "leaderboard" {
@@ -357,6 +368,7 @@ func (u *submissionUsecase) GetRankingsForContest(contestId string) ([]domain.Le
 			CorrectAnswers: int(sub.Score),
 			TotalQuestions: int(sub.Score) + len(sub.MissedQuestions),
 			TimeTaken:      sub.TimeSpend,
+			ImgURL: sub.Student.ImgURL,
 		})
 	}
 	sort.Slice(rankings, func(i, j int) bool {
@@ -434,13 +446,10 @@ func (uc *submissionUsecase) sortAndRank(aggregates map[string]*domain.Leaderboa
 		return list[i].TimeTaken < list[j].TimeTaken
 	})
 
-	limit := 100
-	if len(list) < limit {
-		limit = len(list)
-	}
+	limit := min(len(list), 100)
 
 	finalLeaderboard := make([]domain.LeaderboardEntry, limit)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		entry := list[i]
 		entry.Rank = i + 1
 		entry.TimeTaken = formatSecondsToHMS(entry.TimeTakenSeconds)
@@ -532,4 +541,118 @@ func ParseTimeSpend(value string) int {
 		return 0
 	}
 	return h*3600 + m*60 + s
+}
+
+// evaluateAndAwardBadges determines which badges the student earns and persists them
+func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error {
+	// Load student
+	student, err := u.studentRepo.GetStudentByID(sub.Student.ID)
+	if err != nil {
+		return err
+	}
+	if student == nil {
+		return nil
+	}
+	if student.Badge == nil {
+		student.Badge = make([]string, 0)
+	}
+	already := make(map[string]bool)
+	for _, b := range student.Badge {
+		already[b] = true
+	}
+
+	// Fetch all submissions for student (post-insert)
+	subs, err := u.subRepo.GetSubmissionsByStudent(sub.Student.ID)
+	if err != nil {
+		return err
+	}
+
+	// Helper to add badge if not already present
+	addBadge := func(id string) {
+		if !already[id] {
+			student.Badge = append(student.Badge, id)
+			already[id] = true
+		}
+	}
+
+	// 1. First Steps: first contest submission
+	if len(subs) == 1 {
+		addBadge("1")
+	}
+
+	// Compute per-submission stats for the newest submission
+	totalQuestions := int(sub.Score) + len(sub.MissedQuestions)
+	seconds := ParseTimeSpend(sub.TimeSpend)
+
+	// 2. Speed Demon: Answer 10 questions in <= 30 seconds (heuristic based on available data)
+	if totalQuestions >= 10 && seconds > 0 && seconds <= 30 {
+		addBadge("2")
+	}
+
+	// 3. Perfectionist: 100% in any contest
+	if totalQuestions > 0 && len(sub.MissedQuestions) == 0 {
+		addBadge("3")
+	}
+
+	// 4. Streak Master: 7-day streak (at least one submission each day for last 7 days)
+	dateHasSubmission := make(map[string]bool)
+	for _, s := range subs {
+		day := s.SubmissionTime.In(time.Local).Format("2006-01-02")
+		dateHasSubmission[day] = true
+	}
+	streak := true
+	for i := range 7 {
+		day := time.Now().In(time.Local).AddDate(0, 0, -i).Format("2006-01-02")
+		if !dateHasSubmission[day] {
+			streak = false
+			break
+		}
+	}
+	if streak {
+		addBadge("4")
+	}
+
+	// 5. Math Wizard: 90%+ in 5 math contests
+	contests,err := u.conUsecase.GetAllContests()
+	if err != nil {
+		return  err
+	}
+	structuredContests := make(map[string]domain.Contest)
+	for _, c := range contests {
+		structuredContests[c.ID] = c
+	}
+	mathHighScoreCount := 0
+	for _, s := range subs {
+		contestObj, err := u.conUsecase.GetContestByID(s.ContestID)
+		if err != nil || contestObj == nil {
+			continue
+		}
+		if strings.EqualFold(structuredContests[s.ContestID].Subject, "math") {
+			tq := int(s.Score) + len(s.MissedQuestions)
+			if tq > 0 {
+				percent := (float64(int(s.Score)) / float64(tq)) * 100
+				if percent >= 90.0 {
+					mathHighScoreCount++
+				}
+			}
+		}
+	}
+	if mathHighScoreCount >= 5 {
+		addBadge("5")
+	}
+
+	// 6. Champion: Reach top 10 in global leaderboard
+	leaderboard, err := u.GetLeaderboardByTimeFrame("all")
+	if err == nil {
+		limit := min(len(leaderboard), 10)
+		for i := range limit {	
+			if leaderboard[i].UserID == sub.Student.ID {
+				addBadge("6")
+				break
+			}
+		}
+	}
+
+	// Persist updated badges if any new added
+	return u.studentRepo.UpdateStudent(*student)
 }
