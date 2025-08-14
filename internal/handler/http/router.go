@@ -21,8 +21,8 @@ type Server struct {
 	feedbackQuestionHandler    *FeedbackQuestionHandler
 	pollOptionHandler          *PollOptionHandler
 	feedbackResponseHandler    *FeedbackResponseHandler
-	paymentHandler  *PaymentHandler
-	aiHandler  *AiHandler
+	paymentHandler             *PaymentHandler
+	aiHandler                  *AiHandler
 }
 
 func NewServer() *Server {
@@ -75,13 +75,9 @@ func NewServer() *Server {
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
 		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase, notificationService),
 		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
-<<<<<<< HEAD
 		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase),
-=======
-		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationService),
-		paymentHandler : NewPaymentHandler(paymentUsecase,*imgRepo),
-		aiHandler : NewAiHandler(aiUsecase),
->>>>>>> 852d4fbf4cf9933d266527b9c81ccd710e613c94
+		paymentHandler:             NewPaymentHandler(paymentUsecase, *imgRepo),
+		aiHandler:                  NewAiHandler(aiUsecase),
 	}
 	return server
 }
@@ -89,7 +85,7 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms", "https://txnfqqn7-8081.euw.devtunnels.ms"},
+		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "http://localhost:3001", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms", "https://txnfqqn7-8081.euw.devtunnels.ms"},
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
