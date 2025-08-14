@@ -28,6 +28,7 @@ type ContestUsecase interface {
 	AddContest(contest domain.Contest) (string, error)
 	UpdateContest(id string, update domain.Contest) error
 	DeleteContest(id string) error
+	CloneContest(id string, newTitle string, newDescription string) (string, error)
 }
 
 type contestUsecase struct {
@@ -95,3 +96,36 @@ func (u *contestUsecase) UpdateContest(id string, update domain.Contest) error {
 	return u.contestRepo.UpdateContest(id, update)
 }
 func (u *contestUsecase) DeleteContest(id string) error { return u.contestRepo.DeleteContest(id) }
+
+func (u *contestUsecase) CloneContest(id string, newTitle string, newDescription string) (string, error) {
+	// Get the original contest
+	originalContest, err := u.contestRepo.GetContestByID(id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get original contest: %w", err)
+	}
+	if originalContest == nil {
+		return "", fmt.Errorf("original contest not found")
+	}
+
+	// Create a new contest with the same data but new title and description
+	clonedContest := domain.Contest{
+		Title:       newTitle,
+		Description: newDescription,
+		StartTime:   originalContest.StartTime,
+		EndTime:     originalContest.EndTime,
+		Subject:     originalContest.Subject,
+		Grade:       originalContest.Grade,
+		Prize:       originalContest.Prize,
+		Status:      "draft", // Set to draft status for cloned contests
+		Type:        originalContest.Type,
+		Questions:   originalContest.Questions, // Clone the questions
+	}
+
+	// Add the cloned contest
+	clonedContestID, err := u.contestRepo.AddContest(clonedContest)
+	if err != nil {
+		return "", fmt.Errorf("failed to add cloned contest: %w", err)
+	}
+
+	return clonedContestID, nil
+}

@@ -26,6 +26,7 @@ func (h *ContestHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/", h.GetAllContests)
 	rg.GET("/:id", h.GetContestByID)
 	rg.DELETE("/delete/:id", h.DeleteContest)
+	rg.POST("/clone/:id", h.CloneContest)
 }
 
 func (h *ContestHandler) AddContest(c *gin.Context) {
@@ -186,4 +187,37 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *ContestHandler) CloneContest(c *gin.Context) {
+	id := c.Param("id")
+
+	// Parse the clone request data
+	var cloneRequest struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&cloneRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format: " + err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if cloneRequest.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required for cloned contest"})
+		return
+	}
+
+	// Clone the contest using the usecase
+	clonedContestID, err := h.usecase.CloneContest(id, cloneRequest.Title, cloneRequest.Description)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone contest: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Contest cloned successfully",
+		"clonedContestId": clonedContestID,
+	})
 }
