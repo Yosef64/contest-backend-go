@@ -11,6 +11,7 @@ type NotificationUsecase interface {
 	AddNotification(notification domain.Notification) (string, error)
 	UpdateNotification(id string, update domain.Notification) error
 	DeleteNotification(id string) error
+	MarkNotificationAsRead(id string) error
 	GetNotificationByID(id string) (*domain.Notification, error)
 	GetAllNotifications() ([]domain.Notification, error)
 	GetNotificationsByRecipient(recipientID string) ([]domain.Notification, error)
@@ -18,7 +19,6 @@ type NotificationUsecase interface {
 	SendStudentRegistrationNotification(student domain.Student) error 
 	SendFeedbackResponseNotification(response domain.FeedbackResponse) error
 	SendFeedbackQuestionNotification(question domain.FeedbackQuestion) error
-
 }
 
 type notificationUsecase struct {
@@ -63,6 +63,21 @@ func (u *notificationUsecase) UpdateNotification(id string, update domain.Notifi
 func (u *notificationUsecase) DeleteNotification(id string) error {
 	return u.repo.DeleteNotification(id)
 }
+
+func (u *notificationUsecase) MarkNotificationAsRead(id string) error {
+	// Get the notification first
+	notification, err := u.repo.GetNotificationByID(id)
+	if err != nil {
+		return err
+	}
+	
+	// Mark as read
+	notification.IsRead = true
+	
+	// Update the notification
+	return u.repo.UpdateNotification(id, *notification)
+}
+
 func (u *notificationUsecase) GetNotificationByID(id string) (*domain.Notification, error) {
 
 	return u.repo.GetNotificationByID(id)

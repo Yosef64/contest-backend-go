@@ -18,17 +18,23 @@ func NewNotificationService(notificationRepo NotificationRepository, studentRepo
 }
 
 // SendContestAnnouncementNotification sends notifications to all students when a contest is announced
-func (s *NotificationService) SendContestAnnouncementNotification(contest domain.Contest) error {
+func (s *NotificationService) SendContestAnnouncementNotification(contest domain.Contest, customMessage string) error {
 	students, err := s.studentRepo.GetStudents()
 	if err != nil {
 		return err
+	}
+
+	// Use custom message if provided, otherwise use default
+	message := customMessage
+	if message == "" {
+		message = "A new contest '" + contest.Title + "' has been announced. Check it out and register now!"
 	}
 
 	for _, student := range students {
 		notification := domain.Notification{
 			RecipientID: student.TelegramID,
 			Title:       "New Contest Announced! 🏆",
-			Message:     "A new contest '" + contest.Title + "' has been announced. Check it out and register now!",
+			Message:     message,
 			IsRead:      false,
 			SentAt:      time.Now().Format(time.RFC3339),
 			Type:        "contest_announcement",

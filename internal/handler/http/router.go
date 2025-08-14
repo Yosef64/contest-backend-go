@@ -67,9 +67,12 @@ func NewServer() *Server {
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
 	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
 
+	// --- Initialize Notification Service ---
+	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
+
 	// --- Initialize Handlers ---
 	server := &Server{
-		contestHandler:             NewContestHandler(contestUsecase),
+		contestHandler:             NewContestHandler(contestUsecase, notificationService),
 		studentHandler:             NewStudentHandler(studentUsecase, notificationUsecase),
 		questionHandler:            NewQuestionHandler(questionUsecase, imgRepo), // Corrected line
 		submissionHandler:          NewSubmissionHandler(submissionUsecase),

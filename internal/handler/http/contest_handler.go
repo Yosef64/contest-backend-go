@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
+	"time"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
 
@@ -11,12 +13,14 @@ import (
 )
 
 type ContestHandler struct {
-	usecase usecase.ContestUsecase
+	usecase             usecase.ContestUsecase
+	notificationService *usecase.NotificationService
 }
 
-func NewContestHandler(u usecase.ContestUsecase) *ContestHandler {
+func NewContestHandler(u usecase.ContestUsecase, notificationService *usecase.NotificationService) *ContestHandler {
 	return &ContestHandler{
-		usecase: u,
+		usecase:             u,
+		notificationService: notificationService,
 	}
 }
 
@@ -27,6 +31,7 @@ func (h *ContestHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/:id", h.GetContestByID)
 	rg.DELETE("/delete/:id", h.DeleteContest)
 	rg.POST("/clone/:id", h.CloneContest)
+	rg.POST("/announce/:id", h.AnnounceContest)
 }
 
 func (h *ContestHandler) AddContest(c *gin.Context) {
@@ -187,6 +192,83 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *ContestHandler) AnnounceContest(c *gin.Context) {
+	id := c.Param("id")
+
+	// Debug: Log the content type and raw body
+	contentType := c.GetHeader("Content-Type")
+	fmt.Printf("AnnounceContest - Content-Type: %s\n", contentType)
+
+	// Parse the announce request data - handle both JSON and form data
+	var announceRequest struct {
+		Message string `json:"message" form:"message"`
+		File    string `json:"file" form:"file"` // File path or URL if file was uploaded
+	}
+
+	// Try to bind JSON first, then form data if JSON fails
+	if err := c.ShouldBindJSON(&announceRequest); err != nil {
+		fmt.Printf("JSON binding failed: %v, trying form data...\n", err)
+		// If JSON binding fails, try form data
+		if err := c.ShouldBind(&announceRequest); err != nil {
+			fmt.Printf("Form data binding also failed: %v\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format. Expected JSON or form data: " + err.Error()})
+			return
+		}
+	}
+
+	fmt.Printf("Parsed request - Message: '%s', File: '%s'\n", announceRequest.Message, announceRequest.File)
+
+	// Validate required fields
+	if announceRequest.Message == "" || strings.TrimSpace(announceRequest.Message) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Message is required for contest announcement and cannot be empty or whitespace"})
+		return
+	}
+
+	// Get the contest to announce
+	contest, err := h.usecase.GetContestByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get contest: " + err.Error()})
+		return
+	}
+	if contest == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Contest not found"})
+		return
+	}
+
+	// Create announcement data
+	announcementData := map[string]interface{}{
+		"contest_id":    id,
+		"contest_title": contest.Contest.Title,
+		"message":       announceRequest.Message,
+		"file":          announceRequest.File,
+		"announced_at":  time.Now().Format(time.RFC3339),
+	}
+
+	// Send notifications to all students
+	if h.notificationService != nil {
+		err = h.notificationService.SendContestAnnouncementNotification(contest.Contest, announceRequest.Message)
+		if err != nil {
+			fmt.Printf("Warning: Failed to send notifications to students: %v\n", err)
+			// Don't fail the announcement if notifications fail
+		} else {
+			fmt.Printf("Successfully sent contest announcement notifications to students\n")
+		}
+	} else {
+		fmt.Printf("Warning: Notification service not available\n")
+	}
+
+	// Here you would typically:
+	// 1. Save the announcement to database
+	// 2. Send notifications to all students ✅ (Now implemented above)
+	// 3. Log the announcement for admin tracking
+
+	// For now, we'll just return success
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Contest announced successfully",
+		"announcement": announcementData,
+	})
 }
 
 func (h *ContestHandler) CloneContest(c *gin.Context) {
