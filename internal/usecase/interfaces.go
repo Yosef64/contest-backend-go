@@ -79,7 +79,6 @@ type ContestRegistrationRepository interface {
 	GetRegistrationsByContestAndStudent(contestID string, studentID string) (*domain.ContestRegistration, error)
 }
 
-
 type FeedbackQuestionRepository interface {
 	AddFeedbackQuestion(question domain.FeedbackQuestion) (string, error)
 	UpdateFeedbackQuestion(id string, update domain.FeedbackQuestion) error
@@ -110,14 +109,12 @@ type FeedbackResponseRepository interface {
 	GetFeedbackAnalytics(filter domain.AnalyticsFilter) (*domain.AnalyticsData, error)
 	DeleteContactByPhoneNumber(phoneNumber string) error
 }
-
 type PaymentRepository interface {
-	Create( req *domain.PaymentRequest) error
+	Create(req *domain.PaymentRequest) error
 	GetByID(id string) (*domain.PaymentRequest, error)
-	UpdateStatus( id string,newStatus domain.PaymentStatus,reason domain.PaymentReason) error
-	ListByStatus( status domain.PaymentStatus) ([]domain.PaymentRequest, error)
-	ListByUser( userID string) ([]domain.PaymentRequest, error)
-	ListExpired(now time.Time) ([]domain.PaymentRequest,error)
-	ListAll() ([]domain.PaymentRequest,error)
-
+	UpdateStatus(id string, newStatus domain.PaymentStatus, reason domain.PaymentReason) error
+	ListByStatus(status domain.PaymentStatus) ([]domain.PaymentRequest, error)
+	ListByUser(userID string) ([]domain.PaymentRequest, error)
+	ListExpired(now time.Time) ([]domain.PaymentRequest, error)
+	ListAll() ([]domain.PaymentRequest, error)
 }

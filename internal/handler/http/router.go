@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // Server holds all dependencies for the application.
@@ -23,9 +24,14 @@ type Server struct {
 	feedbackResponseHandler    *FeedbackResponseHandler
 	paymentHandler             *PaymentHandler
 	aiHandler                  *AiHandler
+	telegramHandler            *telegramHandler
 }
 
 func NewServer() *Server {
+
+	// Bot
+	bot, _ := tgbotapi.NewBotAPI("7521099565:AAGDQx5aMWUOdidp5Vr8_eFHZH0dQOp3bYU")
+
 	// --- Initialize Repositories ---
 	imgRepo := repository.NewImageRepostory("something")
 	questionRepo := repository.NewQuestionDynamoRepository("eu-north-1", "question")
@@ -45,39 +51,38 @@ func NewServer() *Server {
 
 	// --- Initialize Use Cases ---
 	contestUsecase := usecase.NewContestUsecase(contestRepo, questionRepo)
-	studentUsecase := usecase.NewStudentUsecase(studentRepo)
+	studentUsecase := usecase.NewStudentUsecase(studentRepo, paymentRepo, submissionRepo, contestRepo)
 	questionUsecase := usecase.NewQuestionUsecase(questionRepo)
-	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo)
+	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo, studentRepo)
 	adminUsecase := usecase.NewAdminUsecase(adminRepo)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
 	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
 	aiUsecase := usecase.NewAiUsecase(submissionRepo)
+	telegramUsecase := usecase.NewTelegramUsecase(bot)
 
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
 	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
 
-	// --- Initialize Notification Service ---
-	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
-
 	// --- Initialize Handlers ---
 	server := &Server{
-		contestHandler:             NewContestHandler(contestUsecase, notificationService),
-		studentHandler:             NewStudentHandler(studentUsecase),
+		contestHandler:             NewContestHandler(contestUsecase),
+		studentHandler:             NewStudentHandler(studentUsecase, notificationUsecase),
 		questionHandler:            NewQuestionHandler(questionUsecase, imgRepo), // Corrected line
 		submissionHandler:          NewSubmissionHandler(submissionUsecase),
 		adminHandler:               NewAdminHandler(adminUsecase),
 		notificationHandler:        NewNotificationHandler(notificationUsecase),
 		achievementHandler:         NewAchievementHandler(achievementUsecase),
 		contestRegistrationHandler: NewContestRegistrationHandler(contestRegistrationUsecase),
-		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase, notificationService),
+		feedbackQuestionHandler:    NewFeedbackQuestionHandler(feedbackQuestionUsecase, notificationUsecase),
 		pollOptionHandler:          NewPollOptionHandler(pollOptionUsecase),
-		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase),
+		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationUsecase),
 		paymentHandler:             NewPaymentHandler(paymentUsecase, *imgRepo),
 		aiHandler:                  NewAiHandler(aiUsecase),
+		telegramHandler:            NewTelegramHandler(telegramUsecase),
 	}
 	return server
 }
@@ -89,7 +94,7 @@ func (s *Server) NewRouter() *gin.Engine {
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
-		MaxAge:           12 * 60 * 60, // 12 hours
+		MaxAge:           12 * 60 * 60,
 	}))
 
 	api := r.Group("/api")
@@ -106,5 +111,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.feedbackResponseHandler.RegisterRoutes(api.Group("/feedback-response"))
 	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
+	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
+
 	return r
 }

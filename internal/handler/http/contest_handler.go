@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 	"victor-contest-go/internal/domain"
@@ -12,14 +11,12 @@ import (
 )
 
 type ContestHandler struct {
-	usecase             usecase.ContestUsecase
-	notificationService *usecase.NotificationService
+	usecase usecase.ContestUsecase
 }
 
-func NewContestHandler(u usecase.ContestUsecase, notificationService *usecase.NotificationService) *ContestHandler {
+func NewContestHandler(u usecase.ContestUsecase) *ContestHandler {
 	return &ContestHandler{
-		usecase:             u,
-		notificationService: notificationService,
+		usecase: u,
 	}
 }
 
@@ -29,8 +26,6 @@ func (h *ContestHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/", h.GetAllContests)
 	rg.GET("/:id", h.GetContestByID)
 	rg.DELETE("/delete/:id", h.DeleteContest)
-	rg.POST("/announce/:id", h.AnnounceContest)
-	rg.POST("/clone/:id", h.CloneContest)
 }
 
 func (h *ContestHandler) AddContest(c *gin.Context) {
@@ -39,7 +34,6 @@ func (h *ContestHandler) AddContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	log.Printf("contest %s", contest)
 	id, err := h.usecase.AddContest(contest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -192,104 +186,4 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
-}
-
-func (h *ContestHandler) AnnounceContest(c *gin.Context) {
-	id := c.Param("id")
-
-	// Parse form data to get the announcement message
-	message := c.PostForm("message")
-	if message == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Announcement message is required"})
-		return
-	}
-
-	// Handle optional file upload
-	file, err := c.FormFile("file")
-	if err != nil && err != http.ErrMissingFile {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file upload: " + err.Error()})
-		return
-	}
-
-	// Get the contest data using the ID from the URL
-	contest, err := h.usecase.GetContestByID(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get contest: " + err.Error()})
-		return
-	}
-
-	if contest == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Contest not found"})
-		return
-	}
-
-	// Log the announcement details
-	log.Printf("Announcing contest %s with message: %s, file: %v", id, message, file != nil)
-
-	// Send notifications to all students about the new contest
-	if h.notificationService != nil {
-		go func() {
-			err := h.notificationService.SendContestAnnouncementNotification(contest.Contest)
-			if err != nil {
-				log.Printf("Failed to send contest announcement notifications: %v", err)
-			}
-		}()
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Contest announced successfully"})
-}
-
-func (h *ContestHandler) CloneContest(c *gin.Context) {
-	id := c.Param("id")
-
-	// Parse the clone request data
-	var cloneRequest struct {
-		Title       string `json:"title" binding:"required"`
-		Description string `json:"description" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&cloneRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid clone request: " + err.Error()})
-		return
-	}
-
-	// Get the original contest
-	originalContest, err := h.usecase.GetContestByID(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get original contest: " + err.Error()})
-		return
-	}
-
-	if originalContest == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Original contest not found"})
-		return
-	}
-
-	// Create new contest with cloned data
-	clonedContest := domain.Contest{
-		Title:       cloneRequest.Title,
-		Description: cloneRequest.Description,
-		StartTime:   originalContest.Contest.StartTime,
-		EndTime:     originalContest.Contest.EndTime,
-		Subject:     originalContest.Contest.Subject,
-		Grade:       originalContest.Contest.Grade,
-		Prize:       originalContest.Contest.Prize,
-		Status:      "draft", // New contests start as drafts
-		Type:        originalContest.Contest.Type,
-		Questions:   originalContest.Contest.Questions, // Clone all questions
-	}
-
-	// Add the cloned contest
-	newContestID, err := h.usecase.AddContest(clonedContest)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone contest: " + err.Error()})
-		return
-	}
-
-	log.Printf("Contest %s cloned to new contest %s", id, newContestID)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":        "Contest cloned successfully",
-		"new_contest_id": newContestID,
-	})
 }

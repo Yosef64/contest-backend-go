@@ -27,6 +27,8 @@ func (u *contestRegistrationUsecase) CheckStudentActiveInContest(contestId strin
 	if registeration.IsActive {
 		return nil, errors.New("the user has been in the contest")
 	}
+	registeration.IsActive = true
+	u.UpdateContestRegistration(registeration.ID,*registeration)
 	return &registeration.IsActive, nil
 }
 

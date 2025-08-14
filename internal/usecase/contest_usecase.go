@@ -89,7 +89,6 @@ func (u *contestUsecase) GetContestByID(id string) (*domain.ContestTypeWithQuest
 	return resultContest, nil
 }
 func (u *contestUsecase) AddContest(contest domain.Contest) (string, error) {
-
 	return u.contestRepo.AddContest(contest)
 }
 func (u *contestUsecase) UpdateContest(id string, update domain.Contest) error {

@@ -52,7 +52,6 @@ func (r *StudentDynamoRepository) AddStudent(student domain.Student) error {
 	return err
 }
 
-
 func (r *StudentDynamoRepository) UpdateStudent(student domain.Student) error {
 	item, err := attributevalue.MarshalMap(student)
 	if err != nil {
@@ -205,7 +204,7 @@ func (r *StudentDynamoRepository) GetUserProfile(studentID string) (map[string]i
 		"imgurl": student.ImgURL,
 		"isSuspended": student.IsSuspended,
 		"badge": student.Badge,
-		"paid": student.Paid,
+		"is_premium":student.IsPremium,
 	}
 	return profile, nil
 }
