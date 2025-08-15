@@ -8,7 +8,7 @@ import (
 )
 
 // StudentUsecase defines the business logic for students
- type StudentUsecase interface {
+type StudentUsecase interface {
 	AddStudent(student domain.Student) error
 	UpdateStudent(student domain.Student) error
 	VerifyStudentPaid(telegramID string) (bool, error)
@@ -20,21 +20,22 @@ import (
 	GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error)
 	GetGradesAndSchools() (map[string][]string, error)
 	GetUserProfile(studentID string) (map[string]interface{}, error)
-	GetUserStatForAdmin(studId string) (*domain.StudentProfileAdminResponse,error)
+	GetUserStatForAdmin(studId string) (*domain.StudentProfileAdminResponse, error)
 }
 
 type studentUsecase struct {
-	repo StudentRepository
-	paymentRepo PaymentRepository
+	repo           StudentRepository
+	paymentRepo    PaymentRepository
 	submissionRepo SubmissionRepository
 	contestRepo    ContestRepository
 }
 
-func NewStudentUsecase(repo StudentRepository,paymentRepo PaymentRepository,submissionRepo SubmissionRepository,contestRepo ContestRepository) StudentUsecase {
-	return &studentUsecase{repo: repo,paymentRepo: paymentRepo,submissionRepo: submissionRepo,contestRepo: contestRepo}
+func NewStudentUsecase(repo StudentRepository, paymentRepo PaymentRepository, submissionRepo SubmissionRepository, contestRepo ContestRepository) StudentUsecase {
+	return &studentUsecase{repo: repo, paymentRepo: paymentRepo, submissionRepo: submissionRepo, contestRepo: contestRepo}
 }
 
 func (u *studentUsecase) AddStudent(student domain.Student) error {
+	student.CreatedAt = time.Now().In(time.Local)
 	return u.repo.AddStudent(student)
 }
 func (u *studentUsecase) UpdateStudent(student domain.Student) error {
@@ -50,30 +51,30 @@ func (u *studentUsecase) GetStudents() ([]domain.Student, error) {
 	return u.repo.GetStudents()
 }
 func (u *studentUsecase) GetStudentByID(id string) (*domain.Student, error) {
-	student,err := u.repo.GetStudentByID(id)
+	student, err := u.repo.GetStudentByID(id)
 	if err != nil {
 		return nil, err
 	}
 	if student == nil {
-		return nil,nil
+		return nil, nil
 	}
-	payments,err := u.paymentRepo.ListByUser(id)
+	payments, err := u.paymentRepo.ListByUser(id)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if student.ReadNotifications == nil {
 		student.ReadNotifications = make(map[string]domain.ReadNotificationModel)
 	}
-	
-	for _,pay := range payments{
+
+	for _, pay := range payments {
 		if pay.ExpirationDate.After(time.Now().In(time.Local)) {
 			student.IsPremium = true
 			break
 		}
 	}
-	
-	return student,nil
+
+	return student, nil
 }
 func (u *studentUsecase) GetQuickStat(studentID string) (map[string]any, error) {
 	return u.repo.GetQuickStat(studentID)
@@ -89,9 +90,9 @@ func (u *studentUsecase) GetGradesAndSchools() (map[string][]string, error) {
 }
 func (u *studentUsecase) GetUserProfile(studentID string) (map[string]any, error) {
 	return u.repo.GetUserProfile(studentID)
-} 
+}
 
-func (r *studentUsecase) GetUserStatForAdmin(studId string) (*domain.StudentProfileAdminResponse,error) {
+func (r *studentUsecase) GetUserStatForAdmin(studId string) (*domain.StudentProfileAdminResponse, error) {
 	student, err := r.repo.GetStudentByID(studId)
 	if err != nil {
 		return nil, err
@@ -110,41 +111,41 @@ func (r *studentUsecase) GetUserStatForAdmin(studId string) (*domain.StudentProf
 	if err != nil && err.Error() != "payments not found" {
 		return nil, err
 	}
-	sort.Slice(payments,func(i, j int) bool {
-		return payments[i].CreatedAt.After(payments[j].CreatedAt) 
+	sort.Slice(payments, func(i, j int) bool {
+		return payments[i].CreatedAt.After(payments[j].CreatedAt)
 	})
 	var payment domain.PaymentRequest
 	if len(payments) > 0 {
 		payment = payments[len(payments)-1]
 	}
-	contests,err := r.contestRepo.GetAllContests()
+	contests, err := r.contestRepo.GetAllContests()
 	if err != nil {
 		return nil, err
 	}
-	 structuredContests := make(map[string]domain.Contest)
-	 for _,contest := range contests{
+	structuredContests := make(map[string]domain.Contest)
+	for _, contest := range contests {
 		structuredContests[contest.ID] = contest
-	 }
+	}
 
 	contestSubmissions := make([]domain.Submission, 0, len(userSubmissions))
 	for _, sub := range userSubmissions {
 		sub.Contest = structuredContests[sub.ContestID]
 		contestSubmissions = append(contestSubmissions, sub)
 	}
-	
+
 	result := &domain.StudentProfileAdminResponse{
-		Student:           *student,
-		TotalPoints:       totalPoints,
-		Payment:           payment,
+		Student:            *student,
+		TotalPoints:        totalPoints,
+		Payment:            payment,
 		ContestSubmissions: contestSubmissions,
 	}
 
 	return result, nil
 }
 
-func CalculatePoints(submissions []domain.Submission) (int64 ) {
+func CalculatePoints(submissions []domain.Submission) int64 {
 	var totalPoints int64
-	for _,sub := range submissions{
+	for _, sub := range submissions {
 		totalPoints += int64(sub.Score)
 	}
 	return totalPoints
