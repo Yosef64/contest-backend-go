@@ -72,7 +72,7 @@ func NewServer() *Server {
 
 	// --- Initialize Handlers ---
 	server := &Server{
-		contestHandler:             NewContestHandler(contestUsecase),
+		contestHandler:             NewContestHandler(contestUsecase, notificationService),
 		studentHandler:             NewStudentHandler(studentUsecase, notificationUsecase),
 		questionHandler:            NewQuestionHandler(questionUsecase, imgRepo), // Corrected line
 		submissionHandler:          NewSubmissionHandler(submissionUsecase),

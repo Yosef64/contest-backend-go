@@ -20,6 +20,7 @@ func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/", h.AddNotification)
 	rg.PUT("/:id", h.UpdateNotification)
 	rg.DELETE("/:id", h.DeleteNotification)
+	rg.PATCH("/:id/read", h.MarkAsRead)
 	rg.GET("/", h.GetNotificationsByRecipient)
 	rg.GET("/:id", h.GetNotificationByID)
 	rg.GET("/recipient/:recipient_id", h.GetNotificationsByRecipient)
@@ -64,6 +65,16 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
+	id := c.Param("id")
+	err := h.usecase.MarkNotificationAsRead(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Notification marked as read"})
 }
 
 func (h *NotificationHandler) GetNotificationByID(c *gin.Context) {

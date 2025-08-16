@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"fmt"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,6 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 )
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 type QuestionDynamoRepository struct {
 	db        *dynamodb.Client
@@ -104,13 +113,23 @@ func (r *QuestionDynamoRepository) GetAllQuestions() ([]domain.Question, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Raw DynamoDB questions scan result: %d items\n", len(out.Items))
+
 	var questions []domain.Question
 	err = attributevalue.UnmarshalListOfMaps(out.Items, &questions)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Unmarshaled questions count: %d\n", len(questions))
+	for i, q := range questions {
+		fmt.Printf("Question %d: ID=%s, Text=%s\n", i, q.ID, q.QuestionText[:min(len(q.QuestionText), 50)])
+	}
+
 	return questions, nil
 }
+
 
 func (r *QuestionDynamoRepository) AddMultipleQuestions(questions []domain.Question) error {
 	var writeRequests []types.WriteRequest
