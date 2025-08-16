@@ -228,6 +228,7 @@ func (h *FeedbackResponseHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/", h.AddFeedbackResponse)
 	rg.PUT("/:id", h.UpdateFeedbackResponse)
 	rg.DELETE("/:id", h.DeleteFeedbackResponse)
+	rg.DELETE("/response-only/:id", h.DeleteFeedbackResponseOnly)
 	rg.GET("/", h.GetAllFeedbackResponses)
 	rg.GET("/student/:student_id", h.GetFeedbackResponsesByStudent)
 	rg.GET("/question/:question_id", h.GetFeedbackResponsesByQuestion)
@@ -275,6 +276,16 @@ func (h *FeedbackResponseHandler) UpdateFeedbackResponse(c *gin.Context) {
 func (h *FeedbackResponseHandler) DeleteFeedbackResponse(c *gin.Context) {
 	id := c.Param("id")
 	err := h.usecase.DeleteFeedbackResponse(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *FeedbackResponseHandler) DeleteFeedbackResponseOnly(c *gin.Context) {
+	id := c.Param("id")
+	err := h.usecase.DeleteFeedbackResponseOnly(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

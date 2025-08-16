@@ -105,6 +105,7 @@ type FeedbackResponseUsecase interface {
 	AddFeedbackResponse(response domain.FeedbackResponse) (string, error)
 	UpdateFeedbackResponse(id string, update domain.FeedbackResponse) error
 	DeleteFeedbackResponse(id string) error
+	DeleteFeedbackResponseOnly(id string) error
 	GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error)
 	GetAllFeedbackResponses() ([]domain.FeedbackResponse, error)
 	GetFeedbackResponsesByStudent(studentID string) ([]domain.FeedbackResponse, error)
@@ -132,6 +133,10 @@ func (u *feedbackResponseUsecase) UpdateFeedbackResponse(id string, update domai
 
 func (u *feedbackResponseUsecase) DeleteFeedbackResponse(id string) error {
 	return u.repo.DeleteFeedbackResponse(id)
+}
+
+func (u *feedbackResponseUsecase) DeleteFeedbackResponseOnly(id string) error {
+	return u.repo.DeleteFeedbackResponseOnly(id)
 }
 
 func (u *feedbackResponseUsecase) GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error) {

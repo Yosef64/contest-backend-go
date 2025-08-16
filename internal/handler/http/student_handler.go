@@ -53,11 +53,16 @@ func (h *StudentHandler) AddStudent(c *gin.Context) {
 }
 
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
+	id := c.Param("id")
 	var student domain.Student
 	if err := c.ShouldBindJSON(&student); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Set the ID from the URL parameter
+	student.ID = id
+
 	err := h.usecase.UpdateStudent(student)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

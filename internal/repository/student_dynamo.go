@@ -18,7 +18,7 @@ type StudentDynamoRepository struct {
 	tableName string
 }
 
-func NewStudentDynamoRepository(region string,tablename string) *StudentDynamoRepository {
+func NewStudentDynamoRepository(region string, tablename string) *StudentDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 	)
@@ -65,23 +65,22 @@ func (r *StudentDynamoRepository) UpdateStudent(student domain.Student) error {
 }
 
 func (r *StudentDynamoRepository) GetStudentByID(id string) (*domain.Student, error) {
-	
+
 	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
-		TableName: 			&r.tableName,
+		TableName:              &r.tableName,
 		KeyConditionExpression: aws.String("id = :id"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":id": &types.AttributeValueMemberS{Value: id},
 		},
-
 	})
 	if err != nil {
 		return nil, err
 	}
 	if len(out.Items) == 0 {
 		return nil, nil // Student not found
-		
+
 	}
-	
+
 	var student domain.Student
 	err = attributevalue.UnmarshalMap(out.Items[0], &student)
 	if err != nil {
@@ -104,16 +103,16 @@ func (r *StudentDynamoRepository) GetStudents() ([]domain.Student, error) {
 	}
 	return students, nil
 }
-func (r *StudentDynamoRepository) GetStructuredStudents() (map[string]domain.Student,error){
+func (r *StudentDynamoRepository) GetStructuredStudents() (map[string]domain.Student, error) {
 	structured := make(map[string]domain.Student)
-	students,err := r.GetStudents()
+	students, err := r.GetStudents()
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	for _,stud := range students {
+	for _, stud := range students {
 		structured[stud.ID] = stud
 	}
-	return structured,nil
+	return structured, nil
 }
 
 func (r *StudentDynamoRepository) VerifyStudentPaid(telegramID string) (bool, error) {
@@ -193,18 +192,19 @@ func (r *StudentDynamoRepository) GetUserProfile(studentID string) (map[string]i
 		return nil, err
 	}
 	profile := map[string]interface{}{
-		"id": student.ID,
-		"telegram_id": student.TelegramID,
-		"name": student.Name,
-		"age": student.Age,
-		"grade": student.Grade,
-		"school": student.School,
-		"city": student.City,
-		"region": student.Region,
-		"imgurl": student.ImgURL,
-		"isSuspended": student.IsSuspended,
-		"badge": student.Badge,
-		"is_premium":student.IsPremium,
+		"id":                 student.ID,
+		"telegram_id":        student.TelegramID,
+		"name":               student.Name,
+		"age":                student.Age,
+		"grade":              student.Grade,
+		"school":             student.School,
+		"city":               student.City,
+		"region":             student.Region,
+		"imgurl":             student.ImgURL,
+		"isSuspended":        student.IsSuspended,
+		"badge":              student.Badge,
+		"is_premium":         student.IsPremium,
+		"defaultScoreRange":  student.DefaultScoreRange,
 	}
 	return profile, nil
 }
@@ -216,10 +216,10 @@ func (r *StudentDynamoRepository) GetQuickStat(studentID string) (map[string]int
 	}
 	// Placeholder: In a real implementation, aggregate stats from submissions, etc.
 	return map[string]interface{}{
-		"telegram_id": student.TelegramID,
-		"name": student.Name,
-		"totalPoints": 0, // TODO: Calculate from submissions
-		"payment": nil,   // TODO: Integrate with payment table
+		"telegram_id":        student.TelegramID,
+		"name":               student.Name,
+		"totalPoints":        0,   // TODO: Calculate from submissions
+		"payment":            nil, // TODO: Integrate with payment table
 		"contestSubmissions": nil, // TODO: Integrate with submissions
 	}, nil
 }
@@ -232,4 +232,4 @@ func (r *StudentDynamoRepository) GetStudentRankings() ([]map[string]interface{}
 func (r *StudentDynamoRepository) GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error) {
 	// TODO: Implement aggregation logic for rankings by contest
 	return nil, nil
-} 
+}

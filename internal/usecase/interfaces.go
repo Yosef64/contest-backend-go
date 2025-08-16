@@ -102,6 +102,7 @@ type FeedbackResponseRepository interface {
 	AddFeedbackResponse(response domain.FeedbackResponse) (string, error)
 	UpdateFeedbackResponse(id string, update domain.FeedbackResponse) error
 	DeleteFeedbackResponse(id string) error
+	DeleteFeedbackResponseOnly(id string) error
 	GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error)
 	GetAllFeedbackResponses() ([]domain.FeedbackResponse, error)
 	GetFeedbackResponsesByStudent(studentID string) ([]domain.FeedbackResponse, error)
