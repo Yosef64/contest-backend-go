@@ -21,10 +21,10 @@ func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.PUT("/:id", h.UpdateNotification)
 	rg.DELETE("/:id", h.DeleteNotification)
 	rg.GET("/", h.GetNotificationsByRecipient)
-	rg.GET("/:id", h.GetNotificationsByRecipient)
+	rg.GET("/:id", h.GetNotificationByID)
 	rg.GET("/recipient/:recipient_id", h.GetNotificationsByRecipient)
 	rg.GET("/admin/:admin_email", h.GetNotificationsByAdminEmail)
-	rg.POST("/contest-announce",h.ContestAnnounce)
+	rg.POST("/contest-announce", h.ContestAnnounce)
 }
 
 func (h *NotificationHandler) AddNotification(c *gin.Context) {
@@ -88,7 +88,9 @@ func (h *NotificationHandler) GetAllNotifications(c *gin.Context) {
 
 func (h *NotificationHandler) GetNotificationsByRecipient(c *gin.Context) {
 	recipientID := c.Param("recipient_id")
-	notifications, err := h.usecase.GetNotificationsByRecipient(recipientID)
+
+	// Use the new method that filters notifications based on registration date
+	notifications, err := h.usecase.GetNotificationsByRecipientAfterRegistration(recipientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -108,15 +110,15 @@ func (h *NotificationHandler) GetNotificationsByAdminEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"notifications": notifications})
 }
 
-func (h *NotificationHandler) ContestAnnounce(c *gin.Context){
+func (h *NotificationHandler) ContestAnnounce(c *gin.Context) {
 	var contest domain.Contest
-	if err := c.ShouldBindJSON(&contest);err != nil{
-		c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()})
+	if err := c.ShouldBindJSON(&contest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.AnnounceContest(contest);err != nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+	if err := h.usecase.AnnounceContest(contest); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"status":"ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

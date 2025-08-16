@@ -11,16 +11,17 @@ import (
 )
 
 type QuestionHandler struct {
-	usecase usecase.QuestionUsecase
+	usecase   usecase.QuestionUsecase
 	imageRepo *repository.ImageRepository
 }
 
-func NewQuestionHandler(u usecase.QuestionUsecase,imgRepo *repository.ImageRepository) *QuestionHandler {
-	return &QuestionHandler{usecase: u,imageRepo: imgRepo}
+func NewQuestionHandler(u usecase.QuestionUsecase, imgRepo *repository.ImageRepository) *QuestionHandler {
+	return &QuestionHandler{usecase: u, imageRepo: imgRepo}
 }
 
 func (h *QuestionHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/add", h.AddQuestion)
+	rg.POST("/multiple-add", h.AddMultipleQuestions)
 	rg.PATCH("/:id", h.UpdateQuestion)
 	rg.DELETE("/delete/:id", h.DeleteQuestion)
 	rg.GET("/", h.GetAllQuestions)
@@ -60,7 +61,7 @@ func (h *QuestionHandler) AddQuestion(c *gin.Context) {
 		}
 		defer file.Close()
 
-		imgURL, err := h.imageRepo.UploadImage(file,"questions")
+		imgURL, err := h.imageRepo.UploadImage(file, "questions")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -75,6 +76,17 @@ func (h *QuestionHandler) AddQuestion(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"id": id, "message": "Question added successfully"})
+}
+func (h *QuestionHandler) AddMultipleQuestions(c *gin.Context) {
+	var questions domain.MultipleQuestionRequest
+	if err := c.ShouldBindJSON(&questions); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"err": err.Error()})
+		return
+	}
+	if err := h.usecase.AddMultipleQuestions(questions.Questions); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+
 }
 
 func (h *QuestionHandler) UpdateQuestion(c *gin.Context) {
@@ -119,4 +131,4 @@ func (h *QuestionHandler) GetQuestionByID(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"question": question})
-} 
+}
