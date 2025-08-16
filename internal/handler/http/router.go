@@ -22,9 +22,9 @@ type Server struct {
 	feedbackQuestionHandler    *FeedbackQuestionHandler
 	pollOptionHandler          *PollOptionHandler
 	feedbackResponseHandler    *FeedbackResponseHandler
-	paymentHandler  *PaymentHandler
-	aiHandler  *AiHandler
-	telegramHandler *telegramHandler
+	paymentHandler             *PaymentHandler
+	aiHandler                  *AiHandler
+	telegramHandler            *telegramHandler
 }
 
 func NewServer() *Server {
@@ -67,13 +67,12 @@ func NewServer() *Server {
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
 	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
 
-	
-	
-
+	// --- Initialize Notification Service ---
+	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
-		contestHandler:             NewContestHandler(contestUsecase),
+		contestHandler:             NewContestHandler(contestUsecase, notificationService),
 		studentHandler:             NewStudentHandler(studentUsecase, notificationUsecase),
 		questionHandler:            NewQuestionHandler(questionUsecase, imgRepo), // Corrected line
 		submissionHandler:          NewSubmissionHandler(submissionUsecase),
@@ -86,7 +85,7 @@ func NewServer() *Server {
 		feedbackResponseHandler:    NewFeedbackResponseHandler(feedbackResponseUsecase, notificationUsecase),
 		paymentHandler:             NewPaymentHandler(paymentUsecase, *imgRepo),
 		aiHandler:                  NewAiHandler(aiUsecase),
-		telegramHandler:			NewTelegramHandler(telegramUsecase),
+		telegramHandler:            NewTelegramHandler(telegramUsecase),
 	}
 	return server
 }
@@ -98,7 +97,7 @@ func (s *Server) NewRouter() *gin.Engine {
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
-		MaxAge:           12 * 60 * 60, 
+		MaxAge:           12 * 60 * 60,
 	}))
 
 	api := r.Group("/api")
@@ -117,6 +116,5 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
 
-	
 	return r
 }

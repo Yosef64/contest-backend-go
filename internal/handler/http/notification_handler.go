@@ -20,11 +20,12 @@ func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/", h.AddNotification)
 	rg.PUT("/:id", h.UpdateNotification)
 	rg.DELETE("/:id", h.DeleteNotification)
+	rg.PATCH("/:id/read", h.MarkAsRead)
 	rg.GET("/", h.GetNotificationsByRecipient)
 	rg.GET("/:id", h.GetNotificationsByRecipient)
 	rg.GET("/recipient/:recipient_id", h.GetNotificationsByRecipient)
 	rg.GET("/admin/:admin_email", h.GetNotificationsByAdminEmail)
-	rg.POST("/contest-announce",h.ContestAnnounce)
+	rg.POST("/contest-announce", h.ContestAnnounce)
 }
 
 func (h *NotificationHandler) AddNotification(c *gin.Context) {
@@ -64,6 +65,16 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
+}
+
+func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
+	id := c.Param("id")
+	err := h.usecase.MarkNotificationAsRead(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Notification marked as read"})
 }
 
 func (h *NotificationHandler) GetNotificationByID(c *gin.Context) {
@@ -108,15 +119,15 @@ func (h *NotificationHandler) GetNotificationsByAdminEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"notifications": notifications})
 }
 
-func (h *NotificationHandler) ContestAnnounce(c *gin.Context){
+func (h *NotificationHandler) ContestAnnounce(c *gin.Context) {
 	var contest domain.Contest
-	if err := c.ShouldBindJSON(&contest);err != nil{
-		c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()})
+	if err := c.ShouldBindJSON(&contest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.AnnounceContest(contest);err != nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+	if err := h.usecase.AnnounceContest(contest); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"status":"ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

@@ -28,7 +28,7 @@ func (h *StudentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/:id", h.GetStudentByID)
 	rg.GET("/grades-and-schools", h.GetGradesAndSchools)
 	rg.GET("/profile/:id", h.GetUserProfile)
-	rg.GET("/profile-admin/:student_id",h.GetUserStatForAdmin)
+	rg.GET("/profile-admin/:student_id", h.GetUserStatForAdmin)
 }
 
 func (h *StudentHandler) AddStudent(c *gin.Context) {
@@ -120,7 +120,7 @@ func (h *StudentHandler) GetStudentByID(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	if student != nil && student.Badge == nil {
 		student.Badge = make([]string, 0)
 	}
@@ -145,13 +145,13 @@ func (h *StudentHandler) GetUserProfile(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"user": profile})
 }
-func (r *StudentHandler) GetUserStatForAdmin(c * gin.Context) {
+func (r *StudentHandler) GetUserStatForAdmin(c *gin.Context) {
 	studId := c.Param("student_id")
-	profile,err := r.usecase.GetUserStatForAdmin(studId)
+	profile, err := r.usecase.GetUserStatForAdmin(studId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,gin.H{"error":"something went wrong"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{"profile":profile})
-	
+	c.JSON(http.StatusOK, gin.H{"profile": profile})
+
 }
