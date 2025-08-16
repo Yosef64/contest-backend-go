@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"strings"
 
 	"net/http"
 	"time"
@@ -28,6 +29,7 @@ func (h *AdminHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/me",h.GetMe)
 	rg.GET("/", h.GetAllAdmins)
 	rg.POST("/login", h.SignIn)
+	rg.GET("/dashboard", h.GetDashboardStats)
 }
 func (h *AdminHandler) GetMe(c *gin.Context) {
 	tokenString,err := c.Cookie("token")
@@ -144,15 +146,58 @@ func (h *AdminHandler) SignIn(c *gin.Context) {
 		return
 	}
 	cookieMaxAge := 3600 * 24
-	c.SetCookie(
-		"token",
-		tokenString,
-		cookieMaxAge,
-		"/",           
-		"localhost",
-		false,          
-		true,          
-	)
+	cookie := &http.Cookie{
+        Name:     "token",
+        Value:    tokenString,
+        Path:     "/",
+        MaxAge:   cookieMaxAge, // 1 hour in seconds
+        HttpOnly: true,
+        Secure:   true,       // Must be true for SameSite=None
+        SameSite: http.SameSiteNoneMode, // THE CRUCIAL PART
+        
+    }
+
+    http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful, cookie set"})
+}
+
+func (h *AdminHandler) GetDashboardStats(c *gin.Context) {
+	// Call usecase to get dashboard data
+	dashboardStats, err := h.usecase.GetDashboardStats()
+	if err != nil {
+		// Log the error for monitoring
+		fmt.Printf("Error getting dashboard stats: %v\n", err)
+		
+		// Return appropriate error response based on error type
+		if strings.Contains(err.Error(), "connection") || strings.Contains(err.Error(), "timeout") {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"error":   "Service temporarily unavailable",
+				"message": "Unable to retrieve dashboard data at this time. Please try again later.",
+				"code":    503,
+			})
+			return
+		}
+		
+		// Generic internal server error for other cases
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Internal server error",
+			"message": "An error occurred while retrieving dashboard statistics.",
+			"code":    500,
+		})
+		return
+	}
+	
+	// Validate that we have valid data before returning
+	if dashboardStats == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Data unavailable",
+			"message": "Dashboard statistics are currently unavailable.",
+			"code":    500,
+		})
+		return
+	}
+	
+	// Return successful response with dashboard data
+	c.JSON(http.StatusOK, dashboardStats)
 } 

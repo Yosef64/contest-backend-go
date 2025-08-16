@@ -35,6 +35,7 @@ func NewStudentUsecase(repo StudentRepository, paymentRepo PaymentRepository, su
 }
 
 func (u *studentUsecase) AddStudent(student domain.Student) error {
+	student.CreatedAt = time.Now().In(time.Local)
 	return u.repo.AddStudent(student)
 }
 func (u *studentUsecase) UpdateStudent(student domain.Student) error {
@@ -75,19 +76,19 @@ func (u *studentUsecase) GetStudentByID(id string) (*domain.Student, error) {
 
 	return student, nil
 }
-func (u *studentUsecase) GetQuickStat(studentID string) (map[string]any, error) {
+func (u *studentUsecase) GetQuickStat(studentID string) (map[string]interface{}, error) {
 	return u.repo.GetQuickStat(studentID)
 }
-func (u *studentUsecase) GetStudentRankings() ([]map[string]any, error) {
+func (u *studentUsecase) GetStudentRankings() ([]map[string]interface{}, error) {
 	return u.repo.GetStudentRankings()
 }
-func (u *studentUsecase) GetStudentRankingsByContest(contestID string) ([]map[string]any, error) {
+func (u *studentUsecase) GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error) {
 	return u.repo.GetStudentRankingsByContest(contestID)
 }
 func (u *studentUsecase) GetGradesAndSchools() (map[string][]string, error) {
 	return u.repo.GetGradesAndSchools()
 }
-func (u *studentUsecase) GetUserProfile(studentID string) (map[string]any, error) {
+func (u *studentUsecase) GetUserProfile(studentID string) (map[string]interface{}, error) {
 	return u.repo.GetUserProfile(studentID)
 }
 

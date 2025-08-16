@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -38,6 +39,11 @@ func (r *StudentDynamoRepository) AddStudent(student domain.Student) error {
 
 	if student.TelegramID == "" {
 		return fmt.Errorf("telegram_id is required and cannot be empty")
+	}
+
+	// Set CreatedAt timestamp if not already set
+	if student.CreatedAt.IsZero() {
+		student.CreatedAt = time.Now()
 	}
 
 	item, err := attributevalue.MarshalMap(student)
@@ -78,7 +84,6 @@ func (r *StudentDynamoRepository) GetStudentByID(id string) (*domain.Student, er
 	}
 	if len(out.Items) == 0 {
 		return nil, nil // Student not found
-
 	}
 
 	var student domain.Student
@@ -192,19 +197,18 @@ func (r *StudentDynamoRepository) GetUserProfile(studentID string) (map[string]i
 		return nil, err
 	}
 	profile := map[string]interface{}{
-		"id":                 student.ID,
-		"telegram_id":        student.TelegramID,
-		"name":               student.Name,
-		"age":                student.Age,
-		"grade":              student.Grade,
-		"school":             student.School,
-		"city":               student.City,
-		"region":             student.Region,
-		"imgurl":             student.ImgURL,
-		"isSuspended":        student.IsSuspended,
-		"badge":              student.Badge,
-		"is_premium":         student.IsPremium,
-		"defaultScoreRange":  student.DefaultScoreRange,
+		"id":          student.ID,
+		"telegram_id": student.TelegramID,
+		"name":        student.Name,
+		"age":         student.Age,
+		"grade":       student.Grade,
+		"school":      student.School,
+		"city":        student.City,
+		"region":      student.Region,
+		"imgurl":      student.ImgURL,
+		"isSuspended": student.IsSuspended,
+		"badge":       student.Badge,
+		"is_premium":  student.IsPremium,
 	}
 	return profile, nil
 }

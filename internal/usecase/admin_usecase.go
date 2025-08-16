@@ -1,6 +1,14 @@
 package usecase
 
-import "victor-contest-go/internal/domain"
+import (
+	"fmt"
+	"math"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+	"victor-contest-go/internal/domain"
+)
 
 type AdminUsecase interface {
 	AddAdmin(admin domain.Admin) (string, error)
@@ -10,10 +18,17 @@ type AdminUsecase interface {
 	GetAllAdmins() ([]domain.Admin, error)
 	SignIn(email, password string) (*domain.Admin, error)
 	GetAdminByEmail(email string) (*domain.Admin, error)
+	GetDashboardStats() (*domain.DashboardStatsResponse, error)
 }
 
 type adminUsecase struct {
-	repo AdminRepository
+	repo                    AdminRepository
+	studentRepo             StudentRepository
+	contestRepo             ContestRepository
+	submissionRepo          SubmissionRepository
+	contestRegistrationRepo ContestRegistrationRepository
+	paymentRepo             PaymentRepository
+	pageViewRepo            PageViewRepository
 }
 
 // GetAdminByEmail implements AdminUsecase.
@@ -21,8 +36,16 @@ func (u *adminUsecase) GetAdminByEmail(email string) (*domain.Admin, error) {
 	return u.repo.GetAdminByEmail(email)
 }
 
-func NewAdminUsecase(repo AdminRepository) AdminUsecase {
-	return &adminUsecase{repo: repo}
+func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contestRepo ContestRepository, submissionRepo SubmissionRepository, contestRegistrationRepo ContestRegistrationRepository, paymentRepo PaymentRepository, pageViewRepo PageViewRepository) AdminUsecase {
+	return &adminUsecase{
+		repo:                    repo,
+		studentRepo:             studentRepo,
+		contestRepo:             contestRepo,
+		submissionRepo:          submissionRepo,
+		contestRegistrationRepo: contestRegistrationRepo,
+		paymentRepo:             paymentRepo,
+		pageViewRepo:            pageViewRepo,
+	}
 }
 
 func (u *adminUsecase) AddAdmin(admin domain.Admin) (string, error) {
@@ -42,4 +65,638 @@ func (u *adminUsecase) GetAllAdmins() ([]domain.Admin, error) {
 }
 func (u *adminUsecase) SignIn(email, password string) (*domain.Admin, error) {
 	return u.repo.SignIn(email, password)
+}
+
+func (u *adminUsecase) GetDashboardStats() (*domain.DashboardStatsResponse, error) {
+	// Get all required data
+	students, err := u.studentRepo.GetStudents()
+	if err != nil {
+		return nil, err
+	}
+
+	contests, err := u.contestRepo.GetAllContests()
+	if err != nil {
+		return nil, err
+	}
+
+	submissions, err := u.submissionRepo.GetAllSubmissions()
+	if err != nil {
+		return nil, err
+	}
+
+	payments, err := u.paymentRepo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate overview stats
+	overviewStats := u.calculateOverviewStats(students, contests, submissions, payments)
+
+	// Calculate user stats
+	userStats := u.calculateUserStats(students)
+
+	// Calculate contest stats
+	contestStats := u.calculateContestStats(contests, submissions)
+
+	// Calculate page view stats
+	pageViewStats, err := u.calculatePageViewStats()
+	if err != nil {
+		// If page view data is not available, create empty stats
+		pageViewStats = &domain.PageViewStats{
+			TotalViews:     0,
+			UniqueVisitors: 0,
+			ViewsByPage:    make(map[string]int),
+			ViewsByDay:     make([]int, 30),
+			TopPages:       make([]domain.PageViewSummary, 0),
+		}
+	}
+
+	// Get recent activity
+	recentActivity := u.getRecentActivity(contests, submissions)
+
+	return &domain.DashboardStatsResponse{
+		Overview:       overviewStats,
+		UserStats:      userStats,
+		ContestStats:   contestStats,
+		PageViewStats:  *pageViewStats,
+		RecentActivity: recentActivity,
+	}, nil
+}
+
+func (u *adminUsecase) calculateOverviewStats(students []domain.Student, contests []domain.Contest, submissions []domain.Submission, payments []domain.PaymentRequest) domain.OverviewStats {
+	// Calculate total users with trend
+	totalUsers := len(students)
+	userTrendData := u.calculateUserTrendData(students)
+	userTrend, userChange := u.calculateTrend(userTrendData)
+
+	// Calculate total contests with trend
+	totalContests := len(contests)
+	contestTrendData := u.calculateContestTrendData(contests)
+	contestTrend, contestChange := u.calculateTrend(contestTrendData)
+
+	// Calculate revenue with trend
+	revenue := u.calculateRevenue(payments)
+	revenueTrendData := u.calculateRevenueTrendData(payments)
+	revenueTrend, revenueChange := u.calculateTrend(revenueTrendData)
+
+	// Calculate registrations with trend
+	registrations := len(submissions)
+	registrationTrendData := u.calculateRegistrationTrendData(submissions)
+	registrationTrend, registrationChange := u.calculateTrend(registrationTrendData)
+
+	return domain.OverviewStats{
+		TotalUsers: domain.StatWithTrend{
+			Value:  strconv.Itoa(totalUsers),
+			Trend:  userTrend,
+			Change: userChange,
+			Data:   userTrendData,
+		},
+		TotalContests: domain.StatWithTrend{
+			Value:  strconv.Itoa(totalContests),
+			Trend:  contestTrend,
+			Change: contestChange,
+			Data:   contestTrendData,
+		},
+		Revenue: domain.StatWithTrend{
+			Value:  fmt.Sprintf("$%.2f", revenue),
+			Trend:  revenueTrend,
+			Change: revenueChange,
+			Data:   revenueTrendData,
+		},
+		Registrations: domain.StatWithTrend{
+			Value:  strconv.Itoa(registrations),
+			Trend:  registrationTrend,
+			Change: registrationChange,
+			Data:   registrationTrendData,
+		},
+	}
+}
+
+func (u *adminUsecase) calculateUserStats(students []domain.Student) domain.UserStats {
+	// Calculate city distribution
+	cityMap := make(map[string]int)
+	genderMap := make(map[string]int)
+	gradeMap := make(map[string]int)
+
+	for _, student := range students {
+		// City distribution
+		if student.City != "" {
+			cityMap[student.City]++
+		}
+
+		// Gender distribution
+		if student.Gender != "" {
+			genderMap[strings.ToLower(student.Gender)]++
+		}
+
+		// Grade distribution
+		if student.Grade != "" {
+			gradeMap[student.Grade]++
+		}
+	}
+
+	totalStudents := len(students)
+
+	// Convert city map to sorted slice
+	cityDistribution := make([]domain.CityDistribution, 0, len(cityMap))
+	for city, count := range cityMap {
+		percentage := float64(count) / float64(totalStudents) * 100
+		cityDistribution = append(cityDistribution, domain.CityDistribution{
+			City:       city,
+			Count:      count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	// Sort by count descending
+	sort.Slice(cityDistribution, func(i, j int) bool {
+		return cityDistribution[i].Count > cityDistribution[j].Count
+	})
+
+	// Convert grade map to sorted slice
+	gradeDistribution := make([]domain.GradeDistribution, 0, len(gradeMap))
+	for grade, count := range gradeMap {
+		percentage := float64(count) / float64(totalStudents) * 100
+		gradeDistribution = append(gradeDistribution, domain.GradeDistribution{
+			Grade:      grade,
+			Count:      count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	// Sort by grade
+	sort.Slice(gradeDistribution, func(i, j int) bool {
+		return gradeDistribution[i].Grade < gradeDistribution[j].Grade
+	})
+
+	// Calculate growth trend (30-day data points)
+	growthTrend := u.calculateUserTrendData(students)
+
+	return domain.UserStats{
+		ByCity: cityDistribution,
+		ByGender: domain.GenderDistribution{
+			Male:   genderMap["male"],
+			Female: genderMap["female"],
+			Other:  genderMap["other"],
+		},
+		ByGrade:     gradeDistribution,
+		GrowthTrend: growthTrend,
+	}
+}
+
+func (u *adminUsecase) calculateContestStats(contests []domain.Contest, submissions []domain.Submission) domain.ContestStats {
+	// Calculate participation data (30-day trend)
+	participationData := u.calculateParticipationTrendData(submissions)
+
+	// Calculate status distribution
+	statusMap := make(map[string]int)
+	now := time.Now()
+
+	for _, contest := range contests {
+		startTime, err := time.Parse("2006-01-02T15:04:05Z", contest.StartTime)
+		if err != nil {
+			continue
+		}
+		endTime, err := time.Parse("2006-01-02T15:04:05Z", contest.EndTime)
+		if err != nil {
+			continue
+		}
+
+		if now.Before(startTime) {
+			statusMap["upcoming"]++
+		} else if now.After(endTime) {
+			statusMap["completed"]++
+		} else {
+			statusMap["active"]++
+		}
+	}
+
+	// Calculate subject distribution
+	subjectMap := make(map[string]int)
+	for _, contest := range contests {
+		if contest.Subject != "" {
+			subjectMap[contest.Subject]++
+		}
+	}
+
+	totalContests := len(contests)
+	subjectDistribution := make([]domain.SubjectStat, 0, len(subjectMap))
+	for subject, count := range subjectMap {
+		percentage := float64(count) / float64(totalContests) * 100
+		subjectDistribution = append(subjectDistribution, domain.SubjectStat{
+			Subject:    subject,
+			Count:      count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	// Sort by count descending
+	sort.Slice(subjectDistribution, func(i, j int) bool {
+		return subjectDistribution[i].Count > subjectDistribution[j].Count
+	})
+
+	return domain.ContestStats{
+		ParticipationData: participationData,
+		StatusDistribution: domain.StatusStats{
+			Active:    statusMap["active"],
+			Completed: statusMap["completed"],
+			Upcoming:  statusMap["upcoming"],
+		},
+		SubjectDistribution: subjectDistribution,
+	}
+}
+
+func (u *adminUsecase) getRecentActivity(contests []domain.Contest, submissions []domain.Submission) []domain.RecentContest {
+	// Create a map to count participants per contest
+	participantMap := make(map[string]int)
+	for _, submission := range submissions {
+		participantMap[submission.ContestID]++
+	}
+
+	// Convert contests to recent activity format
+	recentActivity := make([]domain.RecentContest, 0, len(contests))
+	for _, contest := range contests {
+		// Parse start time for date formatting
+		startTime, err := time.Parse("2006-01-02T15:04:05Z", contest.StartTime)
+		if err != nil {
+			startTime = time.Now()
+		}
+
+		// Determine status
+		status := "Offline"
+		if contest.Status == "active" {
+			status = "Online"
+		}
+
+		// Calculate total time (assuming it's duration between start and end)
+		endTime, err := time.Parse("2006-01-02T15:04:05Z", contest.EndTime)
+		totalTime := "N/A"
+		if err == nil {
+			duration := endTime.Sub(startTime)
+			hours := int(duration.Hours())
+			minutes := int(duration.Minutes()) % 60
+			totalTime = fmt.Sprintf("%dh %dm", hours, minutes)
+		}
+
+		recentActivity = append(recentActivity, domain.RecentContest{
+			ID:            contest.ID,
+			Title:         contest.Title,
+			Status:        status,
+			Users:         participantMap[contest.ID],
+			Subject:       contest.Subject,
+			QuestionCount: len(contest.Questions),
+			TotalTime:     totalTime,
+			Date:          startTime.Format("2006-01-02"),
+		})
+	}
+
+	// Sort by date descending (most recent first)
+	sort.Slice(recentActivity, func(i, j int) bool {
+		dateI, _ := time.Parse("2006-01-02", recentActivity[i].Date)
+		dateJ, _ := time.Parse("2006-01-02", recentActivity[j].Date)
+		return dateI.After(dateJ)
+	})
+
+	// Return only the most recent 10 contests
+	if len(recentActivity) > 10 {
+		recentActivity = recentActivity[:10]
+	}
+
+	return recentActivity
+}
+
+func (u *adminUsecase) calculateRevenue(payments []domain.PaymentRequest) float64 {
+	var totalRevenue float64
+	for _, payment := range payments {
+		if payment.Status == domain.StatusApproved {
+			// Assuming a fixed amount per approved payment
+			// This should be adjusted based on actual payment amounts in the system
+			totalRevenue += 100.0 // Placeholder amount
+		}
+	}
+	return totalRevenue
+}
+
+func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
+	// Generate 30-day trend data for users (daily data)
+	now := time.Now()
+	trendData := make([]int, 30)
+
+	// Debug logging
+	fmt.Printf("User Trend Debug: Total students: %d\n", len(students))
+	for i, student := range students {
+		if i < 3 { // Log first 3 students
+			fmt.Printf("Student %d: ID=%s, CreatedAt=%s\n", i+1, student.ID, student.CreatedAt.Format("2006-01-02 15:04:05"))
+		}
+	}
+
+	// Count students with valid CreatedAt timestamps
+	studentsWithTimestamps := 0
+	studentsWithoutTimestamps := 0
+
+	for _, student := range students {
+		if student.CreatedAt.IsZero() {
+			studentsWithoutTimestamps++
+		} else {
+			studentsWithTimestamps++
+		}
+	}
+
+	fmt.Printf("Students with timestamps: %d, without timestamps: %d\n", studentsWithTimestamps, studentsWithoutTimestamps)
+
+	// If most students don't have timestamps, distribute them evenly across the last 30 days
+	if studentsWithoutTimestamps > studentsWithTimestamps {
+		// Distribute students without timestamps evenly across the 30 days
+		studentsPerDay := studentsWithoutTimestamps / 30
+		remainder := studentsWithoutTimestamps % 30
+
+		for i := 0; i < 30; i++ {
+			count := studentsPerDay
+			if i < remainder {
+				count++ // Distribute remainder across first few days
+			}
+			trendData[i] = count
+		}
+
+		// Add students with valid timestamps to their respective days
+		for i := 0; i < 30; i++ {
+			targetDate := now.AddDate(0, 0, -29+i)
+			startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+			endOfDay := startOfDay.Add(24 * time.Hour)
+
+			for _, student := range students {
+				if !student.CreatedAt.IsZero() && student.CreatedAt.After(startOfDay) && student.CreatedAt.Before(endOfDay) {
+					trendData[i]++
+				}
+			}
+		}
+	} else {
+		// Normal calculation for students with valid timestamps
+		for i := 0; i < 30; i++ {
+			targetDate := now.AddDate(0, 0, -29+i)
+			count := 0
+
+			startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+			endOfDay := startOfDay.Add(24 * time.Hour)
+
+			for _, student := range students {
+				createdAt := student.CreatedAt
+
+				// Skip students without valid timestamps
+				if createdAt.IsZero() {
+					continue
+				}
+
+				// Check if student was created on the target date
+				if createdAt.After(startOfDay) && createdAt.Before(endOfDay) {
+					count++
+				}
+			}
+
+			trendData[i] = count
+		}
+	}
+
+	fmt.Printf("User trend data: %v\n", trendData)
+	return trendData
+}
+
+func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []int {
+	// Generate 30-day trend data for contests (daily data)
+	now := time.Now()
+	trendData := make([]int, 30)
+
+	// Debug logging
+	fmt.Printf("Contest Trend Debug: Total contests: %d\n", len(contests))
+	for i, contest := range contests {
+		if i < 3 { // Log first 3 contests
+			fmt.Printf("Contest %d: ID=%s, StartTime=%s\n", i+1, contest.ID, contest.StartTime)
+		}
+	}
+
+	// Count contests created in each of the last 30 days
+	for i := 0; i < 30; i++ {
+		// Go back i days from current day
+		targetDate := now.AddDate(0, 0, -29+i)
+		count := 0
+
+		for _, contest := range contests {
+			var startTime time.Time
+			var err error
+
+			// Try multiple date formats to handle inconsistent data
+			formats := []string{
+				"2006-01-02T15:04:05Z", // Full format with timezone
+				"2006-01-02T15:04:05",  // Full format without timezone
+				"2006-01-02T15:04",     // Format without seconds
+				"2006-01-02",           // Date only
+			}
+
+			for _, format := range formats {
+				if startTime, err = time.Parse(format, contest.StartTime); err == nil {
+					break // Successfully parsed
+				}
+			}
+
+			if err != nil {
+				fmt.Printf("Failed to parse contest StartTime: %s with all formats\n", contest.StartTime)
+				continue
+			}
+
+			// Check if contest was created on the target date
+			if startTime.Year() == targetDate.Year() &&
+				startTime.YearDay() == targetDate.YearDay() {
+				count++
+			}
+		}
+
+		trendData[i] = count
+	}
+
+	fmt.Printf("Contest trend data: %v\n", trendData)
+	return trendData
+}
+
+func (u *adminUsecase) calculateRevenueTrendData(payments []domain.PaymentRequest) []int {
+	// Generate 30-day revenue trend data (daily data)
+	now := time.Now()
+	trendData := make([]int, 30)
+
+	for i := 0; i < 30; i++ {
+		// Go back i days from current day
+		targetDate := now.AddDate(0, 0, -29+i)
+		revenue := 0
+
+		for _, payment := range payments {
+			if payment.Status == domain.StatusApproved &&
+				payment.UpdatedAt.Year() == targetDate.Year() &&
+				payment.UpdatedAt.YearDay() == targetDate.YearDay() {
+				revenue += 100 // Placeholder amount
+			}
+		}
+
+		trendData[i] = revenue
+	}
+
+	return trendData
+}
+
+func (u *adminUsecase) calculateRegistrationTrendData(submissions []domain.Submission) []int {
+	// Generate 30-day registration trend data (daily data)
+	now := time.Now()
+	trendData := make([]int, 30)
+
+	for i := 0; i < 30; i++ {
+		// Go back i days from current day
+		targetDate := now.AddDate(0, 0, -29+i)
+		count := 0
+
+		for _, submission := range submissions {
+			if submission.SubmissionTime.Year() == targetDate.Year() &&
+				submission.SubmissionTime.YearDay() == targetDate.YearDay() {
+				count++
+			}
+		}
+
+		trendData[i] = count
+	}
+
+	return trendData
+}
+
+func (u *adminUsecase) calculateParticipationTrendData(submissions []domain.Submission) []int {
+	// Generate 12-month participation trend data (monthly data)
+	now := time.Now()
+	trendData := make([]int, 12)
+
+	for i := 0; i < 12; i++ {
+		// Go back i months from current month
+		targetMonth := now.AddDate(0, -11+i, 0)
+		count := 0
+
+		for _, submission := range submissions {
+			if submission.SubmissionTime.Year() == targetMonth.Year() &&
+				submission.SubmissionTime.Month() == targetMonth.Month() {
+				count++
+			}
+		}
+
+		trendData[i] = count
+	}
+
+	return trendData
+}
+
+func (u *adminUsecase) calculateTrend(data []int) (string, string) {
+	if len(data) < 2 {
+		return "neutral", "0%"
+	}
+
+	// Compare last value with previous value
+	current := data[len(data)-1]
+	previous := data[len(data)-2]
+
+	if current > previous {
+		// Handle division by zero
+		if previous == 0 {
+			return "up", "+100%"
+		}
+		change := float64(current-previous) / float64(previous) * 100
+		// Check for infinity or NaN
+		if math.IsInf(change, 0) || math.IsNaN(change) {
+			return "up", "+100%"
+		}
+		return "up", fmt.Sprintf("+%.1f%%", change)
+	} else if current < previous {
+		// Handle division by zero
+		if previous == 0 {
+			return "neutral", "0%"
+		}
+		change := float64(previous-current) / float64(previous) * 100
+		// Check for infinity or NaN
+		if math.IsInf(change, 0) || math.IsNaN(change) {
+			return "down", "-100%"
+		}
+		return "down", fmt.Sprintf("-%.1f%%", change)
+	}
+
+	return "neutral", "0%"
+}
+
+func (u *adminUsecase) calculatePageViewStats() (*domain.PageViewStats, error) {
+	// Get page views for the last 30 days
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -30)
+
+	pageViews, err := u.pageViewRepo.GetPageViewsByDateRange(startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total views
+	totalViews := len(pageViews)
+
+	// Calculate unique visitors
+	uniqueVisitors := make(map[string]bool)
+	viewsByPage := make(map[string]int)
+	viewsByDay := make([]int, 30)
+
+	for _, pv := range pageViews {
+		// Count unique visitors (by user_id or ip_address if no user_id)
+		visitorKey := pv.UserID
+		if visitorKey == "" {
+			visitorKey = pv.IPAddress
+		}
+		uniqueVisitors[visitorKey] = true
+
+		// Count views by page
+		viewsByPage[pv.Page]++
+
+		// Count views by day
+		dayIndex := int(endDate.Sub(pv.ViewedAt).Hours() / 24)
+		if dayIndex >= 0 && dayIndex < 30 {
+			viewsByDay[29-dayIndex]++
+		}
+	}
+
+	// Calculate top pages
+	type pageCount struct {
+		page  string
+		count int
+	}
+
+	var pageCounts []pageCount
+	for page, count := range viewsByPage {
+		pageCounts = append(pageCounts, pageCount{page: page, count: count})
+	}
+
+	// Sort by count descending
+	sort.Slice(pageCounts, func(i, j int) bool {
+		return pageCounts[i].count > pageCounts[j].count
+	})
+
+	// Create top pages summary (limit to top 10)
+	topPages := make([]domain.PageViewSummary, 0)
+	for i, pc := range pageCounts {
+		if i >= 10 {
+			break
+		}
+		percentage := float64(pc.count) / float64(totalViews) * 100
+		if totalViews == 0 {
+			percentage = 0
+		}
+		topPages = append(topPages, domain.PageViewSummary{
+			Page:       pc.page,
+			Views:      pc.count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	return &domain.PageViewStats{
+		TotalViews:     totalViews,
+		UniqueVisitors: len(uniqueVisitors),
+		ViewsByPage:    viewsByPage,
+		ViewsByDay:     viewsByDay,
+		TopPages:       topPages,
+	}, nil
 }

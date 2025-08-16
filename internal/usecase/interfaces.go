@@ -38,6 +38,7 @@ type SubmissionRepository interface {
 
 type QuestionRepository interface {
 	AddQuestion(question domain.Question) (string, error)
+	AddMultipleQuestions(questions []domain.Question) error
 	UpdateQuestion(id string, update domain.Question) error
 	DeleteQuestion(id string) error
 	GetQuestionByID(id string) (*domain.Question, error)
@@ -118,4 +119,11 @@ type PaymentRepository interface {
 	ListByUser(userID string) ([]domain.PaymentRequest, error)
 	ListExpired(now time.Time) ([]domain.PaymentRequest, error)
 	ListAll() ([]domain.PaymentRequest, error)
+}
+
+type PageViewRepository interface {
+	AddPageView(pageView domain.PageView) error
+	GetPageViewsByDateRange(startDate, endDate time.Time) ([]domain.PageView, error)
+	GetAllPageViews() ([]domain.PageView, error)
+	GetPageViewsByUserID(userID string) ([]domain.PageView, error)
 }

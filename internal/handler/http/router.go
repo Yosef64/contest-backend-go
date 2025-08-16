@@ -25,12 +25,13 @@ type Server struct {
 	paymentHandler             *PaymentHandler
 	aiHandler                  *AiHandler
 	telegramHandler            *telegramHandler
+	pageViewHandler            *PageViewHandler
 }
 
 func NewServer() *Server {
 
 	// Bot
-	bot, _ := tgbotapi.NewBotAPI("7521099565:AAGDQx5aMWUOdidp5Vr8_eFHZH0dQOp3bYU")
+	bot, _ := tgbotapi.NewBotAPI("8328194489:AAF1Ul46yoR0XXkDF0bZeBXw37mol_vO68U")
 
 	// --- Initialize Repositories ---
 	imgRepo := repository.NewImageRepostory("something")
@@ -43,6 +44,7 @@ func NewServer() *Server {
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
 	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
+	pageViewRepo := repository.NewPageViewDynamoRepository("eu-north-1", "pageviews")
 
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
@@ -54,21 +56,22 @@ func NewServer() *Server {
 	studentUsecase := usecase.NewStudentUsecase(studentRepo, paymentRepo, submissionRepo, contestRepo)
 	questionUsecase := usecase.NewQuestionUsecase(questionRepo)
 	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo, studentRepo)
-	adminUsecase := usecase.NewAdminUsecase(adminRepo)
-	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo)
+	adminUsecase := usecase.NewAdminUsecase(adminRepo, studentRepo, contestRepo, submissionRepo, contestRegistrationRepo, paymentRepo, pageViewRepo)
+	pageViewUsecase := usecase.NewPageViewUsecase(pageViewRepo)
+	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo, studentRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
 	paymentUsecase := usecase.NewPaymentUsecases(paymentRepo)
 	aiUsecase := usecase.NewAiUsecase(submissionRepo)
 	telegramUsecase := usecase.NewTelegramUsecase(bot)
 
+	// --- Initialize Notification Service ---
+	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
+
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
 	feedbackResponseUsecase := usecase.NewFeedbackResponseUsecase(feedbackResponseRepo)
-
-	// --- Initialize Notification Service ---
-	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
 
 	// --- Initialize Handlers ---
 	server := &Server{
@@ -86,6 +89,7 @@ func NewServer() *Server {
 		paymentHandler:             NewPaymentHandler(paymentUsecase, *imgRepo),
 		aiHandler:                  NewAiHandler(aiUsecase),
 		telegramHandler:            NewTelegramHandler(telegramUsecase),
+		pageViewHandler:            NewPageViewHandler(pageViewUsecase),
 	}
 	return server
 }
@@ -93,7 +97,7 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "http://localhost:3001", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms"},
+		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms", "https://txnfqqn7-8081.euw.devtunnels.ms", "https://victory-admin-page.vercel.app"},
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
@@ -115,6 +119,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
+	s.pageViewHandler.RegisterRoutes(api.Group("/pageview"))
 
 	return r
 }
