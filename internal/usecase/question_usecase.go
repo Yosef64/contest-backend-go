@@ -8,6 +8,7 @@ type QuestionUsecase interface {
 	DeleteQuestion(id string) error
 	GetQuestionByID(id string) (*domain.Question, error)
 	GetAllQuestions() ([]domain.Question, error)
+	AddMultipleQuestions(questions []domain.Question) error
 }
 
 type questionUsecase struct {
@@ -34,3 +35,7 @@ func (u *questionUsecase) GetAllQuestions() ([]domain.Question, error) {
 	return u.repo.GetAllQuestions()
 }
 
+func (u *questionUsecase) AddMultipleQuestions(questions []domain.Question) error {
+	err := u.repo.AddMultipleQuestions(questions)
+	return err
+}

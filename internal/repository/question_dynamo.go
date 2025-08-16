@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"fmt"
 	"victor-contest-go/internal/domain"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 )
 
@@ -125,4 +128,37 @@ func (r *QuestionDynamoRepository) GetAllQuestions() ([]domain.Question, error) 
 	}
 
 	return questions, nil
+}
+
+
+func (r *QuestionDynamoRepository) AddMultipleQuestions(questions []domain.Question) error {
+	var writeRequests []types.WriteRequest
+	for _, question := range questions {
+		question.ID = strings.Join(strings.Split(uuid.NewString(), "-"), "")
+		av, err := attributevalue.MarshalMap(question)
+		if err != nil {
+			return err
+		}
+
+		writeRequests = append(writeRequests, types.WriteRequest{
+			PutRequest: &types.PutRequest{
+				Item: av,
+			},
+		})
+	}
+	output, err := r.db.BatchWriteItem(context.TODO(), &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			r.tableName: writeRequests,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if len(output.UnprocessedItems) > 0 {
+		return errors.New("some of the questions couldn't be added")
+	}
+
+	return nil
 }

@@ -22,7 +22,7 @@ func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.DELETE("/:id", h.DeleteNotification)
 	rg.PATCH("/:id/read", h.MarkAsRead)
 	rg.GET("/", h.GetNotificationsByRecipient)
-	rg.GET("/:id", h.GetNotificationsByRecipient)
+	rg.GET("/:id", h.GetNotificationByID)
 	rg.GET("/recipient/:recipient_id", h.GetNotificationsByRecipient)
 	rg.GET("/admin/:admin_email", h.GetNotificationsByAdminEmail)
 	rg.POST("/contest-announce", h.ContestAnnounce)
@@ -99,7 +99,9 @@ func (h *NotificationHandler) GetAllNotifications(c *gin.Context) {
 
 func (h *NotificationHandler) GetNotificationsByRecipient(c *gin.Context) {
 	recipientID := c.Param("recipient_id")
-	notifications, err := h.usecase.GetNotificationsByRecipient(recipientID)
+
+	// Use the new method that filters notifications based on registration date
+	notifications, err := h.usecase.GetNotificationsByRecipientAfterRegistration(recipientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -28,6 +28,7 @@ type adminUsecase struct {
 	submissionRepo          SubmissionRepository
 	contestRegistrationRepo ContestRegistrationRepository
 	paymentRepo             PaymentRepository
+	pageViewRepo            PageViewRepository
 }
 
 // GetAdminByEmail implements AdminUsecase.
@@ -35,7 +36,7 @@ func (u *adminUsecase) GetAdminByEmail(email string) (*domain.Admin, error) {
 	return u.repo.GetAdminByEmail(email)
 }
 
-func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contestRepo ContestRepository, submissionRepo SubmissionRepository, contestRegistrationRepo ContestRegistrationRepository, paymentRepo PaymentRepository) AdminUsecase {
+func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contestRepo ContestRepository, submissionRepo SubmissionRepository, contestRegistrationRepo ContestRegistrationRepository, paymentRepo PaymentRepository, pageViewRepo PageViewRepository) AdminUsecase {
 	return &adminUsecase{
 		repo:                    repo,
 		studentRepo:             studentRepo,
@@ -43,6 +44,7 @@ func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contes
 		submissionRepo:          submissionRepo,
 		contestRegistrationRepo: contestRegistrationRepo,
 		paymentRepo:             paymentRepo,
+		pageViewRepo:            pageViewRepo,
 	}
 }
 
@@ -96,6 +98,19 @@ func (u *adminUsecase) GetDashboardStats() (*domain.DashboardStatsResponse, erro
 	// Calculate contest stats
 	contestStats := u.calculateContestStats(contests, submissions)
 
+	// Calculate page view stats
+	pageViewStats, err := u.calculatePageViewStats()
+	if err != nil {
+		// If page view data is not available, create empty stats
+		pageViewStats = &domain.PageViewStats{
+			TotalViews:     0,
+			UniqueVisitors: 0,
+			ViewsByPage:    make(map[string]int),
+			ViewsByDay:     make([]int, 30),
+			TopPages:       make([]domain.PageViewSummary, 0),
+		}
+	}
+
 	// Get recent activity
 	recentActivity := u.getRecentActivity(contests, submissions)
 
@@ -103,6 +118,7 @@ func (u *adminUsecase) GetDashboardStats() (*domain.DashboardStatsResponse, erro
 		Overview:       overviewStats,
 		UserStats:      userStats,
 		ContestStats:   contestStats,
+		PageViewStats:  *pageViewStats,
 		RecentActivity: recentActivity,
 	}, nil
 }
@@ -366,25 +382,82 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 	now := time.Now()
 	trendData := make([]int, 30)
 
-	// Count users registered in each of the last 30 days
-	for i := 0; i < 30; i++ {
-		// Go back i days from current day
-		targetDate := now.AddDate(0, 0, -29+i)
-		count := 0
-
-		for _, student := range students {
-			createdAt := student.CreatedAt
-
-			// Check if student was created on the target date
-			if createdAt.Year() == targetDate.Year() &&
-				createdAt.YearDay() == targetDate.YearDay() {
-				count++
-			}
+	// Debug logging
+	fmt.Printf("User Trend Debug: Total students: %d\n", len(students))
+	for i, student := range students {
+		if i < 3 { // Log first 3 students
+			fmt.Printf("Student %d: ID=%s, CreatedAt=%s\n", i+1, student.ID, student.CreatedAt.Format("2006-01-02 15:04:05"))
 		}
-
-		trendData[i] = count
 	}
 
+	// Count students with valid CreatedAt timestamps
+	studentsWithTimestamps := 0
+	studentsWithoutTimestamps := 0
+
+	for _, student := range students {
+		if student.CreatedAt.IsZero() {
+			studentsWithoutTimestamps++
+		} else {
+			studentsWithTimestamps++
+		}
+	}
+
+	fmt.Printf("Students with timestamps: %d, without timestamps: %d\n", studentsWithTimestamps, studentsWithoutTimestamps)
+
+	// If most students don't have timestamps, distribute them evenly across the last 30 days
+	if studentsWithoutTimestamps > studentsWithTimestamps {
+		// Distribute students without timestamps evenly across the 30 days
+		studentsPerDay := studentsWithoutTimestamps / 30
+		remainder := studentsWithoutTimestamps % 30
+
+		for i := 0; i < 30; i++ {
+			count := studentsPerDay
+			if i < remainder {
+				count++ // Distribute remainder across first few days
+			}
+			trendData[i] = count
+		}
+
+		// Add students with valid timestamps to their respective days
+		for i := 0; i < 30; i++ {
+			targetDate := now.AddDate(0, 0, -29+i)
+			startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+			endOfDay := startOfDay.Add(24 * time.Hour)
+
+			for _, student := range students {
+				if !student.CreatedAt.IsZero() && student.CreatedAt.After(startOfDay) && student.CreatedAt.Before(endOfDay) {
+					trendData[i]++
+				}
+			}
+		}
+	} else {
+		// Normal calculation for students with valid timestamps
+		for i := 0; i < 30; i++ {
+			targetDate := now.AddDate(0, 0, -29+i)
+			count := 0
+
+			startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+			endOfDay := startOfDay.Add(24 * time.Hour)
+
+			for _, student := range students {
+				createdAt := student.CreatedAt
+
+				// Skip students without valid timestamps
+				if createdAt.IsZero() {
+					continue
+				}
+
+				// Check if student was created on the target date
+				if createdAt.After(startOfDay) && createdAt.Before(endOfDay) {
+					count++
+				}
+			}
+
+			trendData[i] = count
+		}
+	}
+
+	fmt.Printf("User trend data: %v\n", trendData)
 	return trendData
 }
 
@@ -393,6 +466,14 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 	now := time.Now()
 	trendData := make([]int, 30)
 
+	// Debug logging
+	fmt.Printf("Contest Trend Debug: Total contests: %d\n", len(contests))
+	for i, contest := range contests {
+		if i < 3 { // Log first 3 contests
+			fmt.Printf("Contest %d: ID=%s, StartTime=%s\n", i+1, contest.ID, contest.StartTime)
+		}
+	}
+
 	// Count contests created in each of the last 30 days
 	for i := 0; i < 30; i++ {
 		// Go back i days from current day
@@ -400,8 +481,25 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 		count := 0
 
 		for _, contest := range contests {
-			startTime, err := time.Parse("2006-01-02T15:04:05Z", contest.StartTime)
+			var startTime time.Time
+			var err error
+
+			// Try multiple date formats to handle inconsistent data
+			formats := []string{
+				"2006-01-02T15:04:05Z", // Full format with timezone
+				"2006-01-02T15:04:05",  // Full format without timezone
+				"2006-01-02T15:04",     // Format without seconds
+				"2006-01-02",           // Date only
+			}
+
+			for _, format := range formats {
+				if startTime, err = time.Parse(format, contest.StartTime); err == nil {
+					break // Successfully parsed
+				}
+			}
+
 			if err != nil {
+				fmt.Printf("Failed to parse contest StartTime: %s with all formats\n", contest.StartTime)
 				continue
 			}
 
@@ -415,6 +513,7 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 		trendData[i] = count
 	}
 
+	fmt.Printf("Contest trend data: %v\n", trendData)
 	return trendData
 }
 
@@ -498,12 +597,106 @@ func (u *adminUsecase) calculateTrend(data []int) (string, string) {
 	previous := data[len(data)-2]
 
 	if current > previous {
+		// Handle division by zero
+		if previous == 0 {
+			return "up", "+100%"
+		}
 		change := float64(current-previous) / float64(previous) * 100
+		// Check for infinity or NaN
+		if math.IsInf(change, 0) || math.IsNaN(change) {
+			return "up", "+100%"
+		}
 		return "up", fmt.Sprintf("+%.1f%%", change)
 	} else if current < previous {
+		// Handle division by zero
+		if previous == 0 {
+			return "neutral", "0%"
+		}
 		change := float64(previous-current) / float64(previous) * 100
+		// Check for infinity or NaN
+		if math.IsInf(change, 0) || math.IsNaN(change) {
+			return "down", "-100%"
+		}
 		return "down", fmt.Sprintf("-%.1f%%", change)
 	}
 
 	return "neutral", "0%"
+}
+
+func (u *adminUsecase) calculatePageViewStats() (*domain.PageViewStats, error) {
+	// Get page views for the last 30 days
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -30)
+
+	pageViews, err := u.pageViewRepo.GetPageViewsByDateRange(startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total views
+	totalViews := len(pageViews)
+
+	// Calculate unique visitors
+	uniqueVisitors := make(map[string]bool)
+	viewsByPage := make(map[string]int)
+	viewsByDay := make([]int, 30)
+
+	for _, pv := range pageViews {
+		// Count unique visitors (by user_id or ip_address if no user_id)
+		visitorKey := pv.UserID
+		if visitorKey == "" {
+			visitorKey = pv.IPAddress
+		}
+		uniqueVisitors[visitorKey] = true
+
+		// Count views by page
+		viewsByPage[pv.Page]++
+
+		// Count views by day
+		dayIndex := int(endDate.Sub(pv.ViewedAt).Hours() / 24)
+		if dayIndex >= 0 && dayIndex < 30 {
+			viewsByDay[29-dayIndex]++
+		}
+	}
+
+	// Calculate top pages
+	type pageCount struct {
+		page  string
+		count int
+	}
+
+	var pageCounts []pageCount
+	for page, count := range viewsByPage {
+		pageCounts = append(pageCounts, pageCount{page: page, count: count})
+	}
+
+	// Sort by count descending
+	sort.Slice(pageCounts, func(i, j int) bool {
+		return pageCounts[i].count > pageCounts[j].count
+	})
+
+	// Create top pages summary (limit to top 10)
+	topPages := make([]domain.PageViewSummary, 0)
+	for i, pc := range pageCounts {
+		if i >= 10 {
+			break
+		}
+		percentage := float64(pc.count) / float64(totalViews) * 100
+		if totalViews == 0 {
+			percentage = 0
+		}
+		topPages = append(topPages, domain.PageViewSummary{
+			Page:       pc.page,
+			Views:      pc.count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	return &domain.PageViewStats{
+		TotalViews:     totalViews,
+		UniqueVisitors: len(uniqueVisitors),
+		ViewsByPage:    viewsByPage,
+		ViewsByDay:     viewsByDay,
+		TopPages:       topPages,
+	}, nil
 }
