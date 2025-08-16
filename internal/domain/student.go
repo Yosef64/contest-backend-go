@@ -1,34 +1,37 @@
 package domain
 
+import "time"
+
 type Student struct {
-    ID          string   `dynamodbav:"id"          json:"id"`
-    TelegramID  string   `dynamodbav:"telegram_id"  json:"telegram_id"`
-    Name        string   `dynamodbav:"name"        json:"name"`
-    Age         string   `dynamodbav:"age"         json:"age"`
-    Grade       string   `dynamodbav:"grade"       json:"grade"`
-    School      string   `dynamodbav:"school"      json:"school"`
-    City        string   `dynamodbav:"city"        json:"city"`
-    Region      string   `dynamodbav:"region"      json:"region"`
-    ImgURL      string   `dynamodbav:"imgurl"      json:"imgurl"`
-    IsSuspended bool     `dynamodbav:"isSuspended" json:"isSuspended"`
-    PhoneNumber string    `dynamodbav:"phoneNumber" json:"phoneNumber"`
-    Badge       []string `dynamodbav:"badge"       json:"badge"`
-    Gender      string    `dynamodbav:"gender"      json:"gender"`
-    IsPremium bool       `dynamodbav:"is_premium"    json:"is_premium"`
-    ReadNotifications map[string]ReadNotificationModel `dynamodbav:"read_notifications"    json:"read_notifications"`
+	ID                string                           `dynamodbav:"id"          json:"id"`
+	TelegramID        string                           `dynamodbav:"telegram_id"  json:"telegram_id"`
+	Name              string                           `dynamodbav:"name"        json:"name"`
+	Age               string                           `dynamodbav:"age"         json:"age"`
+	Grade             string                           `dynamodbav:"grade"       json:"grade"`
+	School            string                           `dynamodbav:"school"      json:"school"`
+	City              string                           `dynamodbav:"city"        json:"city"`
+	Region            string                           `dynamodbav:"region"      json:"region"`
+	ImgURL            string                           `dynamodbav:"imgurl"      json:"imgurl"`
+	IsSuspended       bool                             `dynamodbav:"isSuspended" json:"isSuspended"`
+	PhoneNumber       string                           `dynamodbav:"phoneNumber" json:"phoneNumber"`
+	Badge             []string                         `dynamodbav:"badge"       json:"badge"`
+	Gender            string                           `dynamodbav:"gender"      json:"gender"`
+	IsPremium         bool                             `dynamodbav:"is_premium"    json:"is_premium"`
+	ReadNotifications map[string]ReadNotificationModel `dynamodbav:"read_notifications"    json:"read_notifications"`
+	CreatedAt         time.Time                        `dynamodbav:"created_at"    json:"created_at"`
 }
 
-type ReadNotificationModel struct{
-    Id  string `json:"id"`
-    IsDeleted  bool  `json:"is_deleted"`
+type ReadNotificationModel struct {
+	Id        string `json:"id"`
+	IsDeleted bool   `json:"is_deleted"`
 }
-type StudentProfilesStatisticsDto struct{
-    TotalContests int `json:"totalContests"`
-    TotalQuestions int    `json:"totalQuestions"`
-    CorrectAnswers int   `json:"correctAnswers"`
-    Accuracy int `json:"accuracy"`
-    AverageTime int  `json:"averageTime"`
-    Rank int  `json:"rank"`
+type StudentProfilesStatisticsDto struct {
+	TotalContests  int `json:"totalContests"`
+	TotalQuestions int `json:"totalQuestions"`
+	CorrectAnswers int `json:"correctAnswers"`
+	Accuracy       int `json:"accuracy"`
+	AverageTime    int `json:"averageTime"`
+	Rank           int `json:"rank"`
 }
 
 type CategoryStat struct {
@@ -44,21 +47,20 @@ type PerformanceTrendPoint struct {
 }
 
 type UserStatistics struct {
-	TotalContests    int                              `json:"total_contests"`
-	TotalQuestions   int                              `json:"total_questions"`
-	CorrectAnswers   int                              `json:"correct_answers"`
-	Accuracy         float64                          `json:"accuracy"`
-	AverageTime      float64                          `json:"average_time"`
-	Subjects         map[string]*CategoryStat          `json:"subjects"`
-	Chapters         map[string]*CategoryStat          `json:"chapters"`
-	Grades           map[string]*CategoryStat          `json:"grades"`
-	PerformanceTrend []PerformanceTrendPoint 		 `json:"performance_trend"`
+	TotalContests    int                      `json:"total_contests"`
+	TotalQuestions   int                      `json:"total_questions"`
+	CorrectAnswers   int                      `json:"correct_answers"`
+	Accuracy         float64                  `json:"accuracy"`
+	AverageTime      float64                  `json:"average_time"`
+	Subjects         map[string]*CategoryStat `json:"subjects"`
+	Chapters         map[string]*CategoryStat `json:"chapters"`
+	Grades           map[string]*CategoryStat `json:"grades"`
+	PerformanceTrend []PerformanceTrendPoint  `json:"performance_trend"`
 }
 
-type StudentProfileAdminResponse struct{
-    Student 
-    Payment PaymentRequest `json:"payment"`
-    ContestSubmissions []Submission  `json:"contestSubmissions"`
-    TotalPoints  int64 `json:"totalPoints"`
-
+type StudentProfileAdminResponse struct {
+	Student
+	Payment            PaymentRequest `json:"payment"`
+	ContestSubmissions []Submission   `json:"contestSubmissions"`
+	TotalPoints        int64          `json:"totalPoints"`
 }
