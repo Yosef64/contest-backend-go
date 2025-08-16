@@ -28,6 +28,7 @@ type adminUsecase struct {
 	submissionRepo          SubmissionRepository
 	contestRegistrationRepo ContestRegistrationRepository
 	paymentRepo             PaymentRepository
+	pageViewRepo            PageViewRepository
 }
 
 // GetAdminByEmail implements AdminUsecase.
@@ -35,7 +36,7 @@ func (u *adminUsecase) GetAdminByEmail(email string) (*domain.Admin, error) {
 	return u.repo.GetAdminByEmail(email)
 }
 
-func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contestRepo ContestRepository, submissionRepo SubmissionRepository, contestRegistrationRepo ContestRegistrationRepository, paymentRepo PaymentRepository) AdminUsecase {
+func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contestRepo ContestRepository, submissionRepo SubmissionRepository, contestRegistrationRepo ContestRegistrationRepository, paymentRepo PaymentRepository, pageViewRepo PageViewRepository) AdminUsecase {
 	return &adminUsecase{
 		repo:                    repo,
 		studentRepo:             studentRepo,
@@ -43,6 +44,7 @@ func NewAdminUsecase(repo AdminRepository, studentRepo StudentRepository, contes
 		submissionRepo:          submissionRepo,
 		contestRegistrationRepo: contestRegistrationRepo,
 		paymentRepo:             paymentRepo,
+		pageViewRepo:            pageViewRepo,
 	}
 }
 
@@ -96,6 +98,19 @@ func (u *adminUsecase) GetDashboardStats() (*domain.DashboardStatsResponse, erro
 	// Calculate contest stats
 	contestStats := u.calculateContestStats(contests, submissions)
 
+	// Calculate page view stats
+	pageViewStats, err := u.calculatePageViewStats()
+	if err != nil {
+		// If page view data is not available, create empty stats
+		pageViewStats = &domain.PageViewStats{
+			TotalViews:     0,
+			UniqueVisitors: 0,
+			ViewsByPage:    make(map[string]int),
+			ViewsByDay:     make([]int, 30),
+			TopPages:       make([]domain.PageViewSummary, 0),
+		}
+	}
+
 	// Get recent activity
 	recentActivity := u.getRecentActivity(contests, submissions)
 
@@ -103,6 +118,7 @@ func (u *adminUsecase) GetDashboardStats() (*domain.DashboardStatsResponse, erro
 		Overview:       overviewStats,
 		UserStats:      userStats,
 		ContestStats:   contestStats,
+		PageViewStats:  *pageViewStats,
 		RecentActivity: recentActivity,
 	}, nil
 }
@@ -605,4 +621,82 @@ func (u *adminUsecase) calculateTrend(data []int) (string, string) {
 	}
 
 	return "neutral", "0%"
+}
+
+func (u *adminUsecase) calculatePageViewStats() (*domain.PageViewStats, error) {
+	// Get page views for the last 30 days
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -30)
+
+	pageViews, err := u.pageViewRepo.GetPageViewsByDateRange(startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total views
+	totalViews := len(pageViews)
+
+	// Calculate unique visitors
+	uniqueVisitors := make(map[string]bool)
+	viewsByPage := make(map[string]int)
+	viewsByDay := make([]int, 30)
+
+	for _, pv := range pageViews {
+		// Count unique visitors (by user_id or ip_address if no user_id)
+		visitorKey := pv.UserID
+		if visitorKey == "" {
+			visitorKey = pv.IPAddress
+		}
+		uniqueVisitors[visitorKey] = true
+
+		// Count views by page
+		viewsByPage[pv.Page]++
+
+		// Count views by day
+		dayIndex := int(endDate.Sub(pv.ViewedAt).Hours() / 24)
+		if dayIndex >= 0 && dayIndex < 30 {
+			viewsByDay[29-dayIndex]++
+		}
+	}
+
+	// Calculate top pages
+	type pageCount struct {
+		page  string
+		count int
+	}
+
+	var pageCounts []pageCount
+	for page, count := range viewsByPage {
+		pageCounts = append(pageCounts, pageCount{page: page, count: count})
+	}
+
+	// Sort by count descending
+	sort.Slice(pageCounts, func(i, j int) bool {
+		return pageCounts[i].count > pageCounts[j].count
+	})
+
+	// Create top pages summary (limit to top 10)
+	topPages := make([]domain.PageViewSummary, 0)
+	for i, pc := range pageCounts {
+		if i >= 10 {
+			break
+		}
+		percentage := float64(pc.count) / float64(totalViews) * 100
+		if totalViews == 0 {
+			percentage = 0
+		}
+		topPages = append(topPages, domain.PageViewSummary{
+			Page:       pc.page,
+			Views:      pc.count,
+			Percentage: math.Round(percentage*100) / 100,
+		})
+	}
+
+	return &domain.PageViewStats{
+		TotalViews:     totalViews,
+		UniqueVisitors: len(uniqueVisitors),
+		ViewsByPage:    viewsByPage,
+		ViewsByDay:     viewsByDay,
+		TopPages:       topPages,
+	}, nil
 }

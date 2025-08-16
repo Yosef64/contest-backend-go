@@ -25,6 +25,7 @@ type Server struct {
 	paymentHandler             *PaymentHandler
 	aiHandler                  *AiHandler
 	telegramHandler            *telegramHandler
+	pageViewHandler            *PageViewHandler
 }
 
 func NewServer() *Server {
@@ -43,6 +44,7 @@ func NewServer() *Server {
 	achievementRepo := repository.NewAchievementDynamoRepository("eu-north-1", "achievement")
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
 	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
+	pageViewRepo := repository.NewPageViewDynamoRepository("eu-north-1", "pageviews")
 
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
@@ -54,7 +56,8 @@ func NewServer() *Server {
 	studentUsecase := usecase.NewStudentUsecase(studentRepo, paymentRepo, submissionRepo, contestRepo)
 	questionUsecase := usecase.NewQuestionUsecase(questionRepo)
 	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo, studentRepo)
-	adminUsecase := usecase.NewAdminUsecase(adminRepo, studentRepo, contestRepo, submissionRepo, contestRegistrationRepo, paymentRepo)
+	adminUsecase := usecase.NewAdminUsecase(adminRepo, studentRepo, contestRepo, submissionRepo, contestRegistrationRepo, paymentRepo, pageViewRepo)
+	pageViewUsecase := usecase.NewPageViewUsecase(pageViewRepo)
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo, studentRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
@@ -83,6 +86,7 @@ func NewServer() *Server {
 		paymentHandler:             NewPaymentHandler(paymentUsecase, *imgRepo),
 		aiHandler:                  NewAiHandler(aiUsecase),
 		telegramHandler:            NewTelegramHandler(telegramUsecase),
+		pageViewHandler:            NewPageViewHandler(pageViewUsecase),
 	}
 	return server
 }
@@ -112,6 +116,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.paymentHandler.RegisterRoutes(api.Group("/payment"))
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
+	s.pageViewHandler.RegisterRoutes(api.Group("/pageview"))
 
 	return r
 }

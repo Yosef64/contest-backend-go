@@ -119,3 +119,10 @@ type PaymentRepository interface {
 	ListExpired(now time.Time) ([]domain.PaymentRequest, error)
 	ListAll() ([]domain.PaymentRequest, error)
 }
+
+type PageViewRepository interface {
+	AddPageView(pageView domain.PageView) error
+	GetPageViewsByDateRange(startDate, endDate time.Time) ([]domain.PageView, error)
+	GetAllPageViews() ([]domain.PageView, error)
+	GetPageViewsByUserID(userID string) ([]domain.PageView, error)
+}
