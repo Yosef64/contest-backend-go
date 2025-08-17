@@ -14,10 +14,10 @@ import (
 
 type ContestHandler struct {
 	usecase             usecase.ContestUsecase
-	notificationService *usecase.NotificationService
+	notificationService usecase.NotificationUsecase
 }
 
-func NewContestHandler(u usecase.ContestUsecase, notificationService *usecase.NotificationService) *ContestHandler {
+func NewContestHandler(u usecase.ContestUsecase, notificationService usecase.NotificationUsecase) *ContestHandler {
 	return &ContestHandler{
 		usecase:             u,
 		notificationService: notificationService,
@@ -248,7 +248,11 @@ func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 
 	// Send notifications to all students
 	if h.notificationService != nil {
-		err = h.notificationService.SendContestAnnouncementNotification(contest.Contest, announceRequest.Message)
+		message := "Feadback questions are added. so everybody fill all the questions"
+		title := "New feedback question"
+		recepientId := "all"
+		Type := "feedback_question"
+		err = h.notificationService.SendNotification(title, message, Type, recepientId)
 		if err != nil {
 			fmt.Printf("Warning: Failed to send notifications to students: %v\n", err)
 			// Don't fail the announcement if notifications fail

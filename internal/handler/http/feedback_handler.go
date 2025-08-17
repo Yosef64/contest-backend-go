@@ -49,7 +49,11 @@ func (h *FeedbackQuestionHandler) AddFeedbackQuestion(c *gin.Context) {
 	// Send notifications to all students about the new feedback question
 	if h.notificationService != nil {
 		go func() {
-			err := h.notificationService.SendFeedbackQuestionNotification(question)
+			message := "Feadback questions are added. so everybody fill all the questions"
+			title := "New feedback question"
+			recepientId := "all"
+			Type := "feedback_question"
+			err := h.notificationService.SendNotification(title, message, Type, recepientId)
 			if err != nil {
 				log.Printf("Failed to send feedback question notifications: %v", err)
 			}
@@ -250,7 +254,10 @@ func (h *FeedbackResponseHandler) AddFeedbackResponse(c *gin.Context) {
 	}
 	go func() {
 		if h.notificationService != nil {
-			h.notificationService.SendFeedbackResponseNotification(response)
+			message := fmt.Sprintf("%s sent a feedback response", response.StudentName)
+			Type := "feedback_response"
+			reciepientId := response.StudentID
+			h.notificationService.SendNotification("New Feedback response", message, Type, reciepientId)
 		}
 	}()
 
