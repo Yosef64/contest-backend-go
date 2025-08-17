@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"time"
 	"victor-contest-go/internal/domain"
@@ -37,10 +38,13 @@ func (h *PaymentHandler) GetAllPayments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"payments": payments})
 }
 func (h *PaymentHandler) UpdatePaymentStatus(c *gin.Context) {
-	var reason domain.PaymentReason
-	c.ShouldBindJSON(&reason)
-	// log.Printf(reason.Reason)
-	paymentId, status := c.Query("payment_id"), c.Query("status")
+	var payment domain.PaymentRequest
+	if err := c.ShouldBindJSON(&payment); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	paymentId, status, reason := payment.ID, payment.Status, payment.RejectionReason
+	log.Printf("paymentId %s", paymentId, status, reason)
 	paymentStatus := domain.PaymentStatus(status)
 	err := h.usecase.UpdatePaymentStatus(paymentId, paymentStatus, reason)
 	if err != nil {

@@ -107,7 +107,7 @@ func (r *dynamoDBPaymentRepository) GetByID(id string) (*domain.PaymentRequest, 
 	return &req, nil
 }
 
-func (r *dynamoDBPaymentRepository) UpdateStatus(id string, newStatus domain.PaymentStatus, reason domain.PaymentReason) error {
+func (r *dynamoDBPaymentRepository) UpdateStatus(id string, newStatus domain.PaymentStatus, reason string) error {
 	// ✅ Use the full composite key
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"id": id,
@@ -126,17 +126,17 @@ func (r *dynamoDBPaymentRepository) UpdateStatus(id string, newStatus domain.Pay
 	expressionAttributeValues, err := attributevalue.MarshalMap(map[string]any{
 		":status":    newStatus,
 		":updatedAt": time.Now().UTC(),
-		":reason":    aws.String(reason.Reason),
+		":reason":    aws.String(reason),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal base values: %w", err)
 	}
 
-	if reason.Reason != "" {
+	if reason != "" {
 		updateExpression += ", #rejectionReason = :rejectionReason"
 		expressionAttributeNames["#rejectionReason"] = "rejection_reason"
 
-		reasonValue, _ := attributevalue.Marshal(reason.Reason)
+		reasonValue, _ := attributevalue.Marshal(reason)
 		expressionAttributeValues[":rejectionReason"] = reasonValue
 	}
 
