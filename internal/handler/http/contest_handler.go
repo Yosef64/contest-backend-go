@@ -248,10 +248,10 @@ func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 
 	// Send notifications to all students
 	if h.notificationService != nil {
-		message := "Feadback questions are added. so everybody fill all the questions"
-		title := "New feedback question"
+		message := fmt.Sprintf("New contest is announce for grade %s", contest.Grade)
+		title := "New contest added"
 		recepientId := "all"
-		Type := "feedback_question"
+		Type := "contest_announcement"
 		err = h.notificationService.SendNotification(title, message, Type, recepientId)
 		if err != nil {
 			fmt.Printf("Warning: Failed to send notifications to students: %v\n", err)
@@ -263,12 +263,6 @@ func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 		fmt.Printf("Warning: Notification service not available\n")
 	}
 
-	// Here you would typically:
-	// 1. Save the announcement to database
-	// 2. Send notifications to all students ✅ (Now implemented above)
-	// 3. Log the announcement for admin tracking
-
-	// For now, we'll just return success
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "Contest announced successfully",
 		"announcement": announcementData,
