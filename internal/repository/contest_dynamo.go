@@ -19,7 +19,7 @@ type ContestDynamoRepository struct {
 	tableName string
 }
 
-func NewContestDynamoRepository(region string,tablename string) *ContestDynamoRepository {
+func NewContestDynamoRepository(region string, tablename string) *ContestDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 	)
@@ -78,7 +78,7 @@ func (r *ContestDynamoRepository) GetContestByID(id string) (*domain.Contest, er
 		return nil, err
 	}
 	if out.Item == nil {
-		return nil, nil // Not found
+		return nil, nil
 	}
 	
 	fmt.Printf("Raw DynamoDB item for contest %s: %+v\n", id, out.Item)
@@ -194,4 +194,4 @@ func (r *ContestDynamoRepository) DeleteContest(id string) error {
 		Key:       key,
 	})
 	return err
-} 
+}
