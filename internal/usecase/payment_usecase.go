@@ -21,11 +21,11 @@ type paymentUsecase struct {
 
 // GetAllPayments implements PaymentUsecase.
 func (p *paymentUsecase) GetAllPayments() ([]domain.PaymentRequest, error) {
-	payments,err := p.paymentRepo.ListAll()
+	payments, err := p.paymentRepo.ListAll()
 	if err != nil {
 		return nil, err
 	}
-	return payments,nil
+	return payments, nil
 }
 
 // GetPaymentByStatus implements PaymentUsecase.
@@ -35,8 +35,8 @@ func (p *paymentUsecase) GetPaymentByStatus(status domain.PaymentStatus) ([]doma
 
 // AddPayment implements PaymentUsecase.
 func (p *paymentUsecase) AddPayment(payment domain.PaymentRequest) error {
-	payment.CreatedAt = time.Now().In(time.Local)
-	expDate := time.Now().In(time.Local).AddDate(0, 1, 0)
+	payment.CreatedAt = time.Now().UTC()
+	expDate := time.Now().UTC().AddDate(0, 1, 0)
 	payment.ExpirationDate = &expDate
 	return p.paymentRepo.Create(&payment)
 }
@@ -57,7 +57,7 @@ func (p *paymentUsecase) GetPaymentByStudent(studId string) ([]domain.PaymentReq
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return payments, nil
 }
 
