@@ -142,8 +142,6 @@ func (h *ContestHandler) UpdateContest(c *gin.Context) {
 		update.Questions = currentContest.Contest.Questions
 	}
 
-	// Final safety check: if the update contains questions field but it's empty,
-	// and we had questions before, preserve the original questions
 	if rawData["questions"] != nil {
 		if questionsArray, ok := rawData["questions"].([]interface{}); ok {
 			if len(questionsArray) == 0 && len(currentContest.Contest.Questions) > 0 {

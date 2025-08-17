@@ -7,7 +7,7 @@ import (
 
 type PaymentUsecase interface {
 	AddPayment(payment domain.PaymentRequest) error
-	UpdatePaymentStatus(id string, status domain.PaymentStatus, reason domain.PaymentReason) error
+	UpdatePaymentStatus(id string, status domain.PaymentStatus, reason string) error
 	GetPaymentById(id string) (*domain.PaymentRequest, error)
 	GetPaymentByStudent(studId string) ([]domain.PaymentRequest, error)
 	GetExpiredPayment() ([]domain.PaymentRequest, error)
@@ -62,7 +62,7 @@ func (p *paymentUsecase) GetPaymentByStudent(studId string) ([]domain.PaymentReq
 }
 
 // UpdatePayment implements PaymentUsecase.
-func (p *paymentUsecase) UpdatePaymentStatus(id string, status domain.PaymentStatus, reason domain.PaymentReason) error {
+func (p *paymentUsecase) UpdatePaymentStatus(id string, status domain.PaymentStatus, reason string) error {
 	return p.paymentRepo.UpdateStatus(id, status, reason)
 }
 
