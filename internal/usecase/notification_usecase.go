@@ -149,7 +149,7 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recip
 func (s *notificationUsecase) SendNotification(title, message, Type, recipientId string) error {
 	notification := domain.Notification{
 		RecipientID: recipientId, // Use admin email as recipient ID
-		Title:       "New Feedback Response 📝",
+		Title:       title,
 		Message:     message,
 		IsRead:      false,
 		SentAt:      time.Now().Format(time.RFC3339),

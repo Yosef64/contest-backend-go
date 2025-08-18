@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"net/http"
 	"time"
 	"victor-contest-go/internal/domain"
@@ -44,7 +43,6 @@ func (h *PaymentHandler) UpdatePaymentStatus(c *gin.Context) {
 		return
 	}
 	paymentId, status, reason := payment.ID, payment.Status, payment.RejectionReason
-	log.Printf("paymentId %s", paymentId, status, reason)
 	paymentStatus := domain.PaymentStatus(status)
 	err := h.usecase.UpdatePaymentStatus(paymentId, paymentStatus, reason)
 	if err != nil {
