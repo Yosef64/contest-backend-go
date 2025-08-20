@@ -30,17 +30,16 @@ func (r *dynamoDBPaymentRepository) ListAll() ([]domain.PaymentRequest, error) {
 	}
 
 	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
-		TableName: aws.String(r.tableName),
-		IndexName: aws.String("GSI1PK-user_id-index"),
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("GSI1PK-user_id-index"),
 		KeyConditionExpression: aws.String("GSI1PK = :gsi1pk AND #st = :user_id"),
 		ExpressionAttributeNames: map[string]string{
 			"#st": "user_id",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":gsi1pk": gsi1PK,
+			":gsi1pk":  gsi1PK,
 			":user_id": &types.AttributeValueMemberS{Value: "112pay"},
 		},
-
 	})
 	if err != nil {
 		return nil, err
@@ -48,7 +47,7 @@ func (r *dynamoDBPaymentRepository) ListAll() ([]domain.PaymentRequest, error) {
 	if err := attributevalue.UnmarshalListOfMaps(out.Items, &payments); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal payments: %w", err)
 	}
-	return payments,nil
+	return payments, nil
 }
 
 func NewDynamoDBPaymentRepository(region string, tableName string) usecase.PaymentRepository {
@@ -199,17 +198,16 @@ func (r *dynamoDBPaymentRepository) ListByUser(userID string) ([]domain.PaymentR
 	}
 
 	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
-		TableName: aws.String(r.tableName),
-		IndexName: aws.String("GSI1PK-user_id-index"),
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("GSI1PK-user_id-index"),
 		KeyConditionExpression: aws.String("GSI1PK = :gsi1pk AND #st = :user_id"),
 		ExpressionAttributeNames: map[string]string{
 			"#st": "user_id",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":gsi1pk": gsi1PK,
+			":gsi1pk":  gsi1PK,
 			":user_id": &types.AttributeValueMemberS{Value: userID},
 		},
-
 	})
 	if err != nil {
 		return nil, err
@@ -217,7 +215,7 @@ func (r *dynamoDBPaymentRepository) ListByUser(userID string) ([]domain.PaymentR
 	if err := attributevalue.UnmarshalListOfMaps(out.Items, &payments); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal payments: %w", err)
 	}
-	return payments,nil
+	return payments, nil
 }
 
 // ListExpired uses the new sparse GSI.

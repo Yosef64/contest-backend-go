@@ -41,7 +41,7 @@ func (h *SubmissionHandler) AddSubmission(c *gin.Context) {
 	log.Printf("submission:%+v", submission)
 	id, err := h.usecase.AddSubmission(submission)
 	if err != nil {
-		log.Printf("error:%s",err.Error())
+		log.Printf("error:%s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

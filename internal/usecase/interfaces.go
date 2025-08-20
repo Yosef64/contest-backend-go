@@ -16,6 +16,8 @@ type ContestRepository interface {
 type StudentRepository interface {
 	AddStudent(student domain.Student) error
 	UpdateStudent(student domain.Student) error
+	DeleteStudent(id string) error
+	GetStudentByTelegramID(telegramID string) (*domain.Student, error)
 	VerifyStudentPaid(telegramID string) (bool, error)
 	GetPaidStudents() ([]domain.Student, error)
 	GetStudents() ([]domain.Student, error)
@@ -126,4 +128,10 @@ type PageViewRepository interface {
 	GetPageViewsByDateRange(startDate, endDate time.Time) ([]domain.PageView, error)
 	GetAllPageViews() ([]domain.PageView, error)
 	GetPageViewsByUserID(userID string) ([]domain.PageView, error)
+}
+
+type ContestStatisticsRepository interface {
+	GetContestStatistics(contestID string, filters domain.StatisticsFilters) (*domain.ContestStatistics, error)
+	GetStudentPerformancesByContest(contestID string, filters domain.StatisticsFilters, page, pageSize int) (*domain.StudentPerformanceList, error)
+	GetContestSummary(contestID string) (*domain.ContestStatistics, error)
 }

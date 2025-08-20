@@ -4,6 +4,8 @@ import (
 	"victor-contest-go/internal/repository"
 	"victor-contest-go/internal/usecase"
 
+	"strings"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -26,6 +28,7 @@ type Server struct {
 	aiHandler                  *AiHandler
 	telegramHandler            *telegramHandler
 	pageViewHandler            *PageViewHandler
+	contestStatisticsHandler   *ContestStatisticsHandler
 }
 
 func NewServer() *Server {
@@ -65,6 +68,9 @@ func NewServer() *Server {
 	aiUsecase := usecase.NewAiUsecase(submissionRepo)
 	telegramUsecase := usecase.NewTelegramUsecase(bot)
 
+	// --- Initialize Contest Statistics Use Case ---
+	contestStatisticsUsecase := usecase.NewContestStatisticsUsecase(contestUsecase, submissionUsecase, studentUsecase, questionUsecase, nil)
+
 	// --- Initialize Notification Service ---
 	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
 
@@ -90,6 +96,7 @@ func NewServer() *Server {
 		aiHandler:                  NewAiHandler(aiUsecase),
 		telegramHandler:            NewTelegramHandler(telegramUsecase),
 		pageViewHandler:            NewPageViewHandler(pageViewUsecase),
+		contestStatisticsHandler:   NewContestStatisticsHandler(contestStatisticsUsecase),
 	}
 	return server
 }
@@ -97,9 +104,28 @@ func NewServer() *Server {
 func (s *Server) NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://www.my-frontend.com", "http://localhost:5173", "http://localhost:5174", "https://7wwb0knl-5173.euw.devtunnels.ms", "https://victory-contest.vercel.app", "https://txnfqqn7-5173.euw.devtunnels.ms", "https://txnfqqn7-8000.euw.devtunnels.ms", "https://txnfqqn7-8081.euw.devtunnels.ms", "https://victory-admin-page.vercel.app"},
+		AllowOrigins: []string{
+			"https://www.my-frontend.com",
+			"http://localhost:5173",
+			"http://localhost:5174",
+			"https://7wwb0knl-5173.euw.devtunnels.ms",
+			"https://victory-contest.vercel.app",
+			"https://txnfqqn7-5173.euw.devtunnels.ms",
+			"https://txnfqqn7-8000.euw.devtunnels.ms",
+			"https://victory-admin-page.vercel.app",
+		},
+		AllowOriginFunc: func(origin string) bool {
+			if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "https://localhost:") {
+				return true
+			}
+			if strings.HasSuffix(origin, ".euw.devtunnels.ms") || strings.HasSuffix(origin, ".devtunnels.ms") {
+				return true
+			}
+			return false
+		},
 		AllowMethods:     []string{"PUT", "PATCH", "POST", "GET", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-Site", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform"},
+		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * 60 * 60,
 	}))
@@ -120,6 +146,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
 	s.pageViewHandler.RegisterRoutes(api.Group("/pageview"))
+	s.contestStatisticsHandler.RegisterRoutes(api.Group("/statistics"))
 
 	return r
 }

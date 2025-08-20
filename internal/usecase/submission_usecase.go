@@ -157,7 +157,7 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 	}
 
 	// Build and sort performance trend
-	trendList := make([]domain.PerformanceTrendPoint,0)
+	trendList := make([]domain.PerformanceTrendPoint, 0)
 	var months []string
 	for month := range performanceTrendData {
 		months = append(months, month)
@@ -259,12 +259,11 @@ func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]
 	var editorial []domain.Editorial
 	for _, q := range contest.Questions {
 		editorialQuestion := domain.Editorial{
-            Question: q,
-        }
+			Question: q,
+		}
 		if editorialQuestion.Question.MultipleChoice == nil {
-            editorialQuestion.Question.MultipleChoice = make([]string, 0)
-        }
-
+			editorialQuestion.Question.MultipleChoice = make([]string, 0)
+		}
 
 		if missedQuestion, ok := missedQuestionSet[q.ID]; ok {
 			editorialQuestion.UserAnswer = missedQuestion.SelectedAnswer
@@ -368,7 +367,7 @@ func (u *submissionUsecase) GetRankingsForContest(contestId string) ([]domain.Le
 			CorrectAnswers: int(sub.Score),
 			TotalQuestions: int(sub.Score) + len(sub.MissedQuestions),
 			TimeTaken:      sub.TimeSpend,
-			ImgURL: sub.Student.ImgURL,
+			ImgURL:         sub.Student.ImgURL,
 		})
 	}
 	sort.Slice(rankings, func(i, j int) bool {
@@ -613,9 +612,9 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 	}
 
 	// 5. Math Wizard: 90%+ in 5 math contests
-	contests,err := u.conUsecase.GetAllContests()
+	contests, err := u.conUsecase.GetAllContests()
 	if err != nil {
-		return  err
+		return err
 	}
 	structuredContests := make(map[string]domain.Contest)
 	for _, c := range contests {
@@ -645,7 +644,7 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 	leaderboard, err := u.GetLeaderboardByTimeFrame("all")
 	if err == nil {
 		limit := min(len(leaderboard), 10)
-		for i := range limit {	
+		for i := range limit {
 			if leaderboard[i].UserID == sub.Student.ID {
 				addBadge("6")
 				break

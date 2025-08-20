@@ -94,6 +94,30 @@ func (r *StudentDynamoRepository) GetStudentByID(id string) (*domain.Student, er
 	return &student, nil
 }
 
+func (r *StudentDynamoRepository) GetStudentByTelegramID(telegramID string) (*domain.Student, error) {
+	teleIDVal, _ := attributevalue.Marshal(telegramID)
+	out, err := r.db.Scan(context.TODO(), &dynamodb.ScanInput{
+		TableName:        &r.tableName,
+		FilterExpression: aws.String("telegram_id = :tele_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":tele_id": teleIDVal,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(out.Items) == 0 {
+		return nil, nil // Student not found
+	}
+
+	var student domain.Student
+	err = attributevalue.UnmarshalMap(out.Items[0], &student)
+	if err != nil {
+		return nil, err
+	}
+	return &student, nil
+}
+
 func (r *StudentDynamoRepository) GetStudents() ([]domain.Student, error) {
 	out, err := r.db.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &r.tableName,
@@ -236,4 +260,14 @@ func (r *StudentDynamoRepository) GetStudentRankings() ([]map[string]interface{}
 func (r *StudentDynamoRepository) GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error) {
 	// TODO: Implement aggregation logic for rankings by contest
 	return nil, nil
+}
+
+func (r *StudentDynamoRepository) DeleteStudent(id string) error {
+	_, err := r.db.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+		TableName: &r.tableName,
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+	})
+	return err
 }

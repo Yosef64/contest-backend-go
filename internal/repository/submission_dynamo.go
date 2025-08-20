@@ -19,7 +19,6 @@ type SubmissionDynamoRepository struct {
 	tableName string
 }
 
-
 func NewSubmissionDynamoRepository(region string, tablename string) *SubmissionDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
@@ -52,11 +51,11 @@ func (r *SubmissionDynamoRepository) AddSubmission(submission domain.Submission)
 }
 
 func (r *SubmissionDynamoRepository) GetSubmissionByID(id string) (*domain.Submission, error) {
-	contestId :=  strings.Split(id, "#")[0]
+	contestId := strings.Split(id, "#")[0]
 	key, err := attributevalue.MarshalMap(map[string]string{
-	"id":         id,
-	"contest_id": contestId,
-})
+		"id":         id,
+		"contest_id": contestId,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +64,7 @@ func (r *SubmissionDynamoRepository) GetSubmissionByID(id string) (*domain.Submi
 		Key:       key,
 	})
 	if err != nil {
-		log.Printf("this is the error %s",id)
+		log.Printf("this is the error %s", id)
 
 		return nil, err
 	}
@@ -143,4 +142,3 @@ func (r *SubmissionDynamoRepository) GetSubmissionsByStudent(studentID string) (
 
 	return submissions, nil
 }
-

@@ -11,10 +11,12 @@ import (
 type StudentUsecase interface {
 	AddStudent(student domain.Student) error
 	UpdateStudent(student domain.Student) error
+	DeleteStudent(id string) error
 	VerifyStudentPaid(telegramID string) (bool, error)
 	GetPaidStudents() ([]domain.Student, error)
 	GetStudents() ([]domain.Student, error)
 	GetStudentByID(id string) (*domain.Student, error)
+	GetStudentByTelegramID(telegramID string) (*domain.Student, error)
 	GetQuickStat(studentID string) (map[string]interface{}, error)
 	GetStudentRankings() ([]map[string]interface{}, error)
 	GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error)
@@ -41,6 +43,11 @@ func (u *studentUsecase) AddStudent(student domain.Student) error {
 func (u *studentUsecase) UpdateStudent(student domain.Student) error {
 	return u.repo.UpdateStudent(student)
 }
+
+func (u *studentUsecase) DeleteStudent(id string) error {
+	return u.repo.DeleteStudent(id)
+}
+
 func (u *studentUsecase) VerifyStudentPaid(telegramID string) (bool, error) {
 	return u.repo.VerifyStudentPaid(telegramID)
 }
@@ -59,6 +66,34 @@ func (u *studentUsecase) GetStudentByID(id string) (*domain.Student, error) {
 		return nil, nil
 	}
 	payments, err := u.paymentRepo.ListByUser(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if student.ReadNotifications == nil {
+		student.ReadNotifications = make(map[string]domain.ReadNotificationModel)
+	}
+
+	for _, pay := range payments {
+		if pay.ExpirationDate.After(time.Now().In(time.Local)) {
+			student.IsPremium = true
+			break
+		}
+	}
+
+	return student, nil
+}
+
+func (u *studentUsecase) GetStudentByTelegramID(telegramID string) (*domain.Student, error) {
+	student, err := u.repo.GetStudentByTelegramID(telegramID)
+	if err != nil {
+		return nil, err
+	}
+	if student == nil {
+		return nil, nil
+	}
+
+	payments, err := u.paymentRepo.ListByUser(student.ID)
 	if err != nil {
 		return nil, err
 	}
