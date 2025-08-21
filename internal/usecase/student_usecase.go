@@ -11,10 +11,12 @@ import (
 type StudentUsecase interface {
 	AddStudent(student domain.Student) error
 	UpdateStudent(student domain.Student) error
+	DeleteStudent(id string) error
 	VerifyStudentPaid(telegramID string) (bool, error)
 	GetPaidStudents() ([]domain.Student, error)
 	GetStudents() ([]domain.Student, error)
 	GetStudentByID(id string) (*domain.Student, error)
+	GetStudentByTelegramID(telegramID string) (*domain.Student, error)
 	GetQuickStat(studentID string) (map[string]interface{}, error)
 	GetStudentRankings() ([]map[string]interface{}, error)
 	GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error)
@@ -41,6 +43,11 @@ func (u *studentUsecase) AddStudent(student domain.Student) error {
 func (u *studentUsecase) UpdateStudent(student domain.Student) error {
 	return u.repo.UpdateStudent(student)
 }
+
+func (u *studentUsecase) DeleteStudent(id string) error {
+	return u.repo.DeleteStudent(id)
+}
+
 func (u *studentUsecase) VerifyStudentPaid(telegramID string) (bool, error) {
 	return u.repo.VerifyStudentPaid(telegramID)
 }
@@ -76,19 +83,47 @@ func (u *studentUsecase) GetStudentByID(id string) (*domain.Student, error) {
 
 	return student, nil
 }
-func (u *studentUsecase) GetQuickStat(studentID string) (map[string]any, error) {
+
+func (u *studentUsecase) GetStudentByTelegramID(telegramID string) (*domain.Student, error) {
+	student, err := u.repo.GetStudentByTelegramID(telegramID)
+	if err != nil {
+		return nil, err
+	}
+	if student == nil {
+		return nil, nil
+	}
+
+	payments, err := u.paymentRepo.ListByUser(student.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if student.ReadNotifications == nil {
+		student.ReadNotifications = make(map[string]domain.ReadNotificationModel)
+	}
+
+	for _, pay := range payments {
+		if pay.ExpirationDate.After(time.Now().In(time.Local)) {
+			student.IsPremium = true
+			break
+		}
+	}
+
+	return student, nil
+}
+func (u *studentUsecase) GetQuickStat(studentID string) (map[string]interface{}, error) {
 	return u.repo.GetQuickStat(studentID)
 }
-func (u *studentUsecase) GetStudentRankings() ([]map[string]any, error) {
+func (u *studentUsecase) GetStudentRankings() ([]map[string]interface{}, error) {
 	return u.repo.GetStudentRankings()
 }
-func (u *studentUsecase) GetStudentRankingsByContest(contestID string) ([]map[string]any, error) {
+func (u *studentUsecase) GetStudentRankingsByContest(contestID string) ([]map[string]interface{}, error) {
 	return u.repo.GetStudentRankingsByContest(contestID)
 }
 func (u *studentUsecase) GetGradesAndSchools() (map[string][]string, error) {
 	return u.repo.GetGradesAndSchools()
 }
-func (u *studentUsecase) GetUserProfile(studentID string) (map[string]any, error) {
+func (u *studentUsecase) GetUserProfile(studentID string) (map[string]interface{}, error) {
 	return u.repo.GetUserProfile(studentID)
 }
 
@@ -111,7 +146,6 @@ func (r *studentUsecase) GetUserStatForAdmin(studId string) (*domain.StudentProf
 	if err != nil && err.Error() != "payments not found" {
 		return nil, err
 	}
-
 	sort.Slice(payments, func(i, j int) bool {
 		return payments[i].CreatedAt.After(payments[j].CreatedAt)
 	})

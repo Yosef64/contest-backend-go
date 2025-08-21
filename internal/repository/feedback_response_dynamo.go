@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"victor-contest-go/internal/domain"
 
@@ -72,6 +73,44 @@ func (r *FeedbackResponseDynamoRepository) DeleteFeedbackResponse(id string) err
 		Key:       key,
 	})
 	return err
+}
+
+func (r *FeedbackResponseDynamoRepository) DeleteFeedbackResponseOnly(id string) error {
+	// First, get the response to check if it has contact info
+	response, err := r.GetFeedbackResponseByID(id)
+	if err != nil {
+		return err
+	}
+	if response == nil {
+		return fmt.Errorf("response not found")
+	}
+
+	// If the response has contact info, preserve it by creating a new response
+	// with only the contact info and deleting the original
+	if response.ContactInfo != nil {
+		// Create a new response with only contact info
+		contactOnlyResponse := domain.FeedbackResponse{
+			ID:          response.ID,
+			StudentID:   response.StudentID,
+			StudentName: response.StudentName,
+			ContactInfo: response.ContactInfo,
+			SubmittedAt: response.SubmittedAt,
+		}
+
+		// Save the contact-only response
+		item, err := attributevalue.MarshalMap(contactOnlyResponse)
+		if err != nil {
+			return err
+		}
+		_, err = r.db.PutItem(context.TODO(), &dynamodb.PutItemInput{
+			TableName: &r.tableName,
+			Item:      item,
+		})
+		return err
+	} else {
+		// If no contact info, just delete the entire response
+		return r.DeleteFeedbackResponse(id)
+	}
 }
 
 func (r *FeedbackResponseDynamoRepository) GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error) {

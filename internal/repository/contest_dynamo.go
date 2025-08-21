@@ -129,7 +129,6 @@ func (r *ContestDynamoRepository) UpdateContest(id string, update domain.Contest
 	addFieldToUpdate("Prize", "prize")
 	addFieldToUpdate("Status", "status")
 	addFieldToUpdate("Type", "type")
-
 	updateParts = append(updateParts, "#questions = :questions")
 	expressionAttributeNames["#questions"] = "questions"
 
