@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"victor-contest-go/internal/domain"
@@ -53,14 +52,13 @@ func (a *aiUsecase) GenerateRecommendations(input domain.RecommendationInput) (*
 	]
 	}
 	`, string(inputJSON), input.Subject)
-	rawText,err := generateContentFromAPI(prompt)
+	rawText, err := generateContentFromAPI(prompt)
 
 	startIndex := strings.Index(rawText, "{")
 	endIndex := strings.LastIndex(rawText, "}")
 
 	// Check if a valid JSON object was found.
 	if startIndex == -1 || endIndex == -1 {
-		log.Printf("Raw response from API: %s", rawText)
 		return nil, errors.New("could not find JSON object in the API response")
 	}
 
@@ -71,11 +69,9 @@ func (a *aiUsecase) GenerateRecommendations(input domain.RecommendationInput) (*
 	}
 	var recommendations domain.Recommendations
 	if err := json.Unmarshal([]byte(jsonStr), &recommendations); err != nil {
-		log.Printf("Raw response from API: %s", jsonStr)
 		return nil, fmt.Errorf("failed to unmarshal JSON response from API: %w", err)
 	}
 
-	log.Println("✅ Successfully generated and parsed recommendations!")
 	return &recommendations, nil
 }
 
@@ -99,7 +95,6 @@ Each object must have these exact keys: "question_text", "multiple_choice", "ans
 	// 2. Call the API to get the raw text response.
 	rawText, err := generateContentFromAPI(prompt)
 	if err != nil {
-		log.Printf("Error calling generation API: %v", err)
 		return nil, fmt.Errorf("API call failed: %w", err)
 	}
 
@@ -109,7 +104,6 @@ Each object must have these exact keys: "question_text", "multiple_choice", "ans
 
 	if startIndex == -1 || endIndex == -1 || startIndex > endIndex {
 		msg := "could not find a valid JSON array in the API response"
-		log.Printf("%s. Raw text: %s", msg, rawText)
 		return nil, errors.New(msg)
 	}
 
@@ -117,7 +111,6 @@ Each object must have these exact keys: "question_text", "multiple_choice", "ans
 
 	var questions []domain.Question
 	if err := json.Unmarshal([]byte(jsonStr), &questions); err != nil {
-		log.Printf("Error unmarshalling JSON: %v. JSON string: %s", err, jsonStr)
 		return nil, fmt.Errorf("failed to parse JSON from API: %w", err)
 	}
 
@@ -143,7 +136,6 @@ func generateContentFromAPI(prompt string) (string, error) {
 	model := client.GenerativeModel("gemini-2.5-flash")
 
 	// 3. Generate the content. The SDK handles all the HTTP and JSON work.
-	log.Println("🤖 Calling Gemini API via Go SDK to generate session...")
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
 		return "", fmt.Errorf("error generating content: %w", err)
@@ -159,7 +151,6 @@ func generateContentFromAPI(prompt string) (string, error) {
 		}
 	}
 
-	log.Println("✅ Successfully received response from Gemini.")
 	return responseText.String(), nil
 }
 

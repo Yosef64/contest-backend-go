@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"net/http"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
@@ -31,7 +30,6 @@ func (h *ContestRegistrationHandler) AddContestRegistration(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	log.Printf("student_id : %s, contest: %s",registration.StudentID,registration.ContestID)
 	id, err := h.usecase.AddContestRegistration(registration)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -80,7 +78,7 @@ func (h *ContestRegistrationHandler) CheckStudentActiveInContest(c *gin.Context)
 	conId, studId := c.Param("contest_id"), c.Param("student_id")
 	isActive, err := h.usecase.CheckStudentActiveInContest(conId, studId)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"errors": "The user is active"})
+		c.JSON(http.StatusConflict, gin.H{"error": "The user is active"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": isActive})

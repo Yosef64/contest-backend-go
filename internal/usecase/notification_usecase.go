@@ -113,7 +113,6 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterDate(recipientID s
 		sentAt, err := time.Parse(time.RFC3339, notification.SentAt)
 		if err != nil {
 			// If we can't parse the date, skip this notification or log the error
-			// fmt.Printf("Warning: Could not parse notification SentAt date: %s\n", notification.SentAt)
 			continue
 		}
 
@@ -127,7 +126,6 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterDate(recipientID s
 }
 
 func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recipientID string) ([]domain.Notification, error) {
-	// Get the student's registration date
 	if recipientID == "admin" {
 		return u.GetNotificationsByRecipient(recipientID)
 	}
@@ -139,7 +137,6 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recip
 		return nil, fmt.Errorf("student not found with ID: %s", recipientID)
 	}
 	if student.CreatedAt.IsZero() {
-		fmt.Printf("Warning: Student %s has no registration date, returning all notifications\n", recipientID)
 		return u.GetNotificationsByRecipient(recipientID)
 	}
 
@@ -148,7 +145,7 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recip
 
 func (s *notificationUsecase) SendNotification(title, message, Type, recipientId string) error {
 	notification := domain.Notification{
-		RecipientID: recipientId, // Use admin email as recipient ID
+		RecipientID: recipientId,
 		Title:       title,
 		Message:     message,
 		IsRead:      false,
