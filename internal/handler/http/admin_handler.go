@@ -26,15 +26,16 @@ func (h *AdminHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.PUT("/:id", h.UpdateAdmin)
 	rg.DELETE("/:id", h.DeleteAdmin)
 	rg.GET("/:id", h.GetAdminByID)
-	rg.GET("/me",h.GetMe)
+	rg.GET("/me", h.GetMe)
 	rg.GET("/", h.GetAllAdmins)
 	rg.POST("/login", h.SignIn)
 	rg.GET("/dashboard", h.GetDashboardStats)
 }
 func (h *AdminHandler) GetMe(c *gin.Context) {
-	tokenString,err := c.Cookie("token")
+	tokenString, err := c.Cookie("token")
 	if err != nil {
-		c.JSON(http.StatusUnauthorized,gin.H{"message":"unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
+		return
 	}
 	claims := &domain.CustomClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -55,7 +56,7 @@ func (h *AdminHandler) GetMe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, admin)
-	
+
 }
 
 func (h *AdminHandler) AddAdmin(c *gin.Context) {
@@ -147,17 +148,17 @@ func (h *AdminHandler) SignIn(c *gin.Context) {
 	}
 	cookieMaxAge := 3600 * 24
 	cookie := &http.Cookie{
-        Name:     "token",
-        Value:    tokenString,
-        Path:     "/",
-        MaxAge:   cookieMaxAge, // 1 hour in seconds
-        HttpOnly: true,
-        Secure:   true,       // Must be true for SameSite=None
-        SameSite: http.SameSiteNoneMode, // THE CRUCIAL PART
-        
-    }
+		Name:     "token",
+		Value:    tokenString,
+		Path:     "/",
+		MaxAge:   cookieMaxAge, // 1 hour in seconds
+		HttpOnly: true,
+		Secure:   true,                  // Must be true for SameSite=None
+		SameSite: http.SameSiteNoneMode, // THE CRUCIAL PART
 
-    http.SetCookie(c.Writer, cookie)
+	}
+
+	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful, cookie set"})
 }
@@ -166,9 +167,6 @@ func (h *AdminHandler) GetDashboardStats(c *gin.Context) {
 	// Call usecase to get dashboard data
 	dashboardStats, err := h.usecase.GetDashboardStats()
 	if err != nil {
-		// Log the error for monitoring
-		fmt.Printf("Error getting dashboard stats: %v\n", err)
-		
 		// Return appropriate error response based on error type
 		if strings.Contains(err.Error(), "connection") || strings.Contains(err.Error(), "timeout") {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -178,7 +176,7 @@ func (h *AdminHandler) GetDashboardStats(c *gin.Context) {
 			})
 			return
 		}
-		
+
 		// Generic internal server error for other cases
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal server error",
@@ -187,7 +185,7 @@ func (h *AdminHandler) GetDashboardStats(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Validate that we have valid data before returning
 	if dashboardStats == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -197,7 +195,7 @@ func (h *AdminHandler) GetDashboardStats(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Return successful response with dashboard data
 	c.JSON(http.StatusOK, dashboardStats)
-} 
+}

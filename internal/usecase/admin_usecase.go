@@ -382,14 +382,6 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 	now := time.Now()
 	trendData := make([]int, 30)
 
-	// Debug logging
-	fmt.Printf("User Trend Debug: Total students: %d\n", len(students))
-	for i, student := range students {
-		if i < 3 { // Log first 3 students
-			fmt.Printf("Student %d: ID=%s, CreatedAt=%s\n", i+1, student.ID, student.CreatedAt.Format("2006-01-02 15:04:05"))
-		}
-	}
-
 	// Count students with valid CreatedAt timestamps
 	studentsWithTimestamps := 0
 	studentsWithoutTimestamps := 0
@@ -402,15 +394,13 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 		}
 	}
 
-	fmt.Printf("Students with timestamps: %d, without timestamps: %d\n", studentsWithTimestamps, studentsWithoutTimestamps)
-
 	// If most students don't have timestamps, distribute them evenly across the last 30 days
 	if studentsWithoutTimestamps > studentsWithTimestamps {
 		// Distribute students without timestamps evenly across the 30 days
 		studentsPerDay := studentsWithoutTimestamps / 30
 		remainder := studentsWithoutTimestamps % 30
 
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			count := studentsPerDay
 			if i < remainder {
 				count++ // Distribute remainder across first few days
@@ -419,7 +409,7 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 		}
 
 		// Add students with valid timestamps to their respective days
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			targetDate := now.AddDate(0, 0, -29+i)
 			startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
 			endOfDay := startOfDay.Add(24 * time.Hour)
@@ -432,7 +422,7 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 		}
 	} else {
 		// Normal calculation for students with valid timestamps
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			targetDate := now.AddDate(0, 0, -29+i)
 			count := 0
 
@@ -457,7 +447,6 @@ func (u *adminUsecase) calculateUserTrendData(students []domain.Student) []int {
 		}
 	}
 
-	fmt.Printf("User trend data: %v\n", trendData)
 	return trendData
 }
 
@@ -465,14 +454,6 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 	// Generate 30-day trend data for contests (daily data)
 	now := time.Now()
 	trendData := make([]int, 30)
-
-	// Debug logging
-	fmt.Printf("Contest Trend Debug: Total contests: %d\n", len(contests))
-	for i, contest := range contests {
-		if i < 3 { // Log first 3 contests
-			fmt.Printf("Contest %d: ID=%s, StartTime=%s\n", i+1, contest.ID, contest.StartTime)
-		}
-	}
 
 	// Count contests created in each of the last 30 days
 	for i := 0; i < 30; i++ {
@@ -499,7 +480,6 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 			}
 
 			if err != nil {
-				fmt.Printf("Failed to parse contest StartTime: %s with all formats\n", contest.StartTime)
 				continue
 			}
 
@@ -513,7 +493,6 @@ func (u *adminUsecase) calculateContestTrendData(contests []domain.Contest) []in
 		trendData[i] = count
 	}
 
-	fmt.Printf("Contest trend data: %v\n", trendData)
 	return trendData
 }
 

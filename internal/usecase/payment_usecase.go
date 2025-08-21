@@ -53,7 +53,6 @@ func (p *paymentUsecase) GetPaymentById(id string) (*domain.PaymentRequest, erro
 // GetPaymentByStudent implements PaymentUsecase.
 func (p *paymentUsecase) GetPaymentByStudent(studId string) ([]domain.PaymentRequest, error) {
 	payments, err := p.paymentRepo.ListByUser(studId)
-	// log.Printf("The length of the payments :%s",len(payments))
 	if err != nil {
 		return nil, err
 	}

@@ -138,20 +138,16 @@ func (h *ContestHandler) UpdateContest(c *gin.Context) {
 
 	// Additional safety check: ensure questions are never empty if they existed before
 	if len(currentContest.Contest.Questions) > 0 && len(update.Questions) == 0 {
-		fmt.Printf("WARNING: Questions were lost during update preparation! Restoring from current contest.\n")
 		update.Questions = currentContest.Contest.Questions
 	}
 
 	if rawData["questions"] != nil {
 		if questionsArray, ok := rawData["questions"].([]interface{}); ok {
 			if len(questionsArray) == 0 && len(currentContest.Contest.Questions) > 0 {
-				fmt.Printf("WARNING: Empty questions array received in update, preserving original questions.\n")
 				update.Questions = currentContest.Contest.Questions
 			}
 		}
 	}
-
-	fmt.Printf("Final update struct - Questions count: %d, Questions: %+v\n", len(update.Questions), update.Questions)
 
 	// Perform the update
 	err = h.usecase.UpdateContest(id, update)
@@ -195,28 +191,19 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 	id := c.Param("id")
 
-	// Debug: Log the content type and raw body
-	contentType := c.GetHeader("Content-Type")
-	fmt.Printf("AnnounceContest - Content-Type: %s\n", contentType)
-
 	// Parse the announce request data - handle both JSON and form data
 	var announceRequest struct {
 		Message string `json:"message" form:"message"`
 		File    string `json:"file" form:"file"` // File path or URL if file was uploaded
 	}
-
 	// Try to bind JSON first, then form data if JSON fails
 	if err := c.ShouldBindJSON(&announceRequest); err != nil {
-		fmt.Printf("JSON binding failed: %v, trying form data...\n", err)
 		// If JSON binding fails, try form data
 		if err := c.ShouldBind(&announceRequest); err != nil {
-			fmt.Printf("Form data binding also failed: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format. Expected JSON or form data: " + err.Error()})
 			return
 		}
 	}
-
-	fmt.Printf("Parsed request - Message: '%s', File: '%s'\n", announceRequest.Message, announceRequest.File)
 
 	// Validate required fields
 	if announceRequest.Message == "" || strings.TrimSpace(announceRequest.Message) == "" {
@@ -250,15 +237,7 @@ func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 		title := "New contest added"
 		recepientId := "all"
 		Type := "contest_announcement"
-		err = h.notificationService.SendNotification(title, message, Type, recepientId)
-		if err != nil {
-			fmt.Printf("Warning: Failed to send notifications to students: %v\n", err)
-			// Don't fail the announcement if notifications fail
-		} else {
-			fmt.Printf("Successfully sent contest announcement notifications to students\n")
-		}
-	} else {
-		fmt.Printf("Warning: Notification service not available\n")
+		h.notificationService.SendNotification(title, message, Type, recepientId)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
