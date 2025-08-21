@@ -14,10 +14,10 @@ import (
 
 type ContestHandler struct {
 	usecase             usecase.ContestUsecase
-	notificationService *usecase.NotificationService
+	notificationService usecase.NotificationUsecase
 }
 
-func NewContestHandler(u usecase.ContestUsecase, notificationService *usecase.NotificationService) *ContestHandler {
+func NewContestHandler(u usecase.ContestUsecase, notificationService usecase.NotificationUsecase) *ContestHandler {
 	return &ContestHandler{
 		usecase:             u,
 		notificationService: notificationService,
@@ -138,22 +138,16 @@ func (h *ContestHandler) UpdateContest(c *gin.Context) {
 
 	// Additional safety check: ensure questions are never empty if they existed before
 	if len(currentContest.Contest.Questions) > 0 && len(update.Questions) == 0 {
-		fmt.Printf("WARNING: Questions were lost during update preparation! Restoring from current contest.\n")
 		update.Questions = currentContest.Contest.Questions
 	}
 
-	// Final safety check: if the update contains questions field but it's empty,
-	// and we had questions before, preserve the original questions
 	if rawData["questions"] != nil {
 		if questionsArray, ok := rawData["questions"].([]interface{}); ok {
 			if len(questionsArray) == 0 && len(currentContest.Contest.Questions) > 0 {
-				fmt.Printf("WARNING: Empty questions array received in update, preserving original questions.\n")
 				update.Questions = currentContest.Contest.Questions
 			}
 		}
 	}
-
-	fmt.Printf("Final update struct - Questions count: %d, Questions: %+v\n", len(update.Questions), update.Questions)
 
 	// Perform the update
 	err = h.usecase.UpdateContest(id, update)
@@ -197,28 +191,19 @@ func (h *ContestHandler) DeleteContest(c *gin.Context) {
 func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 	id := c.Param("id")
 
-	// Debug: Log the content type and raw body
-	contentType := c.GetHeader("Content-Type")
-	fmt.Printf("AnnounceContest - Content-Type: %s\n", contentType)
-
 	// Parse the announce request data - handle both JSON and form data
 	var announceRequest struct {
 		Message string `json:"message" form:"message"`
 		File    string `json:"file" form:"file"` // File path or URL if file was uploaded
 	}
-
 	// Try to bind JSON first, then form data if JSON fails
 	if err := c.ShouldBindJSON(&announceRequest); err != nil {
-		fmt.Printf("JSON binding failed: %v, trying form data...\n", err)
 		// If JSON binding fails, try form data
 		if err := c.ShouldBind(&announceRequest); err != nil {
-			fmt.Printf("Form data binding also failed: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format. Expected JSON or form data: " + err.Error()})
 			return
 		}
 	}
-
-	fmt.Printf("Parsed request - Message: '%s', File: '%s'\n", announceRequest.Message, announceRequest.File)
 
 	// Validate required fields
 	if announceRequest.Message == "" || strings.TrimSpace(announceRequest.Message) == "" {
@@ -248,23 +233,13 @@ func (h *ContestHandler) AnnounceContest(c *gin.Context) {
 
 	// Send notifications to all students
 	if h.notificationService != nil {
-		err = h.notificationService.SendContestAnnouncementNotification(contest.Contest, announceRequest.Message)
-		if err != nil {
-			fmt.Printf("Warning: Failed to send notifications to students: %v\n", err)
-			// Don't fail the announcement if notifications fail
-		} else {
-			fmt.Printf("Successfully sent contest announcement notifications to students\n")
-		}
-	} else {
-		fmt.Printf("Warning: Notification service not available\n")
+		message := fmt.Sprintf("New contest is announce for grade %s", contest.Grade)
+		title := "New contest added"
+		recepientId := "all"
+		Type := "contest_announcement"
+		h.notificationService.SendNotification(title, message, Type, recepientId)
 	}
 
-	// Here you would typically:
-	// 1. Save the announcement to database
-	// 2. Send notifications to all students ✅ (Now implemented above)
-	// 3. Log the announcement for admin tracking
-
-	// For now, we'll just return success
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "Contest announced successfully",
 		"announcement": announcementData,

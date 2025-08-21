@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 	"victor-contest-go/internal/domain"
@@ -49,10 +48,12 @@ func (h *FeedbackQuestionHandler) AddFeedbackQuestion(c *gin.Context) {
 	// Send notifications to all students about the new feedback question
 	if h.notificationService != nil {
 		go func() {
-			err := h.notificationService.SendFeedbackQuestionNotification(question)
-			if err != nil {
-				log.Printf("Failed to send feedback question notifications: %v", err)
-			}
+			message := "Feadback questions are added. so everybody fill all the questions"
+			title := "New feedback question"
+			recepientId := "all"
+			Type := "feedback_question"
+			h.notificationService.SendNotification(title, message, Type, recepientId)
+
 		}()
 	}
 
@@ -251,7 +252,10 @@ func (h *FeedbackResponseHandler) AddFeedbackResponse(c *gin.Context) {
 	}
 	go func() {
 		if h.notificationService != nil {
-			h.notificationService.SendFeedbackResponseNotification(response)
+			message := fmt.Sprintf("%s sent a feedback response", response.StudentName)
+			Type := "feedback_response"
+			reciepientId := response.StudentID
+			h.notificationService.SendNotification("New Feedback response", message, Type, reciepientId)
 		}
 	}()
 
@@ -355,14 +359,11 @@ func (h *FeedbackResponseHandler) GetFeedbackAnalytics(c *gin.Context) {
 }
 
 func (h *FeedbackResponseHandler) TestEndpoint(c *gin.Context) {
-	fmt.Printf("Test endpoint called\n")
 	c.JSON(http.StatusOK, gin.H{"message": "Test endpoint working", "timestamp": time.Now().Unix()})
 }
 
 func (h *FeedbackResponseHandler) DeleteContactByPhoneNumber(c *gin.Context) {
 	phoneNumber := c.Param("phone_number")
-	fmt.Printf("DeleteContactByPhoneNumber called with phone number: %s\n", phoneNumber)
-
 	if phoneNumber == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
@@ -370,11 +371,9 @@ func (h *FeedbackResponseHandler) DeleteContactByPhoneNumber(c *gin.Context) {
 
 	err := h.usecase.DeleteContactByPhoneNumber(phoneNumber)
 	if err != nil {
-		fmt.Printf("Error deleting contact: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	fmt.Printf("Contact deleted successfully: %s\n", phoneNumber)
 	c.JSON(http.StatusOK, gin.H{"message": "Contact deleted successfully"})
 }

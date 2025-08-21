@@ -18,9 +18,7 @@ type NotificationUsecase interface {
 	GetNotificationsByRecipientAfterDate(recipientID string, afterDate time.Time) ([]domain.Notification, error)
 	GetNotificationsByRecipientAfterRegistration(recipientID string) ([]domain.Notification, error)
 	AnnounceContest(contest domain.Contest) error
-	SendStudentRegistrationNotification(student domain.Student) error
-	SendFeedbackResponseNotification(response domain.FeedbackResponse) error
-	SendFeedbackQuestionNotification(question domain.FeedbackQuestion) error
+	SendNotification(title, message, Type, recipientId string) error
 }
 
 type notificationUsecase struct {
@@ -73,10 +71,10 @@ func (u *notificationUsecase) MarkNotificationAsRead(id string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Mark as read
 	notification.IsRead = true
-	
+
 	// Update the notification
 	return u.repo.UpdateNotification(id, *notification)
 }
@@ -115,7 +113,6 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterDate(recipientID s
 		sentAt, err := time.Parse(time.RFC3339, notification.SentAt)
 		if err != nil {
 			// If we can't parse the date, skip this notification or log the error
-			// fmt.Printf("Warning: Could not parse notification SentAt date: %s\n", notification.SentAt)
 			continue
 		}
 
@@ -129,7 +126,6 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterDate(recipientID s
 }
 
 func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recipientID string) ([]domain.Notification, error) {
-	// Get the student's registration date
 	if recipientID == "admin" {
 		return u.GetNotificationsByRecipient(recipientID)
 	}
@@ -141,58 +137,20 @@ func (u *notificationUsecase) GetNotificationsByRecipientAfterRegistration(recip
 		return nil, fmt.Errorf("student not found with ID: %s", recipientID)
 	}
 	if student.CreatedAt.IsZero() {
-		fmt.Printf("Warning: Student %s has no registration date, returning all notifications\n", recipientID)
 		return u.GetNotificationsByRecipient(recipientID)
 	}
 
 	return u.GetNotificationsByRecipientAfterDate(recipientID, student.CreatedAt)
 }
 
-// SendFeedbackQuestionNotification sends notifications to all students when a feedback question is created
-func (s *notificationUsecase) SendFeedbackQuestionNotification(question domain.FeedbackQuestion) error {
+func (s *notificationUsecase) SendNotification(title, message, Type, recipientId string) error {
 	notification := domain.Notification{
-		RecipientID: "all",
-		Title:       "New Feedback Question 📝",
-		Message:     "A new feedback question has been posted. Please take a moment to share your thoughts!",
+		RecipientID: recipientId,
+		Title:       title,
+		Message:     message,
 		IsRead:      false,
 		SentAt:      time.Now().Format(time.RFC3339),
-		Type:        "feedback_question",
-	}
-
-	_, err := s.AddNotification(notification)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// SendStudentRegistrationNotification sends notifications to all admins when a new student registers
-func (s *notificationUsecase) SendStudentRegistrationNotification(student domain.Student) error {
-	notification := domain.Notification{
-		RecipientID: "admin", // Use admin email as recipient ID
-		Title:       "New Student Registration 👨‍🎓",
-		Message:     "A new student '" + student.Name + "' has registered with phone: " + student.PhoneNumber,
-		IsRead:      false,
-		SentAt:      time.Now().Format(time.RFC3339),
-		Type:        "student_registration",
-	}
-	_, err := s.AddNotification(notification)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// SendFeedbackResponseNotification sends notifications to all admins when a feedback response is submitted
-func (s *notificationUsecase) SendFeedbackResponseNotification(response domain.FeedbackResponse) error {
-	notification := domain.Notification{
-		RecipientID: "admin", // Use admin email as recipient ID
-		Title:       "New Feedback Response 📝",
-		Message:     "Student '" + response.StudentName + "' has submitted a new feedback response.",
-		IsRead:      false,
-		SentAt:      time.Now().Format(time.RFC3339),
-		Type:        "feedback_response",
+		Type:        Type,
 	}
 
 	_, err := s.AddNotification(notification)

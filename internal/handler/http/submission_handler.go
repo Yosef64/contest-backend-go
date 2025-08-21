@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"net/http"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
@@ -33,15 +32,12 @@ func (h *SubmissionHandler) RegisterRoutes(rg *gin.RouterGroup) {
 func (h *SubmissionHandler) AddSubmission(c *gin.Context) {
 	var submission domain.SubmissionDto
 	if err := c.ShouldBindJSON(&submission); err != nil {
-		log.Print("error:", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("submission:%+v", submission)
 	id, err := h.usecase.AddSubmission(submission)
 	if err != nil {
-		log.Printf("error:%s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -120,7 +116,8 @@ func (h *SubmissionHandler) GetRankForContest(c *gin.Context) {
 
 	rankings, err := h.usecase.GetRankingsForContest(conId)
 	if err != nil {
-		c.JSON(http.StatusNoContent, gin.H{"error": "Not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"rankings": rankings})

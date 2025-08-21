@@ -7,7 +7,7 @@ import (
 
 type PaymentUsecase interface {
 	AddPayment(payment domain.PaymentRequest) error
-	UpdatePaymentStatus(id string, status domain.PaymentStatus, reason domain.PaymentReason) error
+	UpdatePaymentStatus(id string, status domain.PaymentStatus, reason string) error
 	GetPaymentById(id string) (*domain.PaymentRequest, error)
 	GetPaymentByStudent(studId string) ([]domain.PaymentRequest, error)
 	GetExpiredPayment() ([]domain.PaymentRequest, error)
@@ -21,11 +21,11 @@ type paymentUsecase struct {
 
 // GetAllPayments implements PaymentUsecase.
 func (p *paymentUsecase) GetAllPayments() ([]domain.PaymentRequest, error) {
-	payments,err := p.paymentRepo.ListAll()
+	payments, err := p.paymentRepo.ListAll()
 	if err != nil {
 		return nil, err
 	}
-	return payments,nil
+	return payments, nil
 }
 
 // GetPaymentByStatus implements PaymentUsecase.
@@ -35,8 +35,8 @@ func (p *paymentUsecase) GetPaymentByStatus(status domain.PaymentStatus) ([]doma
 
 // AddPayment implements PaymentUsecase.
 func (p *paymentUsecase) AddPayment(payment domain.PaymentRequest) error {
-	payment.CreatedAt = time.Now().In(time.Local)
-	expDate := time.Now().In(time.Local).AddDate(0, 1, 0)
+	payment.CreatedAt = time.Now().UTC()
+	expDate := time.Now().UTC().AddDate(0, 1, 0)
 	payment.ExpirationDate = &expDate
 	return p.paymentRepo.Create(&payment)
 }
@@ -53,16 +53,15 @@ func (p *paymentUsecase) GetPaymentById(id string) (*domain.PaymentRequest, erro
 // GetPaymentByStudent implements PaymentUsecase.
 func (p *paymentUsecase) GetPaymentByStudent(studId string) ([]domain.PaymentRequest, error) {
 	payments, err := p.paymentRepo.ListByUser(studId)
-	// log.Printf("The length of the payments :%s",len(payments))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return payments, nil
 }
 
 // UpdatePayment implements PaymentUsecase.
-func (p *paymentUsecase) UpdatePaymentStatus(id string, status domain.PaymentStatus, reason domain.PaymentReason) error {
+func (p *paymentUsecase) UpdatePaymentStatus(id string, status domain.PaymentStatus, reason string) error {
 	return p.paymentRepo.UpdateStatus(id, status, reason)
 }
 

@@ -78,19 +78,14 @@ func (r *ContestDynamoRepository) GetContestByID(id string) (*domain.Contest, er
 		return nil, err
 	}
 	if out.Item == nil {
-		return nil, nil // Not found
+		return nil, nil
 	}
-
-	fmt.Printf("Raw DynamoDB item for contest %s: %+v\n", id, out.Item)
 
 	var contest domain.Contest
 	err = attributevalue.UnmarshalMap(out.Item, &contest)
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("Unmarshaled contest: %+v\n", contest)
-	fmt.Printf("Contest questions: %+v\n", contest.Questions)
 
 	return &contest, nil
 }
@@ -134,32 +129,18 @@ func (r *ContestDynamoRepository) UpdateContest(id string, update domain.Contest
 	addFieldToUpdate("Prize", "prize")
 	addFieldToUpdate("Status", "status")
 	addFieldToUpdate("Type", "type")
-
-	// ALWAYS preserve the questions field - this is critical!
-	// Even if no other fields are being updated, we must preserve questions
-	fmt.Printf("Current contest questions before update: %+v\n", currentContest.Questions)
-
-	// Always add questions to the update expression
 	updateParts = append(updateParts, "#questions = :questions")
 	expressionAttributeNames["#questions"] = "questions"
 
 	// Handle both cases: when questions exist and when they don't
 	if len(currentContest.Questions) > 0 {
-		fmt.Printf("Preserving existing questions: %+v\n", currentContest.Questions)
 		expressionAttributeValues[":questions"] = &types.AttributeValueMemberSS{Value: currentContest.Questions}
 	} else {
-		fmt.Printf("Setting empty questions array for contest %s\n", id)
-		// Set an empty string set to preserve the field structure
 		expressionAttributeValues[":questions"] = &types.AttributeValueMemberSS{Value: []string{}}
 	}
 
 	// Build the final update expression
 	updateExpression += strings.Join(updateParts, ", ")
-
-	fmt.Printf("Final update expression: %s\n", updateExpression)
-	fmt.Printf("Expression attribute names: %+v\n", expressionAttributeNames)
-	fmt.Printf("Expression attribute values: %+v\n", expressionAttributeValues)
-
 	// Create the key for the item to update
 	key, err := attributevalue.MarshalMap(map[string]string{"id": id})
 	if err != nil {
@@ -174,12 +155,6 @@ func (r *ContestDynamoRepository) UpdateContest(id string, update domain.Contest
 		ExpressionAttributeNames:  expressionAttributeNames,
 		ExpressionAttributeValues: expressionAttributeValues,
 	})
-
-	if err != nil {
-		fmt.Printf("UpdateItem error: %v\n", err)
-	} else {
-		fmt.Printf("UpdateItem successful for contest %s\n", id)
-	}
 
 	return err
 }

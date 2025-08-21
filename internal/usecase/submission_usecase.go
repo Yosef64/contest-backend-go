@@ -3,13 +3,15 @@ package usecase
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"victor-contest-go/internal/domain"
+
+	"github.com/bwmarrin/snowflake"
+	"github.com/jxskiss/base62"
 )
 
 type SubmissionUsecase interface {
@@ -78,7 +80,7 @@ func (u *submissionUsecase) GetStudentStatistics(studId string) (*domain.UserSta
 	for _, sub := range userSubmissions {
 		contest, ok := structuredContests[sub.ContestID]
 		if !ok {
-			continue // Skip if contest data is missing
+			continue
 		}
 
 		contestsParticipated[contest.ID] = struct{}{}
@@ -286,13 +288,11 @@ func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]
 func (u *submissionUsecase) GetLeaderboardByTimeFrame(timeFrame string) ([]domain.LeaderboardEntry, error) {
 	startTime, err := u.calculateStartTime(timeFrame)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	submissions, err := u.subRepo.GetAllSubmissions()
 
 	if err != nil {
-		log.Print(submissions)
 		return nil, err
 	}
 	filteredSubmissions := make([]domain.Submission, 0)
@@ -313,24 +313,31 @@ func NewSubmissionUsecase(repo SubmissionRepository, conUsecase ContestUsecase, 
 }
 
 func (u *submissionUsecase) AddSubmission(submission domain.SubmissionDto) (string, error) {
+	node, err := snowflake.NewNode(1)
+	if err != nil {
+		return "", err
+	}
+
+	// 2. Generate a unique Snowflake ID (this is an int64).
+	snowflakeID := node.Generate()
+
+	// 3. Encode the int64 ID into a short Base-62 string.
+	encodedID := base62.EncodeToString(snowflakeID.Bytes())
 	final_submission := domain.Submission{
-		ID:              fmt.Sprintf("%s#%s", submission.ContestID, submission.Student.ID), // will be set later
+		ID:              encodedID,
 		ContestID:       submission.ContestID,
 		Student:         submission.Student,
 		Score:           submission.Score,
 		MissedQuestions: submission.MissedQuestions,
 		SubmissionTime:  time.Now().In(time.Local),
 		TimeSpend:       submission.TimeSpend,
+		StudentID:       submission.Student.ID,
 	}
+	defer u.evaluateAndAwardBadges(final_submission)
 
 	id, err := u.subRepo.AddSubmission(final_submission)
 	if err != nil {
 		return "", err
-	}
-
-	// After successful submission, evaluate and award badges
-	if err := u.evaluateAndAwardBadges(final_submission); err != nil {
-		log.Printf("badge evaluation failed: %v", err)
 	}
 
 	return id, nil

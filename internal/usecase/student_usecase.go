@@ -75,7 +75,7 @@ func (u *studentUsecase) GetStudentByID(id string) (*domain.Student, error) {
 	}
 
 	for _, pay := range payments {
-		if pay.ExpirationDate.After(time.Now().In(time.Local)) {
+		if pay.Status == "Approved" && pay.ExpirationDate.After(time.Now().UTC()) {
 			student.IsPremium = true
 			break
 		}

@@ -48,7 +48,11 @@ func (h *StudentHandler) AddStudent(c *gin.Context) {
 
 	go func() {
 		if h.notificationService != nil {
-			h.notificationService.SendStudentRegistrationNotification(student)
+			message := "Feadback questions are added. so everybody fill all the questions"
+			title := "New feedback question"
+			recepientId := "all"
+			Type := "feedback_question"
+			h.notificationService.SendNotification(title, message, Type, recepientId)
 		}
 	}()
 	student.IsPremium = false
