@@ -11,12 +11,22 @@ type ContestRegistrationUsecase interface {
 	AddContestRegistration(registration domain.ContestRegistrationDto) (string, error)
 	UpdateContestRegistration(id string, update domain.ContestRegistration) error
 	DeleteContestRegistration(id string) error
+	GetRegisterationForContest(contest_id string) ([]domain.ContestRegistration, error)
 	CheckRegistrationsByContestAndStudent(contestID, studentID string) (bool, error)
 	CheckStudentActiveInContest(contestId, studentId string) (*bool, error)
 }
 
 type contestRegistrationUsecase struct {
 	repo ContestRegistrationRepository
+}
+
+// GetRegisterationForContest implements ContestRegistrationUsecase.
+func (u *contestRegistrationUsecase) GetRegisterationForContest(contest_id string) ([]domain.ContestRegistration, error) {
+	regiterations, err := u.repo.GetRegistrationsByContest(contest_id)
+	if err != nil {
+		return nil, err
+	}
+	return regiterations, nil
 }
 
 func (u *contestRegistrationUsecase) CheckStudentActiveInContest(contestId string, studentId string) (*bool, error) {
@@ -28,7 +38,7 @@ func (u *contestRegistrationUsecase) CheckStudentActiveInContest(contestId strin
 		return nil, errors.New("the user has been in the contest")
 	}
 	registeration.IsActive = true
-	u.UpdateContestRegistration(registeration.ID,*registeration)
+	u.UpdateContestRegistration(registeration.ID, *registeration)
 	return &registeration.IsActive, nil
 }
 

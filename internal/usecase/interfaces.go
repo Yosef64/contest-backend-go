@@ -34,6 +34,7 @@ type SubmissionRepository interface {
 	GetAllSubmissions() ([]domain.Submission, error)
 	GetSubmissionsByContest(contestID string) ([]domain.Submission, error)
 	GetSubmissionsByStudent(studentID string) ([]domain.Submission, error)
+	GetSubmissionsByStudentAndContest(conId, studentID string) (*domain.Submission, error)
 }
 
 type QuestionRepository interface {
@@ -78,6 +79,7 @@ type ContestRegistrationRepository interface {
 	UpdateContestRegistration(id string, update domain.ContestRegistration) error
 	DeleteContestRegistration(id string) error
 	GetRegistrationsByContestAndStudent(contestID string, studentID string) (*domain.ContestRegistration, error)
+	GetRegistrationsByContest(contest_id string) ([]domain.ContestRegistration, error)
 }
 
 type FeedbackQuestionRepository interface {
@@ -125,4 +127,23 @@ type PageViewRepository interface {
 	GetPageViewsByDateRange(startDate, endDate time.Time) ([]domain.PageView, error)
 	GetAllPageViews() ([]domain.PageView, error)
 	GetPageViewsByUserID(userID string) ([]domain.PageView, error)
+}
+
+type ArticleRepository interface {
+	Create(article domain.Article) (string, error)
+	Update(id string, article domain.Article) error
+	Delete(id string) error
+	GetByID(id string) (*domain.Article, error)
+	List() ([]domain.Article, error)
+	ListPublished() ([]domain.Article, error)
+	GetByStatus(status domain.ArticleStatus) ([]domain.Article, error)
+	IncrementView(id string) error
+	DecrementView(id string) error
+	IncrementLike(id string) error
+	DecrementLike(id string) error
+}
+
+type CommentRepository interface {
+	Create(comment domain.Comment) (string, error)
+	ListByArticleID(articleID string) ([]domain.Comment, error)
 }

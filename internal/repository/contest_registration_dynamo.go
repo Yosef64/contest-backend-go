@@ -19,7 +19,7 @@ type ContestRegistrationDynamoRepository struct {
 	tableName string
 }
 
-func NewContestRegistrationDynamoRepository(region string , tablename string) *ContestRegistrationDynamoRepository {
+func NewContestRegistrationDynamoRepository(region string, tablename string) *ContestRegistrationDynamoRepository {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 	)
@@ -34,16 +34,16 @@ func NewContestRegistrationDynamoRepository(region string , tablename string) *C
 
 func (r *ContestRegistrationDynamoRepository) AddContestRegistration(registration domain.ContestRegistration) (string, error) {
 	if registration.ID == "" {
-		numBytes := 5 
-	randomBytes := make([]byte, numBytes)
+		numBytes := 5
+		randomBytes := make([]byte, numBytes)
 
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		return "", err
-	}
-	
-	id := base64.RawURLEncoding.EncodeToString(randomBytes)
-	registration.ID = id
+		_, err := rand.Read(randomBytes)
+		if err != nil {
+			return "", err
+		}
+
+		id := base64.RawURLEncoding.EncodeToString(randomBytes)
+		registration.ID = id
 	}
 	item, err := attributevalue.MarshalMap(registration)
 	if err != nil {
@@ -85,38 +85,64 @@ func (r *ContestRegistrationDynamoRepository) DeleteContestRegistration(id strin
 }
 
 func (r *ContestRegistrationDynamoRepository) GetRegistrationsByContestAndStudent(contestID string, user_id string) (*domain.ContestRegistration, error) {
-	contestId,err:= attributevalue.Marshal(contestID)
+	contestId, err := attributevalue.Marshal(contestID)
 	if err != nil {
 		return nil, err
 	}
-	studentId ,err:= attributevalue.Marshal(user_id)
+	studentId, err := attributevalue.Marshal(user_id)
 	if err != nil {
 		return nil, err
 	}
-    out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
-        TableName: &r.tableName,
-        KeyConditionExpression: aws.String("contest_id = :contestId AND student_id = :studentId"),
-		IndexName: aws.String("contest_id-student_id-index"),
-        ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":contestId": contestId,
-			":studentId":studentId,
-        },
-    })
+	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		KeyConditionExpression: aws.String("contest_id = :contestId AND student_id = :studentId"),
+		IndexName:              aws.String("contest_id-student_id-index"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":contestId": contestId,
+			":studentId": studentId,
+		},
+	})
 	if err != nil {
-        return nil, err
-    }
+		return nil, err
+	}
 
-    if len(out.Items) == 0 {
-        return nil, nil 
-    }
+	if len(out.Items) == 0 {
+		return nil, nil
+	}
 
-    var registration domain.ContestRegistration
-    err = attributevalue.UnmarshalMap(out.Items[0], &registration)
-    if err != nil {
-        return nil, err
-    }
-    
-    return &registration, nil
+	var registration domain.ContestRegistration
+	err = attributevalue.UnmarshalMap(out.Items[0], &registration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &registration, nil
 
 }
+func (r *ContestRegistrationDynamoRepository) GetRegistrationsByContest(contest_id string) ([]domain.ContestRegistration, error) {
+	contestId, err := attributevalue.Marshal(contest_id)
+	if err != nil {
+		return nil, err
+	}
+	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		KeyConditionExpression: aws.String("contest_id = :contestId"),
+		IndexName:              aws.String("contest_id-student_id-index"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":contestId": contestId,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
+	if len(out.Items) == 0 {
+		return nil, nil
+	}
+	var registerations []domain.ContestRegistration
+	err = attributevalue.UnmarshalListOfMaps(out.Items, &registerations)
+	if err != nil {
+		return nil, err
+	}
+	return registerations, nil
+}

@@ -143,3 +143,37 @@ func (r *SubmissionDynamoRepository) GetSubmissionsByStudent(studentID string) (
 
 	return submissions, nil
 }
+func (r *SubmissionDynamoRepository) GetSubmissionsByStudentAndContest(conId, studentID string) (*domain.Submission, error) {
+	studentIDVal, err := attributevalue.Marshal(studentID)
+	if err != nil {
+		return nil, err
+	}
+	contestIDVal, err := attributevalue.Marshal(conId)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := r.db.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("contest_id-student_id-index"),
+		KeyConditionExpression: aws.String("contest_id = :cId AND student_id = :sid"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":sid": studentIDVal,
+			":cId": contestIDVal,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(out.Items) == 0 {
+		return nil, nil
+	}
+
+	var submission domain.Submission
+	err = attributevalue.UnmarshalMap(out.Items[0], &submission)
+	if err != nil {
+		return nil, err
+	}
+
+	return &submission, nil
+}

@@ -15,6 +15,12 @@ type Submission struct {
 	SubmissionTime  time.Time                     `json:"submission_time"   dynamodbav:"submission_time"`
 	TimeSpend       string                        `json:"time_spend"        dynamodbav:"time_spend"`
 }
+
+// Error implements error.
+func (s Submission) Error() string {
+	panic("unimplemented")
+}
+
 type SubmissionMissedQuestionDto struct {
 	ID             string `json:"id"`
 	SelectedAnswer int    `json:"selected_answer"`

@@ -239,7 +239,7 @@ func (u *submissionUsecase) GetStudentProfileStatistics(studId string) (*domain.
 
 // GetStudentEditorial implements SubmissionUsecase.
 func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]domain.Editorial, error) {
-	submission, err := u.GetSubmissionByID(fmt.Sprintf("%s#%s", conId, studId))
+	submission, err := u.subRepo.GetSubmissionsByStudentAndContest(conId, studId)
 	if err != nil {
 		return nil, err
 	}

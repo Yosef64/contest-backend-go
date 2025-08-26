@@ -22,6 +22,7 @@ func (h *ContestRegistrationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.DELETE("/:id", h.DeleteContestRegistration)
 	rg.GET("/check/:student_id/:contest_id", h.IsStudentRegisteredForContest)
 	rg.GET("/isActive/:contest_id/:student_id", h.CheckStudentActiveInContest)
+	rg.GET("/contest/:contest_id", h.GetNumberOfRegisterationForContest)
 }
 
 func (h *ContestRegistrationHandler) AddContestRegistration(c *gin.Context) {
@@ -82,4 +83,14 @@ func (h *ContestRegistrationHandler) CheckStudentActiveInContest(c *gin.Context)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": isActive})
+}
+
+func (h *ContestRegistrationHandler) GetNumberOfRegisterationForContest(c *gin.Context) {
+	conId := c.Param("contest_id")
+	registerations, err := h.usecase.GetRegisterationForContest(conId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"registerations": len(registerations)})
 }

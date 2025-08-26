@@ -26,6 +26,7 @@ type Server struct {
 	aiHandler                  *AiHandler
 	telegramHandler            *telegramHandler
 	pageViewHandler            *PageViewHandler
+	articleHandler             *ArticleHandler
 }
 
 func NewServer() *Server {
@@ -45,6 +46,8 @@ func NewServer() *Server {
 	contestRegistrationRepo := repository.NewContestRegistrationDynamoRepository("eu-north-1", "contest_registeration")
 	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
 	pageViewRepo := repository.NewPageViewDynamoRepository("eu-north-1", "pageviews")
+	articleRepo := repository.NewArticleDynamoRepository("eu-north-1", "articles")
+	commentRepo  := repository.NewCommentDynamoRepository("eu-north-1", "comments")
 
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
@@ -58,6 +61,7 @@ func NewServer() *Server {
 	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo, studentRepo)
 	adminUsecase := usecase.NewAdminUsecase(adminRepo, studentRepo, contestRepo, submissionRepo, contestRegistrationRepo, paymentRepo, pageViewRepo)
 	pageViewUsecase := usecase.NewPageViewUsecase(pageViewRepo)
+	articleUsecase := usecase.NewArticleUsecase(articleRepo,commentRepo)
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo, studentRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
@@ -87,6 +91,7 @@ func NewServer() *Server {
 		aiHandler:                  NewAiHandler(aiUsecase),
 		telegramHandler:            NewTelegramHandler(telegramUsecase),
 		pageViewHandler:            NewPageViewHandler(pageViewUsecase),
+		articleHandler:             NewArticleHandler(articleUsecase),
 	}
 	return server
 }
@@ -117,6 +122,7 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.aiHandler.RegisterRoutes(api.Group("/ai"))
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
 	s.pageViewHandler.RegisterRoutes(api.Group("/pageview"))
+	s.articleHandler.Register(api)
 
 	return r
 }
