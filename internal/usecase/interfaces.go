@@ -141,6 +141,7 @@ type ArticleRepository interface {
 	DecrementView(id string) error
 	IncrementLike(id string) error
 	DecrementLike(id string) error
+	IncrementComments(id string) error
 }
 
 type CommentRepository interface {

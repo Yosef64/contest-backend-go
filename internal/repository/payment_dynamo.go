@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 	"victor-contest-go/internal/domain"
-	"victor-contest-go/internal/usecase"
+	usecase "victor-contest-go/internal/usecase"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"

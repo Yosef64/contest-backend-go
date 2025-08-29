@@ -51,9 +51,9 @@ func (r *CommentDynamoRepository) Create(comment domain.Comment) (string, error)
 
 func (r *CommentDynamoRepository) ListByArticleID(articleID string) ([]domain.Comment, error) {
 	input := &dynamodb.QueryInput{
-		TableName: aws.String(r.tableName),
-		IndexName: aws.String("ArticleIDIndex"), // Assuming you have a GSI on articleId
+		TableName: aws.String(r.tableName),// Assuming you have a GSI on articleId
 		KeyConditionExpression: aws.String("articleId = :articleId"),
+		IndexName: aws.String("articleId-index"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":articleId": &types.AttributeValueMemberS{Value: articleID},
 		},

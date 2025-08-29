@@ -34,7 +34,7 @@ type SubmissionDto struct {
 }
 
 type StudentSub struct {
-	ID     string `json:"id" dynamodbav:"submission_id"`
+	ID     string `json:"student_id" dynamodbav:"student_id"`
 	ImgURL string `json:"imgurl" dynamodbav:"imgurl"`
 	Name   string `json:"name" dynamodbav:"name"`
 }

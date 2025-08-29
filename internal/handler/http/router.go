@@ -27,6 +27,7 @@ type Server struct {
 	telegramHandler            *telegramHandler
 	pageViewHandler            *PageViewHandler
 	articleHandler             *ArticleHandler
+	imageHandler               *ImageHandler
 }
 
 func NewServer() *Server {
@@ -92,6 +93,7 @@ func NewServer() *Server {
 		telegramHandler:            NewTelegramHandler(telegramUsecase),
 		pageViewHandler:            NewPageViewHandler(pageViewUsecase),
 		articleHandler:             NewArticleHandler(articleUsecase),
+		imageHandler:               NewImageHandler(imgRepo),
 	}
 	return server
 }
@@ -123,6 +125,9 @@ func (s *Server) NewRouter() *gin.Engine {
 	s.telegramHandler.RegisterRoutes(api.Group("/telegram"))
 	s.pageViewHandler.RegisterRoutes(api.Group("/pageview"))
 	s.articleHandler.Register(api)
+
+	// Image routes
+	s.imageHandler.RegisterRoutes(api.Group("/images"))
 
 	return r
 }

@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"victor-contest-go/internal/domain"
+	"victor-contest-go/internal/usecase"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/google/uuid"
 )
 
 type NotificationDynamoRepository struct {
@@ -33,7 +33,7 @@ func NewNotificationDynamoRepository(region string, tablename string) *Notificat
 
 func (r *NotificationDynamoRepository) AddNotification(notification domain.Notification) (string, error) {
 	if notification.ID == "" {
-		notification.ID = fmt.Sprintf("not_%s",uuid.New().String()[:8]) 
+		notification.ID = usecase.GenerateUniqueId()
 	}
 	item, err := attributevalue.MarshalMap(notification)
 	if err != nil {

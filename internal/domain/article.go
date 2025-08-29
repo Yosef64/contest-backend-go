@@ -31,6 +31,7 @@ type Article struct {
 	ReadTime    int            `json:"readTime" dynamodbav:"readTime"`
 	ViewCount   int            `json:"viewCount" dynamodbav:"viewCount"`
 	LikeCount   int            `json:"likeCount" dynamodbav:"likeCount"`
+	CommentCount   int            `json:"commentCount" dynamodbav:"commentCount"`
 }
 type Comment struct {
 	ID        string    `json:"id" dynamodbav:"id"`

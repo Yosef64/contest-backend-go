@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/google/uuid"
 )
 
 type ArticleDynamoRepository struct {
@@ -27,7 +26,7 @@ func NewArticleDynamoRepository(region, table string) *ArticleDynamoRepository {
 }
 
 func (r *ArticleDynamoRepository) Create(article domain.Article) (string, error) {
-	article.ID = uuid.New().String()
+	
 	article.CreatedAt = time.Now()
 	article.UpdatedAt = time.Now()
 	article.ViewCount = 0
@@ -179,7 +178,22 @@ func (r *ArticleDynamoRepository) IncrementLike(id string) error {
 	_, err := r.db.UpdateItem(context.TODO(), input)
 	return err
 }
+func (r *ArticleDynamoRepository) IncrementComments(id string) error {
+	input := &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+		UpdateExpression: aws.String("SET commentCount = if_not_exists(commentCount, :zero) + :inc"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inc":  &types.AttributeValueMemberN{Value: "1"},
+			":zero": &types.AttributeValueMemberN{Value: "0"},
+		},
+	}
 
+	_, err := r.db.UpdateItem(context.TODO(), input)
+	return err
+}
 func (r *ArticleDynamoRepository) DecrementView(id string) error {
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
@@ -225,8 +239,7 @@ func estimateReadTime(html string) int {
         } else if start != -1 { words++; start = -1 }
     }
     if start != -1 { words++ }
-    mins := words / 200
-    if mins < 1 { mins = 1 }
+    mins := max(words / 200, 1)
     return mins
 }
 

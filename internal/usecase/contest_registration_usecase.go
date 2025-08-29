@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"errors"
-	"fmt"
 	"time"
 	"victor-contest-go/internal/domain"
 )
@@ -47,10 +46,11 @@ func NewContestRegistrationUsecase(repo ContestRegistrationRepository) ContestRe
 }
 
 func (u *contestRegistrationUsecase) AddContestRegistration(registrationDto domain.ContestRegistrationDto) (string, error) {
+	id := GenerateUniqueId()
 	registration := domain.ContestRegistration{
 		ContestID:    registrationDto.ContestID,
 		StudentID:    registrationDto.StudentID,
-		ID:           fmt.Sprintf("%s#%s", registrationDto.ContestID, registrationDto.StudentID),
+		ID:           id,
 		IsActive:     false,
 		RegisteredAt: time.Now().In(time.Local),
 	}

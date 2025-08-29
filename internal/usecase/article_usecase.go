@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"log"
 	"time"
 	"victor-contest-go/internal/domain"
 )
@@ -25,12 +26,23 @@ func (u *ArticleUsecase) Create(input domain.Article) (string, error) {
     } else {
         input.PublishedAt = nil
     }
+	input.ID = GenerateUniqueId()
     input.CreatedAt = now
     return u.repo.Create(input)
 }
 
 func (u *ArticleUsecase) Update(id string, update domain.Article) error {
     update.UpdatedAt = time.Now()
+	article,err := u.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if article != nil {
+		update.LikeCount = article.LikeCount
+		update.ViewCount = article.ViewCount
+		update.ReadTime = article.ReadTime
+	}
+
     return u.repo.Update(id, update)
 }
 
@@ -81,7 +93,14 @@ func (uc *ArticleUsecase) DecrementLike(id string) error {
 
 // Comment methods
 func (uc *ArticleUsecase) CreateComment(comment domain.Comment) (string, error) {
-	return uc.commentRepo.Create(comment)
+	id, err := uc.commentRepo.Create(comment)
+	if err != nil {
+		return "", err
+	}
+	if err:= uc.repo.IncrementComments(id);err != nil{
+		log.Printf(err.Error())
+	}
+	return id,nil
 }
 
 func (uc *ArticleUsecase) ListCommentsByArticleID(articleID string) ([]domain.Comment, error) {

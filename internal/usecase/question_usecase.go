@@ -20,6 +20,7 @@ func NewQuestionUsecase(repo QuestionRepository) QuestionUsecase {
 }
 
 func (u *questionUsecase) AddQuestion(question domain.Question) (string, error) {
+	question.ID = GenerateUniqueId()
 	return u.repo.AddQuestion(question)
 }
 func (u *questionUsecase) UpdateQuestion(id string, update domain.Question) error {
