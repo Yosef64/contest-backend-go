@@ -9,9 +9,6 @@ import (
 	"strings"
 	"time"
 	"victor-contest-go/internal/domain"
-
-	"github.com/bwmarrin/snowflake"
-	"github.com/jxskiss/base62"
 )
 
 type SubmissionUsecase interface {
@@ -220,11 +217,14 @@ func (u *submissionUsecase) GetStudentProfileStatistics(studId string) (*domain.
 	}
 
 	rank := -1
-	for i, st := range rankings {
+	for _, st := range rankings {
 		if st.UserID == studId {
-			rank = i + 1
+			rank = st.Rank
 			break
 		}
+	}
+	if rank == -1{
+		rank = len(rankings) + 1
 	}
 	stats := domain.StudentProfilesStatisticsDto{
 		Accuracy:       accuracy,
@@ -239,7 +239,7 @@ func (u *submissionUsecase) GetStudentProfileStatistics(studId string) (*domain.
 
 // GetStudentEditorial implements SubmissionUsecase.
 func (u *submissionUsecase) GetStudentEditorial(conId string, studId string) ([]domain.Editorial, error) {
-	submission, err := u.GetSubmissionByID(fmt.Sprintf("%s#%s", conId, studId))
+	submission, err := u.subRepo.GetSubmissionsByStudentAndContest(conId, studId)
 	if err != nil {
 		return nil, err
 	}
@@ -313,16 +313,7 @@ func NewSubmissionUsecase(repo SubmissionRepository, conUsecase ContestUsecase, 
 }
 
 func (u *submissionUsecase) AddSubmission(submission domain.SubmissionDto) (string, error) {
-	node, err := snowflake.NewNode(1)
-	if err != nil {
-		return "", err
-	}
-
-	// 2. Generate a unique Snowflake ID (this is an int64).
-	snowflakeID := node.Generate()
-
-	// 3. Encode the int64 ID into a short Base-62 string.
-	encodedID := base62.EncodeToString(snowflakeID.Bytes())
+	encodedID := GenerateUniqueId()
 	final_submission := domain.Submission{
 		ID:              encodedID,
 		ContestID:       submission.ContestID,
@@ -563,43 +554,37 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 		student.Badge = make([]string, 0)
 	}
 	already := make(map[string]bool)
-	for _, b := range student.Badge {
-		already[b] = true
-	}
-
 	// Fetch all submissions for student (post-insert)
 	subs, err := u.subRepo.GetSubmissionsByStudent(sub.Student.ID)
 	if err != nil {
 		return err
 	}
-
 	// Helper to add badge if not already present
 	addBadge := func(id string) {
-		if !already[id] {
-			student.Badge = append(student.Badge, id)
-			already[id] = true
-		}
+		
+		student.Badge = append(student.Badge, id)
+		already[id] = true
+		
 	}
 
-	// 1. First Steps: first contest submission
-	if len(subs) == 1 {
+	if len(subs) >= 1 {
 		addBadge("1")
 	}
-
 	// Compute per-submission stats for the newest submission
 	totalQuestions := int(sub.Score) + len(sub.MissedQuestions)
 	seconds := ParseTimeSpend(sub.TimeSpend)
 
-	// 2. Speed Demon: Answer 10 questions in <= 30 seconds (heuristic based on available data)
-	if totalQuestions >= 10 && seconds > 0 && seconds <= 30 {
-		addBadge("2")
+	if totalQuestions > 0 && seconds > 0 {
+		avgPer10 := float64(seconds) / float64(totalQuestions) * 10
+		if avgPer10 <= 30 {
+			addBadge("2")
+		}
 	}
 
 	// 3. Perfectionist: 100% in any contest
 	if totalQuestions > 0 && len(sub.MissedQuestions) == 0 {
 		addBadge("3")
 	}
-
 	// 4. Streak Master: 7-day streak (at least one submission each day for last 7 days)
 	dateHasSubmission := make(map[string]bool)
 	for _, s := range subs {
@@ -617,7 +602,6 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 	if streak {
 		addBadge("4")
 	}
-
 	// 5. Math Wizard: 90%+ in 5 math contests
 	contests, err := u.conUsecase.GetAllContests()
 	if err != nil {
@@ -646,7 +630,6 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 	if mathHighScoreCount >= 5 {
 		addBadge("5")
 	}
-
 	// 6. Champion: Reach top 10 in global leaderboard
 	leaderboard, err := u.GetLeaderboardByTimeFrame("all")
 	if err == nil {
@@ -658,7 +641,6 @@ func (u *submissionUsecase) evaluateAndAwardBadges(sub domain.Submission) error 
 			}
 		}
 	}
-
 	// Persist updated badges if any new added
 	return u.studentRepo.UpdateStudent(*student)
 }

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 	"victor-contest-go/internal/domain"
+
+	"github.com/lithammer/shortuuid/v4"
 )
 
 type NotificationUsecase interface {
@@ -56,6 +58,7 @@ func NewNotificationUsecase(repo NotificationRepository, contestRepo ContestRepo
 }
 
 func (u *notificationUsecase) AddNotification(notification domain.Notification) (string, error) {
+	notification.ID = GenerateUniqueId()
 	return u.repo.AddNotification(notification)
 }
 func (u *notificationUsecase) UpdateNotification(id string, update domain.Notification) error {
@@ -158,4 +161,8 @@ func (s *notificationUsecase) SendNotification(title, message, Type, recipientId
 		return err
 	}
 	return nil
+}
+func GenerateUniqueId() string{
+	id := shortuuid.New() // compressed uuid
+	return id 
 }

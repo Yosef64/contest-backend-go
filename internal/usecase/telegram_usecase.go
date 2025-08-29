@@ -27,6 +27,7 @@ func (t *telegramUsecase) HandleStartCommand(chatId, userId int64) error {
 	if err != nil {
 		return err
 	}
+	
 	return nil
 }
 
@@ -62,6 +63,7 @@ func (t *telegramUsecase) sendMessage(chatID int64, text string, photo string, k
 	// }
 	return nil
 }
+
 func NewTelegramUsecase(bot *tgbotapi.BotAPI) TelegramUsecase {
 	return &telegramUsecase{bot: bot}
 }

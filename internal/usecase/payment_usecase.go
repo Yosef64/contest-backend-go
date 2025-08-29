@@ -38,6 +38,7 @@ func (p *paymentUsecase) AddPayment(payment domain.PaymentRequest) error {
 	payment.CreatedAt = time.Now().UTC()
 	expDate := time.Now().UTC().AddDate(0, 1, 0)
 	payment.ExpirationDate = &expDate
+	payment.ID = GenerateUniqueId()
 	return p.paymentRepo.Create(&payment)
 }
 

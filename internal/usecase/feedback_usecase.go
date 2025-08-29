@@ -27,6 +27,7 @@ func NewFeedbackQuestionUsecase(repo FeedbackQuestionRepository) FeedbackQuestio
 func (u *feedbackQuestionUsecase) AddFeedbackQuestion(question domain.FeedbackQuestion) (string, error) {
 	question.CreatedAt = time.Now()
 	question.UpdatedAt = time.Now()
+	question.ID = GenerateUniqueId()
 	return u.repo.AddFeedbackQuestion(question)
 }
 
