@@ -1,8 +1,10 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/repository"
 	"victor-contest-go/internal/usecase"
@@ -69,6 +71,29 @@ func (h *QuestionHandler) AddQuestion(c *gin.Context) {
 		question.QuestionImg = imgURL
 	}
 
+	// Handle explanation image if present
+	explanationFileHeader, err := c.FormFile("explanation_image")
+	if err != nil && err != http.ErrMissingFile {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get explanation image from form"})
+		return
+	}
+
+	if explanationFileHeader != nil {
+		file, err := explanationFileHeader.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open explanation image file"})
+			return
+		}
+		defer file.Close()
+
+		imgURL, err := h.imageRepo.UploadImage(file, "questions")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		question.ExplanationImg = imgURL
+	}
+
 	id, err := h.usecase.AddQuestion(question)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -91,13 +116,83 @@ func (h *QuestionHandler) AddMultipleQuestions(c *gin.Context) {
 
 func (h *QuestionHandler) UpdateQuestion(c *gin.Context) {
 	id := c.Param("id")
+	fmt.Printf("UpdateQuestion called with ID: %s\n", id)
+
 	var update domain.Question
-	if err := c.ShouldBindJSON(&update); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+
+	// Check if the request is multipart/form-data (has files) or JSON
+	contentType := c.GetHeader("Content-Type")
+	fmt.Printf("Content-Type: %s\n", contentType)
+
+	if strings.Contains(contentType, "multipart/form-data") {
+		// Handle FormData request (with potential file uploads)
+		fmt.Println("Handling FormData request")
+		update.QuestionText = c.PostForm("question_text")
+		update.Explanation = c.PostForm("explanation")
+		update.Subject = c.PostForm("subject")
+		update.Grade = c.PostForm("grade")
+		update.Chapter = c.PostForm("chapter")
+		update.MultipleChoice = c.PostFormArray("multiple_choice")
+		answerStr := c.PostForm("answer")
+		if answerStr != "" {
+			answer, err := strconv.Atoi(answerStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'answer' format. Must be an integer."})
+				return
+			}
+			update.Answer = answer
+		}
+
+		fmt.Printf("FormData parsed: %+v\n", update)
+
+		// Handle file uploads if present
+		if fileHeader, err := c.FormFile("question_image"); err == nil && fileHeader != nil {
+			file, err := fileHeader.Open()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open uploaded file"})
+				return
+			}
+			defer file.Close()
+
+			imgURL, err := h.imageRepo.UploadImage(file, "questions")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			update.QuestionImg = imgURL
+		}
+
+		if fileHeader, err := c.FormFile("explanation_image"); err == nil && fileHeader != nil {
+			file, err := fileHeader.Open()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open uploaded file"})
+				return
+			}
+			defer file.Close()
+
+			imgURL, err := h.imageRepo.UploadImage(file, "questions")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			update.ExplanationImg = imgURL
+		}
+	} else {
+		// Handle JSON request
+		fmt.Println("Handling JSON request")
+		if err := c.ShouldBindJSON(&update); err != nil {
+			fmt.Printf("JSON binding error: %v\n", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Printf("JSON parsed: %+v\n", update)
 	}
+
+	fmt.Printf("Final update struct: %+v\n", update)
+
 	err := h.usecase.UpdateQuestion(id, update)
 	if err != nil {
+		fmt.Printf("UpdateQuestion error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

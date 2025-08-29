@@ -18,6 +18,7 @@ type Student struct {
 	Gender            string                           `dynamodbav:"gender"      json:"gender"`
 	IsPremium         bool                             `dynamodbav:"is_premium"    json:"is_premium"`
 	ReadNotifications map[string]ReadNotificationModel `dynamodbav:"read_notifications"    json:"read_notifications"`
+	DefaultScoreRange string                           `dynamodbav:"defaultScoreRange" json:"defaultScoreRange"`
 	CreatedAt         time.Time                        `dynamodbav:"created_at"    json:"created_at"`
 }
 

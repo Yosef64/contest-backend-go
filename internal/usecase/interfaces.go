@@ -16,6 +16,8 @@ type ContestRepository interface {
 type StudentRepository interface {
 	AddStudent(student domain.Student) error
 	UpdateStudent(student domain.Student) error
+	DeleteStudent(id string) error
+	GetStudentByTelegramID(telegramID string) (*domain.Student, error)
 	VerifyStudentPaid(telegramID string) (bool, error)
 	GetPaidStudents() ([]domain.Student, error)
 	GetStudents() ([]domain.Student, error)
@@ -105,6 +107,7 @@ type FeedbackResponseRepository interface {
 	AddFeedbackResponse(response domain.FeedbackResponse) (string, error)
 	UpdateFeedbackResponse(id string, update domain.FeedbackResponse) error
 	DeleteFeedbackResponse(id string) error
+	DeleteFeedbackResponseOnly(id string) error
 	GetFeedbackResponseByID(id string) (*domain.FeedbackResponse, error)
 	GetAllFeedbackResponses() ([]domain.FeedbackResponse, error)
 	GetFeedbackResponsesByStudent(studentID string) ([]domain.FeedbackResponse, error)
@@ -147,4 +150,8 @@ type ArticleRepository interface {
 type CommentRepository interface {
 	Create(comment domain.Comment) (string, error)
 	ListByArticleID(articleID string) ([]domain.Comment, error)
+type ContestStatisticsRepository interface {
+	GetContestStatistics(contestID string, filters domain.StatisticsFilters) (*domain.ContestStatistics, error)
+	GetStudentPerformancesByContest(contestID string, filters domain.StatisticsFilters, page, pageSize int) (*domain.StudentPerformanceList, error)
+	GetContestSummary(contestID string) (*domain.ContestStatistics, error)
 }

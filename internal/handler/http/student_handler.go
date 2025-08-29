@@ -1,7 +1,9 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"victor-contest-go/internal/domain"
 	"victor-contest-go/internal/usecase"
 
@@ -20,6 +22,7 @@ func NewStudentHandler(u usecase.StudentUsecase, notificationService usecase.Not
 func (h *StudentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/", h.AddStudent)
 	rg.PUT("/:id", h.UpdateStudent)
+	rg.DELETE("/:id", h.DeleteStudent)
 	rg.GET("/", h.GetStudents)
 	rg.GET("/paid", h.GetPaidStudents)
 	rg.GET("/quickstat/:id", h.GetQuickStat)
@@ -57,11 +60,16 @@ func (h *StudentHandler) AddStudent(c *gin.Context) {
 }
 
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
+	id := c.Param("id")
 	var student domain.Student
 	if err := c.ShouldBindJSON(&student); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Set the ID from the URL parameter
+	student.ID = id
+
 	err := h.usecase.UpdateStudent(student)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -158,4 +166,60 @@ func (r *StudentHandler) GetUserStatForAdmin(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"profile": profile})
 
+}
+
+func (h *StudentHandler) DeleteStudent(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Student ID is required"})
+		return
+	}
+
+	var student *domain.Student
+	var err error
+
+	// Check if the ID looks like a Telegram ID (numeric) or a UUID
+	// If it's numeric, try to find by Telegram ID first
+	if _, err := strconv.Atoi(id); err == nil {
+		// It's numeric, try to find by Telegram ID
+		fmt.Printf("Looking up student by Telegram ID: %s\n", id)
+		student, err = h.usecase.GetStudentByTelegramID(id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if student exists: " + err.Error()})
+			return
+		}
+		if student == nil {
+			fmt.Printf("Student not found by Telegram ID, trying by regular ID: %s\n", id)
+			// Try by regular ID as fallback
+			student, err = h.usecase.GetStudentByID(id)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if student exists: " + err.Error()})
+				return
+			}
+		} else {
+			fmt.Printf("Found student by Telegram ID: %s, database ID: %s\n", id, student.ID)
+		}
+	} else {
+		// It's not numeric, try by regular ID
+		fmt.Printf("Looking up student by regular ID: %s\n", id)
+		student, err = h.usecase.GetStudentByID(id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if student exists: " + err.Error()})
+			return
+		}
+	}
+
+	if student == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	// Delete the student using the actual database ID
+	fmt.Printf("Deleting student with database ID: %s\n", student.ID)
+	err = h.usecase.DeleteStudent(student.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete student: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Student deleted successfully"})
 }
