@@ -20,14 +20,14 @@ func (t *telegramUsecase) HandleStartCommand(chatId, userId int64) error {
 	message := "<b>Welcome! 👋 </b>\nPress the button below and take one step to the journey"
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonWebApp("Open Contest", tgbotapi.WebAppInfo{URL: "https://victory-contest.vercel.app"}),
+			tgbotapi.NewInlineKeyboardButtonWebApp("Open Contest", tgbotapi.WebAppInfo{URL: "https://xlwsqvfk-5173.uks1.devtunnels.ms/"}),
 		),
 	)
 	err := t.sendMessage(chatId, message, photoUrl, keyboard)
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 

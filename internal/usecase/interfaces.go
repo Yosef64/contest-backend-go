@@ -150,6 +150,8 @@ type ArticleRepository interface {
 type CommentRepository interface {
 	Create(comment domain.Comment) (string, error)
 	ListByArticleID(articleID string) ([]domain.Comment, error)
+}
+
 type ContestStatisticsRepository interface {
 	GetContestStatistics(contestID string, filters domain.StatisticsFilters) (*domain.ContestStatistics, error)
 	GetStudentPerformancesByContest(contestID string, filters domain.StatisticsFilters, page, pageSize int) (*domain.StudentPerformanceList, error)

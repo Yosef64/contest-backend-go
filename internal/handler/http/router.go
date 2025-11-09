@@ -36,7 +36,7 @@ type Server struct {
 func NewServer() *Server {
 
 	// Bot
-	bot, _ := tgbotapi.NewBotAPI("8328194489:AAF1Ul46yoR0XXkDF0bZeBXw37mol_vO68U")
+	bot, _ := tgbotapi.NewBotAPI("8599145203:AAHowX8JsjoXGxbMmAk8UWhDp8-XLMq8MWk")
 
 	// --- Initialize Repositories ---
 	imgRepo := repository.NewImageRepostory("something")
@@ -51,7 +51,7 @@ func NewServer() *Server {
 	paymentRepo := repository.NewDynamoDBPaymentRepository("eu-north-1", "payment")
 	pageViewRepo := repository.NewPageViewDynamoRepository("eu-north-1", "pageviews")
 	articleRepo := repository.NewArticleDynamoRepository("eu-north-1", "articles")
-	commentRepo  := repository.NewCommentDynamoRepository("eu-north-1", "comments")
+	commentRepo := repository.NewCommentDynamoRepository("eu-north-1", "comments")
 
 	// --- Initialize Feedback Repositories ---
 	feedbackQuestionRepo := repository.NewFeedbackQuestionDynamoRepository("eu-north-1", "feedback_questions")
@@ -65,7 +65,7 @@ func NewServer() *Server {
 	submissionUsecase := usecase.NewSubmissionUsecase(submissionRepo, contestUsecase, questionRepo, studentRepo)
 	adminUsecase := usecase.NewAdminUsecase(adminRepo, studentRepo, contestRepo, submissionRepo, contestRegistrationRepo, paymentRepo, pageViewRepo)
 	pageViewUsecase := usecase.NewPageViewUsecase(pageViewRepo)
-	articleUsecase := usecase.NewArticleUsecase(articleRepo,commentRepo)
+	articleUsecase := usecase.NewArticleUsecase(articleRepo, commentRepo)
 	notificationUsecase := usecase.NewNotificationUsecase(notificationRepo, contestRepo, studentRepo)
 	achievementUsecase := usecase.NewAchievementUsecase(achievementRepo)
 	contestRegistrationUsecase := usecase.NewContestRegistrationUsecase(contestRegistrationRepo)
@@ -75,10 +75,6 @@ func NewServer() *Server {
 
 	// --- Initialize Contest Statistics Use Case ---
 	contestStatisticsUsecase := usecase.NewContestStatisticsUsecase(contestUsecase, submissionUsecase, studentUsecase, questionUsecase, nil)
-
-	// --- Initialize Notification Service ---
-	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
-
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
