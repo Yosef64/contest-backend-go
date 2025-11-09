@@ -76,9 +76,6 @@ func NewServer() *Server {
 	// --- Initialize Contest Statistics Use Case ---
 	contestStatisticsUsecase := usecase.NewContestStatisticsUsecase(contestUsecase, submissionUsecase, studentUsecase, questionUsecase, nil)
 
-	// --- Initialize Notification Service ---
-	notificationService := usecase.NewNotificationService(notificationRepo, studentRepo)
-
 	// --- Initialize Feedback Use Cases ---
 	feedbackQuestionUsecase := usecase.NewFeedbackQuestionUsecase(feedbackQuestionRepo)
 	pollOptionUsecase := usecase.NewPollOptionUsecase(pollOptionRepo)
