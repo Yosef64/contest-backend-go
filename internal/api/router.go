@@ -1,0 +1,205 @@
+// Package api wires HTTP routes to handlers.
+//
+//	/healthz                  liveness + database check
+//	/api/v1/auth/*            student sign-in (Google, Telegram, dev)
+//	/api/v1/...               student app API (Bearer token)
+//	/api/v1/admin/auth/*      admin sign-in (httpOnly cookie)
+//	/api/v1/admin/...         admin dashboard API
+package api
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"victor-contest-go/internal/auth"
+	"victor-contest-go/internal/config"
+	"victor-contest-go/internal/httpx"
+	"victor-contest-go/internal/media"
+	"victor-contest-go/internal/store"
+)
+
+type Server struct {
+	cfg    config.Config
+	store  *store.Store
+	tokens *auth.Tokens
+	media  *media.Store
+	pool   *pgxpool.Pool
+	now    func() time.Time
+}
+
+func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
+	return &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool, now: time.Now}
+}
+
+func (s *Server) Router() *gin.Engine {
+	if !s.cfg.IsDev() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	r := gin.New()
+	r.Use(gin.Logger(), gin.Recovery())
+	_ = r.SetTrustedProxies(nil)
+	r.MaxMultipartMemory = 16 << 20
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     s.cfg.AllowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+	r.NoRoute(func(c *gin.Context) { httpx.Fail(c, httpx.NotFound("Endpoint")) })
+
+	r.GET("/healthz", s.health)
+	if dir := s.media.LocalDir(); dir != "" {
+		r.Static("/uploads", dir)
+	}
+
+	// Public page behind shared referral links.
+	r.GET("/r/:owner/:chapter", s.referralLanding)
+
+	v1 := r.Group("/api/v1")
+	v1.GET("/site", httpx.H(s.publicSite))
+
+	// Student sign-in.
+	a := v1.Group("/auth")
+	a.POST("/google", httpx.H(s.signInGoogle))
+	a.POST("/telegram", httpx.H(s.signInTelegram))
+	a.POST("/register", httpx.H(s.signUpPassword))
+	a.POST("/login", httpx.H(s.signInPassword))
+	a.POST("/password/forgot", httpx.H(s.forgotPassword))
+	a.POST("/password/reset", httpx.H(s.resetPassword))
+	if s.cfg.IsDev() {
+		a.POST("/dev", httpx.H(s.signInDev))
+	}
+
+	// Student app.
+	app := v1.Group("", s.tokens.Require(auth.RoleStudent))
+	app.GET("/me", httpx.H(s.getMe))
+	app.PUT("/me", httpx.H(s.putMe))
+	app.PUT("/me/password", httpx.H(s.changeStudentPassword))
+	app.PUT("/me/photo", httpx.H(s.putMyPhoto))
+	app.DELETE("/me/photo", httpx.H(s.deleteMyPhoto))
+	app.GET("/me/stats", httpx.H(s.getMyStats))
+	app.POST("/me/checkin", httpx.H(s.appCheckin))
+	app.GET("/me/achievements", httpx.H(s.appAchievements))
+	app.GET("/me/progress", httpx.H(s.getMyProgress))
+	app.PUT("/me/progress/:chapterID", httpx.H(s.putMyProgress))
+	app.GET("/courses", httpx.H(s.appCourses))
+	app.GET("/courses/:id", httpx.H(s.appCourse))
+	app.GET("/chapters/:id", httpx.H(s.appChapter))
+	app.GET("/contests", httpx.H(s.appContests))
+	app.GET("/contests/:id", httpx.H(s.appContest))
+	app.POST("/contests/:id/register", httpx.H(s.appRegister))
+	app.GET("/contests/:id/questions", httpx.H(s.appContestQuestions))
+	app.POST("/contests/:id/submit", httpx.H(s.appSubmit))
+	app.GET("/contests/:id/offline", httpx.H(s.appOfflinePaper))
+	app.POST("/contests/:id/offline-submit", httpx.H(s.appOfflineSubmit))
+	app.GET("/contests/:id/editorial", httpx.H(s.appEditorial))
+	app.GET("/contests/:id/standings", httpx.H(s.appStandings))
+	app.GET("/leaderboard", httpx.H(s.appLeaderboard))
+
+	app.POST("/contests/:id/exam-mode/:action", httpx.H(s.examModePassword))
+	app.POST("/contests/:id/makeup", httpx.H(s.startMakeup))
+	app.POST("/contests/:id/makeup/submit", httpx.H(s.submitMakeup))
+	app.POST("/learning-hub/agent", httpx.H(s.registerAgent))
+	app.GET("/learning-hub", httpx.H(s.learningHub))
+	app.GET("/announcements", httpx.H(s.appAnnouncements))
+	app.GET("/study-sessions", httpx.H(s.listStudySessions))
+	app.POST("/study-sessions", httpx.H(s.createStudySession))
+	app.PUT("/study-sessions/:id", httpx.H(s.updateStudySession))
+	app.DELETE("/study-sessions/:id", httpx.H(s.deleteStudySession))
+	app.PUT("/learning-hub/profile", httpx.H(s.saveAcademicProfile))
+	app.POST("/learning-hub/enrollments", httpx.H(s.requestEnrollment))
+	app.PUT("/learning-hub/targets", httpx.H(s.saveTarget))
+	app.PUT("/learning-hub/habits/:id", httpx.H(s.logHabit))
+	app.POST("/learning-hub/referrals", httpx.H(s.referralVisit))
+
+	// Admin sign-in (public).
+	adminAuth := v1.Group("/admin/auth")
+	adminAuth.POST("/login", httpx.H(s.adminLogin))
+	adminAuth.POST("/google", httpx.H(s.adminGoogle))
+	adminAuth.POST("/logout", httpx.H(s.adminLogout))
+	adminAuth.POST("/register", httpx.H(s.adminRegister))
+
+	// Admin dashboard.
+	ad := v1.Group("/admin", s.tokens.Require(auth.RoleAdmin), s.requireApprovedAdmin, s.requirePermission)
+	ad.GET("/auth/me", httpx.H(s.adminMe))
+	ad.GET("/overview", httpx.H(s.adminOverview))
+	ad.PUT("/services/exam-mode", httpx.H(s.adminExamMode))
+	ad.PUT("/services/makeup", httpx.H(s.adminMakeup))
+	ad.DELETE("/services/makeup/:id", httpx.H(s.adminCloseMakeup))
+	ad.PATCH("/services/agents/:id", httpx.H(s.adminAgentReview))
+	ad.POST("/services/chapters/import", httpx.H(s.adminBulkChapters))
+	ad.GET("/services", httpx.H(s.adminServices))
+	ad.POST("/services", httpx.H(s.adminServiceWrite))
+	ad.GET("/services/reports", httpx.H(s.adminReports))
+	ad.PUT("/enrollments/:id", httpx.H(s.adminEditEnrollment))
+	ad.PUT("/auth/password", httpx.H(s.changeAdminPassword))
+	ad.GET("/settings/site", httpx.H(s.adminSiteSettings))
+	ad.PUT("/settings/site", httpx.H(s.adminSaveSiteSettings))
+
+	ad.GET("/courses", httpx.H(s.adminCourses))
+	ad.POST("/courses", httpx.H(s.adminCreateCourse))
+	ad.GET("/courses/:id", httpx.H(s.adminCourse))
+	ad.PUT("/courses/:id", httpx.H(s.adminUpdateCourse))
+	ad.DELETE("/courses/:id", httpx.H(s.adminDeleteCourse))
+	ad.POST("/courses/:id/chapters", httpx.H(s.adminCreateChapter))
+	ad.PUT("/courses/:id/chapters/order", httpx.H(s.adminReorderChapters))
+
+	ad.GET("/chapters/:id", httpx.H(s.adminChapter))
+	ad.PUT("/chapters/:id", httpx.H(s.adminSaveChapter))
+	ad.DELETE("/chapters/:id", httpx.H(s.adminDeleteChapter))
+	ad.POST("/chapters/:id/lock", httpx.H(s.adminLockChapter))
+	ad.DELETE("/chapters/:id/lock", httpx.H(s.adminUnlockChapter))
+	ad.GET("/chapters/:id/versions", httpx.H(s.adminVersions))
+	ad.GET("/chapters/:id/versions/:v", httpx.H(s.adminVersion))
+	ad.POST("/chapters/:id/versions/:v/restore", httpx.H(s.adminRestoreVersion))
+	ad.GET("/chapters/:id/comments", httpx.H(s.adminComments))
+	ad.POST("/chapters/:id/comments", httpx.H(s.adminAddComment))
+	ad.PATCH("/comments/:id", httpx.H(s.adminResolveComment))
+	ad.POST("/media", httpx.H(s.adminUpload))
+	ad.GET("/media", httpx.H(s.adminMedia))
+
+	ad.GET("/contests", httpx.H(s.adminContests))
+	ad.POST("/contests", httpx.H(s.adminCreateContest))
+	ad.GET("/contests/:id", httpx.H(s.adminContest))
+	ad.PUT("/contests/:id", httpx.H(s.adminUpdateContest))
+	ad.DELETE("/contests/:id", httpx.H(s.adminDeleteContest))
+	ad.GET("/contests/:id/standings", httpx.H(s.adminStandings))
+	ad.GET("/contests/:id/questions", httpx.H(s.adminContestQuestions))
+	ad.POST("/contests/:id/questions/import", httpx.H(s.adminImportContestQuestions))
+
+	ad.GET("/questions", httpx.H(s.adminQuestions))
+	ad.POST("/questions", httpx.H(s.adminCreateQuestion))
+	ad.POST("/questions/bulk", httpx.H(s.adminBulkQuestions))
+	ad.POST("/questions/batch", httpx.H(s.adminQuestionBatch))
+	ad.PUT("/questions/:id", httpx.H(s.adminUpdateQuestion))
+	ad.DELETE("/questions/:id", httpx.H(s.adminDeleteQuestion))
+
+	ad.GET("/students", httpx.H(s.adminStudents))
+	ad.GET("/students/:id", httpx.H(s.adminStudent))
+	ad.PATCH("/students/:id", httpx.H(s.adminPatchStudent))
+	ad.POST("/students/:id/password-reset", httpx.H(s.adminPasswordReset))
+	ad.DELETE("/students/:id", httpx.H(s.adminDeleteStudent))
+
+	ad.GET("/admins", httpx.H(s.adminAdmins))
+	ad.PATCH("/admins/:id", httpx.H(s.adminPatchAdmin))
+	ad.DELETE("/admins/:id", httpx.H(s.adminDeleteAdmin))
+	ad.POST("/admins/:id/password-reset", httpx.H(s.adminResetAdminPassword))
+
+	return r
+}
+
+func (s *Server) health(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+	if err := s.pool.Ping(ctx); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "database": "unreachable"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}

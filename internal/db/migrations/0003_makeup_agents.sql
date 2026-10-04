@@ -1,0 +1,4 @@
+
+CREATE TABLE makeup_settings (contest_id text PRIMARY KEY REFERENCES contests(id) ON DELETE CASCADE,minutes integer NOT NULL CHECK(minutes BETWEEN 1 AND 240),available_until timestamptz NOT NULL);
+CREATE TABLE makeup_attempts (contest_id text REFERENCES contests(id) ON DELETE CASCADE,student_id text REFERENCES students(id) ON DELETE CASCADE,started_at timestamptz NOT NULL DEFAULT now(),ends_at timestamptz NOT NULL,PRIMARY KEY(contest_id,student_id));
+CREATE TABLE field_agents (id text PRIMARY KEY DEFAULT gen_random_uuid()::text,student_id text UNIQUE REFERENCES students(id) ON DELETE CASCADE,name text NOT NULL,phone text NOT NULL,city text NOT NULL,region text NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),created_at timestamptz NOT NULL DEFAULT now());

@@ -1,0 +1,1264 @@
+{
+  "courses": [
+    {
+      "id": "g9-mathematics",
+      "grade": "9",
+      "subject": "Mathematics",
+      "title": "Mathematics · Grade 9",
+      "description": "Build fluency in algebra, geometry and calculus with worked examples and exam-style practice.",
+      "chapters": [
+        {
+          "id": "g9-mathematics-c1",
+          "number": 1,
+          "title": "Linear Equations",
+          "summary": "Solve equations of the form ax + b = c and read their graphs as straight lines.",
+          "minutes": 25,
+          "html": "<p class=\"lead\">A linear equation is a statement that two expressions are equal, where the unknown appears only to the first power. Solving it means finding the value that makes the statement true.</p>\n\n<h2>The golden rule</h2>\n<p>Whatever you do to one side of an equation, you must do to the other. This keeps the equation <b>balanced</b>, like a set of scales.</p>\n<div class=\"formula\">ax + b = c &nbsp;⟹&nbsp; x = (c − b) ÷ a</div>\n\n<div class=\"example\">\n<p class=\"label\">Worked example</p>\n<p>Solve <b>2x + 5 = 17</b>.</p>\n<ol>\n<li>Subtract 5 from both sides: 2x = 12</li>\n<li>Divide both sides by 2: x = 6</li>\n<li>Check: 2(6) + 5 = 17 ✓</li>\n</ol>\n</div>\n\n<h2>Seeing equations as lines</h2>\n<p>Every linear equation in two variables, such as <i>y = 2x + 1</i>, draws a straight line. The number in front of <i>x</i> is the <b>slope</b> and the constant is the <b>y-intercept</b>.</p>\n<figure>\n<svg font-family=\"PlusJakartaSans\" viewBox=\"0 0 320 230\" width=\"320\" height=\"230\" xmlns=\"http://www.w3.org/2000/svg\">\n<rect x=\"0\" y=\"0\" width=\"320\" height=\"230\" rx=\"16\" fill=\"#F4F2FF\"/>\n<g stroke=\"#E1DDFB\" stroke-width=\"1\">\n<line x1=\"40\" y1=\"40\" x2=\"300\" y2=\"40\"/><line x1=\"40\" y1=\"70\" x2=\"300\" y2=\"70\"/><line x1=\"40\" y1=\"100\" x2=\"300\" y2=\"100\"/><line x1=\"40\" y1=\"130\" x2=\"300\" y2=\"130\"/><line x1=\"40\" y1=\"160\" x2=\"300\" y2=\"160\"/>\n<line x1=\"120\" y1=\"20\" x2=\"120\" y2=\"210\"/><line x1=\"160\" y1=\"20\" x2=\"160\" y2=\"210\"/><line x1=\"200\" y1=\"20\" x2=\"200\" y2=\"210\"/><line x1=\"240\" y1=\"20\" x2=\"240\" y2=\"210\"/><line x1=\"280\" y1=\"20\" x2=\"280\" y2=\"210\"/>\n</g>\n<line x1=\"30\" y1=\"190\" x2=\"305\" y2=\"190\" stroke=\"#6B7090\" stroke-width=\"2\"/>\n<line x1=\"80\" y1=\"15\" x2=\"80\" y2=\"215\" stroke=\"#6B7090\" stroke-width=\"2\"/>\n<line x1=\"40\" y1=\"205\" x2=\"280\" y2=\"25\" stroke=\"#7F6BFE\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n<circle cx=\"80\" cy=\"175\" r=\"6\" fill=\"#E5793B\"/>\n<circle cx=\"160\" cy=\"115\" r=\"6\" fill=\"#12A594\"/>\n<text x=\"90\" y=\"182\" font-size=\"12\" fill=\"#1B1D3A\">(0, 1)</text>\n<text x=\"170\" y=\"122\" font-size=\"12\" fill=\"#1B1D3A\">(2, 5)</text>\n<text x=\"96\" y=\"58\" font-size=\"15\" font-weight=\"bold\" fill=\"#7F6BFE\">y = 2x + 1</text>\n<text x=\"296\" y=\"182\" font-size=\"12\" fill=\"#6B7090\">x</text>\n<text x=\"86\" y=\"26\" font-size=\"12\" fill=\"#6B7090\">y</text>\n</svg>\n<figcaption>The line y = 2x + 1 crosses the y-axis at 1 and rises 2 units for every 1 unit to the right.</figcaption>\n</figure>\n\n<h2>Common equation shapes</h2>\n<table>\n<tr><th>Equation</th><th>First step</th><th>Answer</th></tr>\n<tr><td>x + 7 = 12</td><td>Subtract 7</td><td>x = 5</td></tr>\n<tr><td>3x = 21</td><td>Divide by 3</td><td>x = 7</td></tr>\n<tr><td>x/4 = 2</td><td>Multiply by 4</td><td>x = 8</td></tr>\n<tr><td>5x − 3 = 2x + 9</td><td>Collect x terms</td><td>x = 4</td></tr>\n</table>\n\n<div class=\"callout warn\"><p><b>Watch out.</b> When you move a term across the equals sign, its sign changes. Forgetting this is the most common mistake in exams.</p></div>\n<div class=\"callout key\"><p><b>Key takeaway.</b> Undo operations in reverse order (add/subtract first, then multiply/divide) and always check your answer by substituting it back.</p></div>\n"
+        },
+        {
+          "id": "g9-mathematics-c2",
+          "number": 2,
+          "title": "Sets and Number Systems",
+          "summary": "Describe collections of objects as sets and place every number in the real number system.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe collections of objects as sets and place every number in the real number system.</p>\n<h2>Key ideas</h2>\n<ul><li>A set can be written by listing (roster) or by a rule (set-builder notation).</li><li>Union (∪) joins sets; intersection (∩) keeps common elements.</li><li>Natural ⊂ Integers ⊂ Rationals ⊂ Reals; √2 and π are irrational.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Sets and Number Systems” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-mathematics-c3",
+          "number": 3,
+          "title": "Triangles and Polygons",
+          "summary": "Use angle facts and congruence to reason about triangles and other polygons.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Use angle facts and congruence to reason about triangles and other polygons.</p>\n<h2>Key ideas</h2>\n<ul><li>The angles of a triangle add up to 180°.</li><li>An n-sided polygon has interior angles summing to (n − 2) × 180°.</li><li>SSS, SAS, ASA and RHS are the tests for congruent triangles.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Triangles and Polygons” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g9-physics",
+      "grade": "9",
+      "subject": "Physics",
+      "title": "Physics · Grade 9",
+      "description": "Understand how the physical world works, from motion and energy to electricity and waves.",
+      "chapters": [
+        {
+          "id": "g9-physics-c1",
+          "number": 1,
+          "title": "Units and Measurement",
+          "summary": "Measure physical quantities accurately using SI units and significant figures.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Measure physical quantities accurately using SI units and significant figures.</p>\n<h2>Key ideas</h2>\n<ul><li>The seven SI base units include the metre, kilogram and second.</li><li>Derived units combine base units, e.g. 1 N = 1 kg·m/s².</li><li>Every measurement has an uncertainty; record it honestly.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Units and Measurement” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-physics-c2",
+          "number": 2,
+          "title": "Motion in a Straight Line",
+          "summary": "Describe motion with displacement, velocity and acceleration.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe motion with displacement, velocity and acceleration.</p>\n<h2>Key ideas</h2>\n<ul><li>Velocity is the rate of change of displacement.</li><li>For constant acceleration: v = u + at and s = ut + ½at².</li><li>The slope of a velocity–time graph is the acceleration.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Motion in a Straight Line” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-physics-c3",
+          "number": 3,
+          "title": "Forces and Newton's Laws",
+          "summary": "Explain how forces change the motion of objects.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explain how forces change the motion of objects.</p>\n<h2>Key ideas</h2>\n<ul><li>An object stays at rest or moves uniformly unless a net force acts.</li><li>Net force equals mass times acceleration: F = ma.</li><li>Every action force has an equal and opposite reaction force.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Forces and Newton's Laws” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g9-chemistry",
+      "grade": "9",
+      "subject": "Chemistry",
+      "title": "Chemistry · Grade 9",
+      "description": "Explore matter, reactions and the quantitative ideas behind chemistry.",
+      "chapters": [
+        {
+          "id": "g9-chemistry-c1",
+          "number": 1,
+          "title": "Matter and Its Properties",
+          "summary": "Classify matter and distinguish physical from chemical properties.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Classify matter and distinguish physical from chemical properties.</p>\n<h2>Key ideas</h2>\n<ul><li>Matter exists as solids, liquids and gases.</li><li>Mixtures can be separated physically; compounds cannot.</li><li>A chemical change produces new substances.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Matter and Its Properties” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-chemistry-c2",
+          "number": 2,
+          "title": "Atomic Structure",
+          "summary": "Describe the particles that make up atoms and how they are arranged.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe the particles that make up atoms and how they are arranged.</p>\n<h2>Key ideas</h2>\n<ul><li>Atoms contain protons, neutrons and electrons.</li><li>The atomic number is the number of protons.</li><li>Isotopes have the same protons but different neutrons.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Atomic Structure” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-chemistry-c3",
+          "number": 3,
+          "title": "Chemical Reactions",
+          "summary": "Write and balance equations for common reaction types.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Write and balance equations for common reaction types.</p>\n<h2>Key ideas</h2>\n<ul><li>Mass is conserved, so equations must be balanced.</li><li>Common types: combination, decomposition, displacement, combustion.</li><li>Metals react with acids to produce a salt and hydrogen gas.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Chemical Reactions” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g9-biology",
+      "grade": "9",
+      "subject": "Biology",
+      "title": "Biology · Grade 9",
+      "description": "Study living things from cells and genetics to whole ecosystems.",
+      "chapters": [
+        {
+          "id": "g9-biology-c1",
+          "number": 1,
+          "title": "Characteristics of Living Things",
+          "summary": "Identify the features shared by every living organism.",
+          "minutes": 20,
+          "html": "<p class=\"lead\">Every living organism, from a bacterium to a blue whale, shares the same set of life processes. Remember them with the word <b>MRS GREN</b>.</p>\n\n<figure>\n<img src=\"https://flutter.github.io/assets-for-api-docs/assets/widgets/owl.jpg\" alt=\"An owl perched on a branch\" />\n<figcaption>An owl shows all seven life processes: it moves, breathes, senses prey, grows, reproduces, excretes and feeds.</figcaption>\n</figure>\n\n<h2>The seven life processes</h2>\n<table>\n<tr><th>Letter</th><th>Process</th><th>Meaning</th></tr>\n<tr><td>M</td><td>Movement</td><td>Changing position or moving parts</td></tr>\n<tr><td>R</td><td>Respiration</td><td>Releasing energy from food</td></tr>\n<tr><td>S</td><td>Sensitivity</td><td>Detecting and responding to changes</td></tr>\n<tr><td>G</td><td>Growth</td><td>Permanent increase in size</td></tr>\n<tr><td>R</td><td>Reproduction</td><td>Producing offspring</td></tr>\n<tr><td>E</td><td>Excretion</td><td>Removing waste products</td></tr>\n<tr><td>N</td><td>Nutrition</td><td>Taking in or making food</td></tr>\n</table>\n\n<h2>Watch: growth and change</h2>\n<p>Insects such as butterflies change body form as they grow. This is called <b>metamorphosis</b>.</p>\n<div class=\"video\">\n<video controls width=\"640\" height=\"360\">\n<source src=\"https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4\" type=\"video/mp4\" />\n</video>\n</div>\n<p class=\"caption\">Demo clip. Replace with your own lesson video.</p>\n\n<div class=\"callout tip\"><p><b>Exam tip.</b> Fire and cars can move and “use fuel”, but they do not reproduce or grow by themselves, so they are not alive.</p></div>\n"
+        },
+        {
+          "id": "g9-biology-c2",
+          "number": 2,
+          "title": "The Cell",
+          "summary": "Explore the structure of plant and animal cells and what each organelle does.",
+          "minutes": 30,
+          "html": "<p class=\"lead\">The cell is the basic unit of life. All organisms are made of one or more cells, and every cell comes from another cell.</p>\n\n<figure>\n<svg font-family=\"PlusJakartaSans\" viewBox=\"0 0 320 220\" width=\"320\" height=\"220\" xmlns=\"http://www.w3.org/2000/svg\">\n<rect x=\"0\" y=\"0\" width=\"320\" height=\"220\" rx=\"16\" fill=\"#EFFAF2\"/>\n<ellipse cx=\"140\" cy=\"112\" rx=\"112\" ry=\"88\" fill=\"#DDF3E4\" stroke=\"#3DA35D\" stroke-width=\"4\"/>\n<circle cx=\"132\" cy=\"104\" r=\"34\" fill=\"#C7B8FF\" stroke=\"#7F6BFE\" stroke-width=\"3\"/>\n<circle cx=\"140\" cy=\"98\" r=\"11\" fill=\"#7F6BFE\"/>\n<ellipse cx=\"72\" cy=\"150\" rx=\"22\" ry=\"11\" fill=\"#FFD3B5\" stroke=\"#E5793B\" stroke-width=\"3\"/>\n<ellipse cx=\"200\" cy=\"62\" rx=\"20\" ry=\"10\" fill=\"#FFD3B5\" stroke=\"#E5793B\" stroke-width=\"3\"/>\n<circle cx=\"190\" cy=\"140\" r=\"3\" fill=\"#2F80ED\"/><circle cx=\"202\" cy=\"150\" r=\"3\" fill=\"#2F80ED\"/><circle cx=\"178\" cy=\"156\" r=\"3\" fill=\"#2F80ED\"/><circle cx=\"90\" cy=\"70\" r=\"3\" fill=\"#2F80ED\"/><circle cx=\"102\" cy=\"62\" r=\"3\" fill=\"#2F80ED\"/>\n<line x1=\"230\" y1=\"60\" x2=\"268\" y2=\"44\" stroke=\"#1B1D3A\" stroke-width=\"1.5\"/>\n<text x=\"232\" y=\"38\" font-size=\"12\" fill=\"#1B1D3A\">Mitochondrion</text>\n<line x1=\"150\" y1=\"88\" x2=\"268\" y2=\"84\" stroke=\"#1B1D3A\" stroke-width=\"1.5\"/>\n<text x=\"250\" y=\"78\" font-size=\"12\" fill=\"#1B1D3A\">Nucleus</text>\n<line x1=\"206\" y1=\"152\" x2=\"262\" y2=\"168\" stroke=\"#1B1D3A\" stroke-width=\"1.5\"/>\n<text x=\"238\" y=\"184\" font-size=\"12\" fill=\"#1B1D3A\">Ribosomes</text>\n<line x1=\"246\" y1=\"120\" x2=\"270\" y2=\"122\" stroke=\"#1B1D3A\" stroke-width=\"1.5\"/>\n<text x=\"250\" y=\"140\" font-size=\"12\" fill=\"#1B1D3A\">Membrane</text>\n</svg>\n<figcaption>A simplified animal cell. Plant cells also have a cell wall, chloroplasts and a large vacuole.</figcaption>\n</figure>\n\n<h2>Organelles and their jobs</h2>\n<ul>\n<li><b>Nucleus</b>: contains DNA and controls the cell’s activities.</li>\n<li><b>Mitochondria</b>: release energy through respiration.</li>\n<li><b>Ribosomes</b>: build proteins.</li>\n<li><b>Cell membrane</b>: controls what enters and leaves.</li>\n</ul>\n\n<h2>Plant vs animal cells</h2>\n<table>\n<tr><th>Structure</th><th>Plant</th><th>Animal</th></tr>\n<tr><td>Cell wall</td><td>Yes</td><td>No</td></tr>\n<tr><td>Chloroplasts</td><td>Yes</td><td>No</td></tr>\n<tr><td>Large vacuole</td><td>Yes</td><td>No</td></tr>\n<tr><td>Nucleus</td><td>Yes</td><td>Yes</td></tr>\n</table>\n\n<blockquote>“All living things are composed of cells and cell products.” (Cell theory, Schleiden and Schwann, 1839)</blockquote>\n<div class=\"callout key\"><p><b>Key takeaway.</b> Structure matches function: cells that need lots of energy, like muscle cells, contain many mitochondria.</p></div>\n"
+        },
+        {
+          "id": "g9-biology-c3",
+          "number": 3,
+          "title": "Human Body Systems",
+          "summary": "See how organ systems work together to keep the body alive.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">See how organ systems work together to keep the body alive.</p>\n<h2>Key ideas</h2>\n<ul><li>The circulatory system transports oxygen and nutrients.</li><li>The respiratory system exchanges oxygen and carbon dioxide.</li><li>The nervous system coordinates responses to stimuli.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Human Body Systems” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g9-english",
+      "grade": "9",
+      "subject": "English",
+      "title": "English · Grade 9",
+      "description": "Strengthen grammar, reading and writing for school and the national exam.",
+      "chapters": [
+        {
+          "id": "g9-english-c1",
+          "number": 1,
+          "title": "Parts of Speech",
+          "summary": "Identify nouns, verbs, adjectives and the other word classes.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Identify nouns, verbs, adjectives and the other word classes.</p>\n<h2>Key ideas</h2>\n<ul><li>Nouns name things; verbs show actions or states.</li><li>Adjectives describe nouns; adverbs describe verbs.</li><li>Prepositions and conjunctions connect ideas.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Parts of Speech” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-english-c2",
+          "number": 2,
+          "title": "Simple and Continuous Tenses",
+          "summary": "Choose the right tense to talk about habits and ongoing actions.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Choose the right tense to talk about habits and ongoing actions.</p>\n<h2>Key ideas</h2>\n<ul><li>Simple present for habits: “She studies every day.”</li><li>Present continuous for now: “She is studying.”</li><li>Past continuous sets the scene: “I was reading when…”</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Simple and Continuous Tenses” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g9-english-c3",
+          "number": 3,
+          "title": "Reading for Main Ideas",
+          "summary": "Find the main idea and supporting details in a passage.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Find the main idea and supporting details in a passage.</p>\n<h2>Key ideas</h2>\n<ul><li>The main idea is often in the first or last sentence.</li><li>Supporting details explain or prove the main idea.</li><li>Skim first, then scan for specific information.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Reading for Main Ideas” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g10-mathematics",
+      "grade": "10",
+      "subject": "Mathematics",
+      "title": "Mathematics · Grade 10",
+      "description": "Build fluency in algebra, geometry and calculus with worked examples and exam-style practice.",
+      "chapters": [
+        {
+          "id": "g10-mathematics-c1",
+          "number": 1,
+          "title": "Quadratic Equations",
+          "summary": "Solve quadratics by factoring, completing the square and the formula.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Solve quadratics by factoring, completing the square and the formula.</p>\n<h2>Key ideas</h2>\n<ul><li>Standard form: ax² + bx + c = 0.</li><li>x = (−b ± √(b² − 4ac)) / 2a always works.</li><li>The discriminant b² − 4ac tells you how many real roots exist.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Quadratic Equations” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-mathematics-c2",
+          "number": 2,
+          "title": "Polynomial Functions",
+          "summary": "Add, multiply and divide polynomials and find their zeros.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Add, multiply and divide polynomials and find their zeros.</p>\n<h2>Key ideas</h2>\n<ul><li>The degree is the highest power of the variable.</li><li>Remainder theorem: P(a) is the remainder when dividing by (x − a).</li><li>If P(a) = 0 then (x − a) is a factor.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Polynomial Functions” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-mathematics-c3",
+          "number": 3,
+          "title": "Trigonometric Ratios",
+          "summary": "Use sine, cosine and tangent to solve right-angled triangles.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Use sine, cosine and tangent to solve right-angled triangles.</p>\n<h2>Key ideas</h2>\n<ul><li>SOH CAH TOA: sin = opp/hyp, cos = adj/hyp, tan = opp/adj.</li><li>sin 30° = 1/2, cos 60° = 1/2, tan 45° = 1.</li><li>sin²θ + cos²θ = 1 for every angle θ.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Trigonometric Ratios” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g10-physics",
+      "grade": "10",
+      "subject": "Physics",
+      "title": "Physics · Grade 10",
+      "description": "Understand how the physical world works, from motion and energy to electricity and waves.",
+      "chapters": [
+        {
+          "id": "g10-physics-c1",
+          "number": 1,
+          "title": "Electric Circuits and Ohm's Law",
+          "summary": "Relate voltage, current and resistance, and analyse simple circuits.",
+          "minutes": 30,
+          "html": "<p class=\"lead\">Electric current is the flow of charge. Ohm’s law links the push that drives the current (voltage) with how hard the circuit resists it (resistance).</p>\n<div class=\"formula\">V = I × R</div>\n\n<h2>The three quantities</h2>\n<table>\n<tr><th>Quantity</th><th>Symbol</th><th>Unit</th></tr>\n<tr><td>Voltage</td><td>V</td><td>volt (V)</td></tr>\n<tr><td>Current</td><td>I</td><td>ampere (A)</td></tr>\n<tr><td>Resistance</td><td>R</td><td>ohm (Ω)</td></tr>\n</table>\n\n<figure>\n<svg font-family=\"PlusJakartaSans\" viewBox=\"0 0 320 200\" width=\"320\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\">\n<rect x=\"0\" y=\"0\" width=\"320\" height=\"200\" rx=\"16\" fill=\"#EAF3FD\"/>\n<polyline points=\"60,60 120,60\" fill=\"none\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<polyline points=\"120,60 130,48 142,72 154,48 166,72 178,48 190,72 200,60\" fill=\"none\" stroke=\"#2F80ED\" stroke-width=\"3\" stroke-linejoin=\"round\"/>\n<polyline points=\"200,60 260,60 260,82\" fill=\"none\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<circle cx=\"260\" cy=\"104\" r=\"22\" fill=\"#FFFFFF\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<text x=\"252\" y=\"111\" font-size=\"18\" font-weight=\"bold\" fill=\"#1B1D3A\">A</text>\n<polyline points=\"260,126 260,150 60,150 60,118\" fill=\"none\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<line x1=\"44\" y1=\"118\" x2=\"76\" y2=\"118\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<line x1=\"52\" y1=\"104\" x2=\"68\" y2=\"104\" stroke=\"#1B1D3A\" stroke-width=\"6\"/>\n<line x1=\"60\" y1=\"104\" x2=\"60\" y2=\"60\" stroke=\"#1B1D3A\" stroke-width=\"3\"/>\n<text x=\"140\" y=\"38\" font-size=\"13\" fill=\"#2F80ED\" font-weight=\"bold\">R = 4 Ω</text>\n<text x=\"8\" y=\"116\" font-size=\"13\" fill=\"#1B1D3A\" font-weight=\"bold\">12 V</text>\n<text x=\"200\" y=\"178\" font-size=\"13\" fill=\"#E5793B\" font-weight=\"bold\">I = 3 A</text>\n<polyline points=\"150,144 162,150 150,156\" fill=\"none\" stroke=\"#E5793B\" stroke-width=\"3\"/>\n</svg>\n<figcaption>A 12 V cell drives 3 A through a 4 Ω resistor. The ammeter (A) measures the current.</figcaption>\n</figure>\n\n<div class=\"example\">\n<p class=\"label\">Worked example</p>\n<p>A 12 V battery is connected across a 4 Ω resistor. Find the current.</p>\n<ol>\n<li>Write the law: I = V ÷ R</li>\n<li>Substitute: I = 12 ÷ 4</li>\n<li>Answer: <b>I = 3 A</b></li>\n</ol>\n</div>\n\n<h2>Series and parallel</h2>\n<ul>\n<li><b>Series:</b> R = R₁ + R₂. The same current flows through each resistor.</li>\n<li><b>Parallel:</b> 1/R = 1/R₁ + 1/R₂. The total resistance is smaller than either resistor.</li>\n</ul>\n<div class=\"callout warn\"><p><b>Safety.</b> Never connect an ammeter in parallel with a component: its very low resistance can draw a dangerous current.</p></div>\n"
+        },
+        {
+          "id": "g10-physics-c2",
+          "number": 2,
+          "title": "Work, Energy and Power",
+          "summary": "Calculate work done, kinetic and potential energy, and power.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Calculate work done, kinetic and potential energy, and power.</p>\n<h2>Key ideas</h2>\n<ul><li>Work = force × displacement in the direction of the force.</li><li>KE = ½mv² and gravitational PE = mgh.</li><li>Power is the rate of doing work: P = W / t.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Work, Energy and Power” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-physics-c3",
+          "number": 3,
+          "title": "Waves and Sound",
+          "summary": "Describe wave properties and how sound travels.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe wave properties and how sound travels.</p>\n<h2>Key ideas</h2>\n<ul><li>Wave speed = frequency × wavelength (v = fλ).</li><li>The period is the inverse of frequency: T = 1/f.</li><li>Sound is a longitudinal wave and needs a medium.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Waves and Sound” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g10-chemistry",
+      "grade": "10",
+      "subject": "Chemistry",
+      "title": "Chemistry · Grade 10",
+      "description": "Explore matter, reactions and the quantitative ideas behind chemistry.",
+      "chapters": [
+        {
+          "id": "g10-chemistry-c1",
+          "number": 1,
+          "title": "Chemical Bonding",
+          "summary": "Explain how ionic, covalent and metallic bonds form.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explain how ionic, covalent and metallic bonds form.</p>\n<h2>Key ideas</h2>\n<ul><li>Ionic bonds form when electrons are transferred (e.g. NaCl).</li><li>Covalent bonds share electron pairs (e.g. H₂O).</li><li>Metallic bonding is a lattice of ions in a sea of electrons.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Chemical Bonding” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-chemistry-c2",
+          "number": 2,
+          "title": "Acids, Bases and Salts",
+          "summary": "Use pH and neutralisation to describe acids and bases.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Use pH and neutralisation to describe acids and bases.</p>\n<h2>Key ideas</h2>\n<ul><li>Acids release H⁺ ions; bases release OH⁻ ions in water.</li><li>pH 7 is neutral; below 7 is acidic; above 7 is basic.</li><li>Acid + base → salt + water.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Acids, Bases and Salts” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-chemistry-c3",
+          "number": 3,
+          "title": "The Periodic Table",
+          "summary": "Read trends in the periodic table and predict properties.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Read trends in the periodic table and predict properties.</p>\n<h2>Key ideas</h2>\n<ul><li>Elements are arranged by increasing atomic number.</li><li>Groups share valence electrons and similar reactions.</li><li>Atomic radius decreases across a period.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “The Periodic Table” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g10-biology",
+      "grade": "10",
+      "subject": "Biology",
+      "title": "Biology · Grade 10",
+      "description": "Study living things from cells and genetics to whole ecosystems.",
+      "chapters": [
+        {
+          "id": "g10-biology-c1",
+          "number": 1,
+          "title": "Genetics and Heredity",
+          "summary": "Predict inheritance using genes, alleles and Punnett squares.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Predict inheritance using genes, alleles and Punnett squares.</p>\n<h2>Key ideas</h2>\n<ul><li>Genes come in versions called alleles.</li><li>Dominant alleles mask recessive ones.</li><li>A cross of Aa × Aa gives a 3 : 1 phenotype ratio.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Genetics and Heredity” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-biology-c2",
+          "number": 2,
+          "title": "Photosynthesis",
+          "summary": "Explain how plants make glucose using light energy.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explain how plants make glucose using light energy.</p>\n<h2>Key ideas</h2>\n<ul><li>6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂ in the presence of light.</li><li>Chlorophyll in chloroplasts absorbs light.</li><li>Light, CO₂ and temperature limit the rate.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Photosynthesis” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-biology-c3",
+          "number": 3,
+          "title": "Microorganisms and Disease",
+          "summary": "Describe bacteria, viruses and how the body fights infection.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe bacteria, viruses and how the body fights infection.</p>\n<h2>Key ideas</h2>\n<ul><li>Bacteria are single cells; viruses need host cells to reproduce.</li><li>White blood cells and antibodies defend the body.</li><li>Vaccines train the immune system before infection.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Microorganisms and Disease” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g10-english",
+      "grade": "10",
+      "subject": "English",
+      "title": "English · Grade 10",
+      "description": "Strengthen grammar, reading and writing for school and the national exam.",
+      "chapters": [
+        {
+          "id": "g10-english-c1",
+          "number": 1,
+          "title": "The Passive Voice",
+          "summary": "Form and use passive sentences in different tenses.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Form and use passive sentences in different tenses.</p>\n<h2>Key ideas</h2>\n<ul><li>Passive = form of “be” + past participle.</li><li>Use it when the action matters more than who did it.</li><li>“The papers were marked by the teacher.”</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “The Passive Voice” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-english-c2",
+          "number": 2,
+          "title": "Reported Speech",
+          "summary": "Report what people said, changing tenses and pronouns.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Report what people said, changing tenses and pronouns.</p>\n<h2>Key ideas</h2>\n<ul><li>Tenses usually move one step back: “is” → “was”.</li><li>Pronouns and time words change: “today” → “that day”.</li><li>Questions become statements: “He asked where I lived.”</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Reported Speech” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g10-english-c3",
+          "number": 3,
+          "title": "Writing a Formal Letter",
+          "summary": "Plan and write clear formal letters and applications.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Plan and write clear formal letters and applications.</p>\n<h2>Key ideas</h2>\n<ul><li>Include addresses, date, greeting and a clear subject line.</li><li>State your purpose in the first paragraph.</li><li>Close with “Yours faithfully” or “Yours sincerely”.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Writing a Formal Letter” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g11-mathematics",
+      "grade": "11",
+      "subject": "Mathematics",
+      "title": "Mathematics · Grade 11",
+      "description": "Build fluency in algebra, geometry and calculus with worked examples and exam-style practice.",
+      "chapters": [
+        {
+          "id": "g11-mathematics-c1",
+          "number": 1,
+          "title": "Logarithms and Exponentials",
+          "summary": "Work with exponential growth and its inverse, the logarithm.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Work with exponential growth and its inverse, the logarithm.</p>\n<h2>Key ideas</h2>\n<ul><li>log_b x = y means b^y = x.</li><li>log(ab) = log a + log b and log(aⁿ) = n log a.</li><li>Exponential models describe growth and decay.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Logarithms and Exponentials” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-mathematics-c2",
+          "number": 2,
+          "title": "Sequences and Series",
+          "summary": "Find terms and sums of arithmetic and geometric sequences.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Find terms and sums of arithmetic and geometric sequences.</p>\n<h2>Key ideas</h2>\n<ul><li>Arithmetic: aₙ = a₁ + (n − 1)d.</li><li>Geometric: aₙ = a₁ · rⁿ⁻¹.</li><li>Sum of an arithmetic series: Sₙ = n(a₁ + aₙ)/2.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Sequences and Series” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-mathematics-c3",
+          "number": 3,
+          "title": "Probability",
+          "summary": "Calculate probabilities of single and combined events.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Calculate probabilities of single and combined events.</p>\n<h2>Key ideas</h2>\n<ul><li>P(event) = favourable outcomes ÷ total outcomes.</li><li>For independent events, P(A and B) = P(A) × P(B).</li><li>P(not A) = 1 − P(A).</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Probability” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g11-physics",
+      "grade": "11",
+      "subject": "Physics",
+      "title": "Physics · Grade 11",
+      "description": "Understand how the physical world works, from motion and energy to electricity and waves.",
+      "chapters": [
+        {
+          "id": "g11-physics-c1",
+          "number": 1,
+          "title": "Vectors",
+          "summary": "Add and resolve vector quantities such as force and velocity.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Add and resolve vector quantities such as force and velocity.</p>\n<h2>Key ideas</h2>\n<ul><li>Vectors have magnitude and direction.</li><li>Add vectors head-to-tail or with components.</li><li>Components: Fx = F cos θ and Fy = F sin θ.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Vectors” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-physics-c2",
+          "number": 2,
+          "title": "Projectile Motion",
+          "summary": "Analyse objects launched into the air under gravity.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Analyse objects launched into the air under gravity.</p>\n<h2>Key ideas</h2>\n<ul><li>Horizontal and vertical motion are independent.</li><li>Horizontal velocity stays constant (ignoring air resistance).</li><li>Vertical motion has acceleration g downward.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Projectile Motion” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-physics-c3",
+          "number": 3,
+          "title": "Heat and Temperature",
+          "summary": "Distinguish heat from temperature and calculate heat transfer.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Distinguish heat from temperature and calculate heat transfer.</p>\n<h2>Key ideas</h2>\n<ul><li>Temperature measures average kinetic energy of particles.</li><li>Heat needed: Q = mcΔT.</li><li>Heat moves by conduction, convection and radiation.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Heat and Temperature” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g11-chemistry",
+      "grade": "11",
+      "subject": "Chemistry",
+      "title": "Chemistry · Grade 11",
+      "description": "Explore matter, reactions and the quantitative ideas behind chemistry.",
+      "chapters": [
+        {
+          "id": "g11-chemistry-c1",
+          "number": 1,
+          "title": "The Mole Concept",
+          "summary": "Count particles by weighing and use moles in calculations.",
+          "minutes": 25,
+          "html": "<p class=\"lead\">Atoms are far too small to count one by one, so chemists count them in groups called <b>moles</b>. One mole contains 6.02 × 10²³ particles (Avogadro’s number).</p>\n<div class=\"formula\">n = m ÷ M</div>\n<p>where <i>n</i> is the amount in moles, <i>m</i> is the mass in grams and <i>M</i> is the molar mass in g/mol.</p>\n\n<h2>Molar masses to know</h2>\n<table>\n<tr><th>Substance</th><th>Formula</th><th>M (g/mol)</th></tr>\n<tr><td>Water</td><td>H₂O</td><td>18</td></tr>\n<tr><td>Carbon dioxide</td><td>CO₂</td><td>44</td></tr>\n<tr><td>Sodium chloride</td><td>NaCl</td><td>58.5</td></tr>\n<tr><td>Glucose</td><td>C₆H₁₂O₆</td><td>180</td></tr>\n</table>\n\n<div class=\"example\">\n<p class=\"label\">Worked example</p>\n<p>How many moles are in 88 g of CO₂?</p>\n<ol>\n<li>Molar mass: 12 + 2 × 16 = 44 g/mol</li>\n<li>n = 88 ÷ 44</li>\n<li>Answer: <b>2 mol</b>, or 1.20 × 10²⁴ molecules</li>\n</ol>\n</div>\n\n<div class=\"callout tip\"><p><b>Memory trick.</b> Cover the quantity you want in the triangle <b>m</b> over <b>n × M</b>, and the remaining two show you the calculation.</p></div>\n<div class=\"callout key\"><p><b>Key takeaway.</b> The mole is the bridge between the mass you can weigh and the number of particles that react.</p></div>\n"
+        },
+        {
+          "id": "g11-chemistry-c2",
+          "number": 2,
+          "title": "Rates of Reaction",
+          "summary": "Explain what makes reactions faster or slower.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explain what makes reactions faster or slower.</p>\n<h2>Key ideas</h2>\n<ul><li>Particles must collide with enough energy to react.</li><li>Temperature, concentration, surface area and catalysts raise the rate.</li><li>Catalysts lower the activation energy.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Rates of Reaction” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-chemistry-c3",
+          "number": 3,
+          "title": "Chemical Equilibrium",
+          "summary": "Describe reversible reactions and predict shifts in equilibrium.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe reversible reactions and predict shifts in equilibrium.</p>\n<h2>Key ideas</h2>\n<ul><li>At equilibrium, forward and reverse rates are equal.</li><li>Le Chatelier's principle: the system opposes a change.</li><li>Kc compares product and reactant concentrations.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Chemical Equilibrium” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g11-biology",
+      "grade": "11",
+      "subject": "Biology",
+      "title": "Biology · Grade 11",
+      "description": "Study living things from cells and genetics to whole ecosystems.",
+      "chapters": [
+        {
+          "id": "g11-biology-c1",
+          "number": 1,
+          "title": "Cell Division",
+          "summary": "Compare mitosis and meiosis and their roles.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Compare mitosis and meiosis and their roles.</p>\n<h2>Key ideas</h2>\n<ul><li>Mitosis makes two identical cells for growth and repair.</li><li>Meiosis makes four haploid gametes.</li><li>Crossing over in meiosis creates variation.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Cell Division” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-biology-c2",
+          "number": 2,
+          "title": "Human Nervous System",
+          "summary": "Trace how signals travel from receptors to effectors.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Trace how signals travel from receptors to effectors.</p>\n<h2>Key ideas</h2>\n<ul><li>Neurons carry electrical impulses.</li><li>Synapses pass signals using neurotransmitters.</li><li>Reflex arcs bypass the brain for speed.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Human Nervous System” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-biology-c3",
+          "number": 3,
+          "title": "Ecology and Ecosystems",
+          "summary": "Describe energy flow and nutrient cycles in ecosystems.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Describe energy flow and nutrient cycles in ecosystems.</p>\n<h2>Key ideas</h2>\n<ul><li>Energy flows from producers to consumers.</li><li>Only about 10% of energy passes to the next trophic level.</li><li>Carbon and nitrogen are recycled through ecosystems.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Ecology and Ecosystems” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g11-english",
+      "grade": "11",
+      "subject": "English",
+      "title": "English · Grade 11",
+      "description": "Strengthen grammar, reading and writing for school and the national exam.",
+      "chapters": [
+        {
+          "id": "g11-english-c1",
+          "number": 1,
+          "title": "Conditional Sentences",
+          "summary": "Use zero, first, second and third conditionals correctly.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Use zero, first, second and third conditionals correctly.</p>\n<h2>Key ideas</h2>\n<ul><li>First: “If it rains, I will stay home.”</li><li>Second: “If I were you, I would study harder.”</li><li>Third: “If I had known, I would have come.”</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Conditional Sentences” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-english-c2",
+          "number": 2,
+          "title": "Relative Clauses",
+          "summary": "Join ideas with who, which, that, whose and where.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Join ideas with who, which, that, whose and where.</p>\n<h2>Key ideas</h2>\n<ul><li>“Who” for people, “which” for things.</li><li>Defining clauses identify; non-defining clauses add information.</li><li>Non-defining clauses use commas.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Relative Clauses” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g11-english-c3",
+          "number": 3,
+          "title": "Argumentative Essays",
+          "summary": "Build a clear argument with evidence and counter-arguments.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Build a clear argument with evidence and counter-arguments.</p>\n<h2>Key ideas</h2>\n<ul><li>State a clear thesis in the introduction.</li><li>Give one main point per paragraph, with evidence.</li><li>Address the opposing view, then conclude.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Argumentative Essays” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g12-mathematics",
+      "grade": "12",
+      "subject": "Mathematics",
+      "title": "Mathematics · Grade 12",
+      "description": "Build fluency in algebra, geometry and calculus with worked examples and exam-style practice.",
+      "chapters": [
+        {
+          "id": "g12-mathematics-c1",
+          "number": 1,
+          "title": "Limits and Continuity",
+          "summary": "Understand limits as the foundation of calculus.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Understand limits as the foundation of calculus.</p>\n<h2>Key ideas</h2>\n<ul><li>A limit is the value a function approaches.</li><li>Factor and cancel to remove 0/0 forms.</li><li>A function is continuous if the limit equals the function value.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Limits and Continuity” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-mathematics-c2",
+          "number": 2,
+          "title": "Differentiation",
+          "summary": "Find rates of change and the slopes of curves.",
+          "minutes": 35,
+          "html": "<p class=\"lead\">Differentiation finds the instantaneous rate of change of a function, which is the slope of the tangent line to its graph at any point.</p>\n<div class=\"formula\">f′(x) = lim<sub>h→0</sub> [f(x + h) − f(x)] ÷ h</div>\n\n<figure>\n<svg font-family=\"PlusJakartaSans\" viewBox=\"0 0 320 240\" width=\"320\" height=\"240\" xmlns=\"http://www.w3.org/2000/svg\">\n<rect x=\"0\" y=\"0\" width=\"320\" height=\"240\" rx=\"16\" fill=\"#F4F2FF\"/>\n<line x1=\"60\" y1=\"190\" x2=\"290\" y2=\"190\" stroke=\"#6B7090\" stroke-width=\"2\"/>\n<line x1=\"160\" y1=\"15\" x2=\"160\" y2=\"232\" stroke=\"#6B7090\" stroke-width=\"2\"/>\n<path d=\"M80 30 Q160 350 240 30\" fill=\"none\" stroke=\"#7F6BFE\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n<line x1=\"160\" y1=\"230\" x2=\"250\" y2=\"50\" stroke=\"#E5793B\" stroke-width=\"3\" stroke-dasharray=\"8 6\"/>\n<circle cx=\"200\" cy=\"150\" r=\"6\" fill=\"#E5793B\"/>\n<text x=\"210\" y=\"160\" font-size=\"12\" fill=\"#1B1D3A\">(1, 1)</text>\n<text x=\"86\" y=\"52\" font-size=\"15\" font-weight=\"bold\" fill=\"#7F6BFE\">y = x²</text>\n<text x=\"236\" y=\"96\" font-size=\"13\" font-weight=\"bold\" fill=\"#E5793B\">slope 2</text>\n</svg>\n<figcaption>The tangent to y = x² at (1, 1) has slope f′(1) = 2.</figcaption>\n</figure>\n\n<h2>Rules you will use most</h2>\n<table>\n<tr><th>Function</th><th>Derivative</th></tr>\n<tr><td>c (constant)</td><td>0</td></tr>\n<tr><td>xⁿ</td><td>n·xⁿ⁻¹</td></tr>\n<tr><td>sin x</td><td>cos x</td></tr>\n<tr><td>eˣ</td><td>eˣ</td></tr>\n<tr><td>ln x</td><td>1/x</td></tr>\n</table>\n\n<div class=\"example\">\n<p class=\"label\">Worked example</p>\n<p>Differentiate <b>f(x) = 3x⁴ − 5x² + 7</b>.</p>\n<ol>\n<li>Apply the power rule term by term.</li>\n<li>3 · 4x³ − 5 · 2x + 0</li>\n<li>Answer: <b>f′(x) = 12x³ − 10x</b></li>\n</ol>\n</div>\n\n<h2>Where derivatives are zero</h2>\n<p>At a maximum or minimum the tangent is horizontal, so <i>f′(x) = 0</i>. Solving this equation is how you optimise areas, costs and profits in exam problems.</p>\n<div class=\"callout key\"><p><b>Key takeaway.</b> A derivative is a slope. Positive means increasing, negative means decreasing, and zero marks a turning point.</p></div>\n"
+        },
+        {
+          "id": "g12-mathematics-c3",
+          "number": 3,
+          "title": "Integration",
+          "summary": "Reverse differentiation to find areas and accumulations.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Reverse differentiation to find areas and accumulations.</p>\n<h2>Key ideas</h2>\n<ul><li>∫ xⁿ dx = xⁿ⁺¹/(n + 1) + C for n ≠ −1.</li><li>Definite integrals give the area under a curve.</li><li>Integration and differentiation are inverse operations.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Integration” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g12-physics",
+      "grade": "12",
+      "subject": "Physics",
+      "title": "Physics · Grade 12",
+      "description": "Understand how the physical world works, from motion and energy to electricity and waves.",
+      "chapters": [
+        {
+          "id": "g12-physics-c1",
+          "number": 1,
+          "title": "Electromagnetism",
+          "summary": "Explore magnetic fields produced by currents and induction.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explore magnetic fields produced by currents and induction.</p>\n<h2>Key ideas</h2>\n<ul><li>A current-carrying wire produces a magnetic field.</li><li>A changing magnetic flux induces an EMF (Faraday’s law).</li><li>Transformers change voltage using induction.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Electromagnetism” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-physics-c2",
+          "number": 2,
+          "title": "Modern Physics",
+          "summary": "Meet the photoelectric effect, atomic spectra and radioactivity.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Meet the photoelectric effect, atomic spectra and radioactivity.</p>\n<h2>Key ideas</h2>\n<ul><li>Light behaves as photons with energy E = hf.</li><li>Electrons occupy discrete energy levels.</li><li>Radioactive decay emits alpha, beta or gamma radiation.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Modern Physics” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-physics-c3",
+          "number": 3,
+          "title": "Simple Harmonic Motion",
+          "summary": "Model oscillations of springs and pendulums.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Model oscillations of springs and pendulums.</p>\n<h2>Key ideas</h2>\n<ul><li>Restoring force is proportional to displacement.</li><li>Pendulum period: T = 2π√(L/g).</li><li>Energy swaps between kinetic and potential.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Simple Harmonic Motion” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g12-chemistry",
+      "grade": "12",
+      "subject": "Chemistry",
+      "title": "Chemistry · Grade 12",
+      "description": "Explore matter, reactions and the quantitative ideas behind chemistry.",
+      "chapters": [
+        {
+          "id": "g12-chemistry-c1",
+          "number": 1,
+          "title": "Redox and Electrochemistry",
+          "summary": "Track electron transfer and build electrochemical cells.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Track electron transfer and build electrochemical cells.</p>\n<h2>Key ideas</h2>\n<ul><li>Oxidation is loss of electrons; reduction is gain (OIL RIG).</li><li>Oxidation states help balance redox equations.</li><li>Galvanic cells convert chemical energy to electrical energy.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Redox and Electrochemistry” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-chemistry-c2",
+          "number": 2,
+          "title": "Organic Chemistry",
+          "summary": "Name and react hydrocarbons and functional groups.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Name and react hydrocarbons and functional groups.</p>\n<h2>Key ideas</h2>\n<ul><li>Alkanes are saturated; alkenes contain C=C double bonds.</li><li>Functional groups (–OH, –COOH) determine reactions.</li><li>Isomers share a formula but differ in structure.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Organic Chemistry” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-chemistry-c3",
+          "number": 3,
+          "title": "Polymers",
+          "summary": "Understand how small monomers join to form polymers.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Understand how small monomers join to form polymers.</p>\n<h2>Key ideas</h2>\n<ul><li>Addition polymers form from alkenes (e.g. polyethene).</li><li>Condensation polymers release small molecules like water.</li><li>Proteins and starch are natural polymers.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Polymers” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g12-biology",
+      "grade": "12",
+      "subject": "Biology",
+      "title": "Biology · Grade 12",
+      "description": "Study living things from cells and genetics to whole ecosystems.",
+      "chapters": [
+        {
+          "id": "g12-biology-c1",
+          "number": 1,
+          "title": "Evolution",
+          "summary": "Explain how natural selection changes populations over time.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Explain how natural selection changes populations over time.</p>\n<h2>Key ideas</h2>\n<ul><li>Variation exists within every population.</li><li>Better-adapted individuals survive and reproduce more.</li><li>Fossils and DNA provide evidence for evolution.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Evolution” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-biology-c2",
+          "number": 2,
+          "title": "Biotechnology",
+          "summary": "See how living systems are used to make useful products.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">See how living systems are used to make useful products.</p>\n<h2>Key ideas</h2>\n<ul><li>Genetic engineering moves genes between organisms.</li><li>Bacteria can produce insulin for medicine.</li><li>Biotechnology raises ethical questions to consider.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Biotechnology” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-biology-c3",
+          "number": 3,
+          "title": "Human Reproductive Health",
+          "summary": "Understand the reproductive system and how to stay healthy.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Understand the reproductive system and how to stay healthy.</p>\n<h2>Key ideas</h2>\n<ul><li>Hormones control the menstrual cycle.</li><li>Fertilisation forms a zygote that develops into an embryo.</li><li>Many infections can be prevented with knowledge and care.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Human Reproductive Health” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    },
+    {
+      "id": "g12-english",
+      "grade": "12",
+      "subject": "English",
+      "title": "English · Grade 12",
+      "description": "Strengthen grammar, reading and writing for school and the national exam.",
+      "chapters": [
+        {
+          "id": "g12-english-c1",
+          "number": 1,
+          "title": "Academic Vocabulary",
+          "summary": "Learn the high-value words that appear across exam passages.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Learn the high-value words that appear across exam passages.</p>\n<h2>Key ideas</h2>\n<ul><li>Learn words in context, not in isolation.</li><li>Prefixes and roots help you guess unknown words.</li><li>Use new words in your own sentences to remember them.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Academic Vocabulary” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-english-c2",
+          "number": 2,
+          "title": "Summarising Texts",
+          "summary": "Condense a passage into its essential points.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Condense a passage into its essential points.</p>\n<h2>Key ideas</h2>\n<ul><li>Identify the main idea of each paragraph.</li><li>Leave out examples and repetition.</li><li>Write the summary in your own words.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Summarising Texts” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        },
+        {
+          "id": "g12-english-c3",
+          "number": 3,
+          "title": "Exam Writing Strategies",
+          "summary": "Plan, write and check answers under time pressure.",
+          "minutes": 15,
+          "html": "<p class=\"lead\">Plan, write and check answers under time pressure.</p>\n<h2>Key ideas</h2>\n<ul><li>Spend the first minutes planning your answer.</li><li>Answer exactly what the question asks.</li><li>Keep five minutes to check grammar and spelling.</li></ul>\n<div class=\"callout tip\"><p><b>Study tip.</b> After reading, close the lesson and explain “Exam Writing Strategies” in your own words. Then ask the AI tutor anything that is still unclear.</p></div>\n<h2>Check yourself</h2>\n<ol>\n<li>Which of the key ideas above was new to you?</li>\n<li>Write one exam-style question about this chapter and answer it.</li>\n</ol>\n"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "m1",
+      "text": "Solve for x: 2x + 5 = 17",
+      "options": [
+        "5",
+        "6",
+        "7",
+        "11"
+      ],
+      "answer_index": 1,
+      "explanation": "Subtract 5 from both sides: 2x = 12, then divide by 2: x = 6.",
+      "subject": "Mathematics",
+      "chapter": "Linear equations",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "m2",
+      "text": "What are the roots of x² − 5x + 6 = 0?",
+      "options": [
+        "2 and 3",
+        "−2 and −3",
+        "1 and 6",
+        "−1 and 6"
+      ],
+      "answer_index": 0,
+      "explanation": "Factor the quadratic: (x − 2)(x − 3) = 0, so x = 2 or x = 3.",
+      "subject": "Mathematics",
+      "chapter": "Quadratic equations",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "m3",
+      "text": "If log₁₀ x = 3, what is x?",
+      "options": [
+        "30",
+        "300",
+        "1000",
+        "3"
+      ],
+      "answer_index": 2,
+      "explanation": "log₁₀ x = 3 means 10³ = x, so x = 1000.",
+      "subject": "Mathematics",
+      "chapter": "Logarithms",
+      "grade": "11",
+      "difficulty": "easy"
+    },
+    {
+      "id": "m4",
+      "text": "What is the sum of the interior angles of a hexagon?",
+      "options": [
+        "540°",
+        "720°",
+        "900°",
+        "360°"
+      ],
+      "answer_index": 1,
+      "explanation": "Sum of interior angles = (n − 2) × 180° = 4 × 180° = 720°.",
+      "subject": "Mathematics",
+      "chapter": "Geometry",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "m5",
+      "text": "What is the value of sin 30°?",
+      "options": [
+        "1/2",
+        "√3/2",
+        "1",
+        "√2/2"
+      ],
+      "answer_index": 0,
+      "explanation": "In a 30-60-90 triangle the side opposite 30° is half the hypotenuse, so sin 30° = 1/2.",
+      "subject": "Mathematics",
+      "chapter": "Trigonometry",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "m6",
+      "text": "In the arithmetic sequence 3, 7, 11, …, what is the 10th term?",
+      "options": [
+        "37",
+        "39",
+        "41",
+        "43"
+      ],
+      "answer_index": 1,
+      "explanation": "aₙ = a₁ + (n − 1)d = 3 + 9 × 4 = 39.",
+      "subject": "Mathematics",
+      "chapter": "Sequences",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "m7",
+      "text": "What is the derivative of f(x) = x³?",
+      "options": [
+        "x²",
+        "3x²",
+        "3x³",
+        "x⁴/4"
+      ],
+      "answer_index": 1,
+      "explanation": "By the power rule, d/dx xⁿ = n·xⁿ⁻¹, so d/dx x³ = 3x².",
+      "subject": "Mathematics",
+      "chapter": "Differentiation",
+      "grade": "12",
+      "difficulty": "medium"
+    },
+    {
+      "id": "m8",
+      "text": "Evaluate ∫ 2x dx.",
+      "options": [
+        "x² + C",
+        "2x² + C",
+        "x + C",
+        "2 + C"
+      ],
+      "answer_index": 0,
+      "explanation": "The antiderivative of 2x is x², plus a constant C.",
+      "subject": "Mathematics",
+      "chapter": "Integration",
+      "grade": "12",
+      "difficulty": "medium"
+    },
+    {
+      "id": "m9",
+      "text": "Two fair dice are rolled. What is the probability that the sum is 7?",
+      "options": [
+        "1/6",
+        "1/12",
+        "7/36",
+        "1/36"
+      ],
+      "answer_index": 0,
+      "explanation": "There are 6 favourable outcomes (1+6, 2+5, 3+4, 4+3, 5+2, 6+1) out of 36, so P = 6/36 = 1/6.",
+      "subject": "Mathematics",
+      "chapter": "Probability",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "m10",
+      "text": "Evaluate lim (x→2) (x² − 4)/(x − 2).",
+      "options": [
+        "0",
+        "2",
+        "4",
+        "Undefined"
+      ],
+      "answer_index": 2,
+      "explanation": "(x² − 4)/(x − 2) = x + 2 for x ≠ 2, so the limit is 2 + 2 = 4.",
+      "subject": "Mathematics",
+      "chapter": "Limits",
+      "grade": "12",
+      "difficulty": "hard"
+    },
+    {
+      "id": "p1",
+      "text": "What is the SI unit of force?",
+      "options": [
+        "Joule",
+        "Newton",
+        "Watt",
+        "Pascal"
+      ],
+      "answer_index": 1,
+      "explanation": "Force is measured in newtons (N), where 1 N = 1 kg·m/s².",
+      "subject": "Physics",
+      "chapter": "Units and measurement",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "p2",
+      "text": "A car starts from rest and accelerates at 2 m/s² for 5 s. What is its final velocity?",
+      "options": [
+        "5 m/s",
+        "10 m/s",
+        "20 m/s",
+        "2.5 m/s"
+      ],
+      "answer_index": 1,
+      "explanation": "v = u + at = 0 + 2 × 5 = 10 m/s.",
+      "subject": "Physics",
+      "chapter": "Kinematics",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "p3",
+      "text": "A 12 V battery is connected across a 4 Ω resistor. What current flows?",
+      "options": [
+        "3 A",
+        "48 A",
+        "0.33 A",
+        "16 A"
+      ],
+      "answer_index": 0,
+      "explanation": "By Ohm's law, I = V/R = 12/4 = 3 A.",
+      "subject": "Physics",
+      "chapter": "Electricity",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "p4",
+      "text": "What is the kinetic energy of a 2 kg mass moving at 3 m/s?",
+      "options": [
+        "6 J",
+        "9 J",
+        "18 J",
+        "3 J"
+      ],
+      "answer_index": 1,
+      "explanation": "KE = ½mv² = ½ × 2 × 3² = 9 J.",
+      "subject": "Physics",
+      "chapter": "Work, energy and power",
+      "grade": "10",
+      "difficulty": "medium"
+    },
+    {
+      "id": "p5",
+      "text": "Which of these quantities is a vector?",
+      "options": [
+        "Mass",
+        "Temperature",
+        "Displacement",
+        "Time"
+      ],
+      "answer_index": 2,
+      "explanation": "Displacement has both magnitude and direction; the others are scalars.",
+      "subject": "Physics",
+      "chapter": "Vectors",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "p6",
+      "text": "What is the period of a wave with a frequency of 50 Hz?",
+      "options": [
+        "0.02 s",
+        "50 s",
+        "0.5 s",
+        "5 s"
+      ],
+      "answer_index": 0,
+      "explanation": "T = 1/f = 1/50 = 0.02 s.",
+      "subject": "Physics",
+      "chapter": "Waves",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "p7",
+      "text": "What is the equivalent resistance of 6 Ω and 3 Ω resistors connected in parallel?",
+      "options": [
+        "9 Ω",
+        "2 Ω",
+        "4.5 Ω",
+        "18 Ω"
+      ],
+      "answer_index": 1,
+      "explanation": "R = (6 × 3)/(6 + 3) = 18/9 = 2 Ω.",
+      "subject": "Physics",
+      "chapter": "Electricity",
+      "grade": "10",
+      "difficulty": "medium"
+    },
+    {
+      "id": "p8",
+      "text": "An object is dropped from rest and falls for 3 s. How far does it fall? (g = 10 m/s²)",
+      "options": [
+        "30 m",
+        "45 m",
+        "90 m",
+        "15 m"
+      ],
+      "answer_index": 1,
+      "explanation": "s = ½gt² = ½ × 10 × 3² = 45 m.",
+      "subject": "Physics",
+      "chapter": "Kinematics",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "c1",
+      "text": "What is the atomic number of carbon?",
+      "options": [
+        "12",
+        "6",
+        "8",
+        "14"
+      ],
+      "answer_index": 1,
+      "explanation": "Carbon has 6 protons, so its atomic number is 6.",
+      "subject": "Chemistry",
+      "chapter": "Atomic structure",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "c2",
+      "text": "What is the pH of a neutral solution at 25 °C?",
+      "options": [
+        "0",
+        "7",
+        "14",
+        "1"
+      ],
+      "answer_index": 1,
+      "explanation": "At 25 °C, [H⁺] = [OH⁻] = 10⁻⁷ M, so pH = 7.",
+      "subject": "Chemistry",
+      "chapter": "Acids and bases",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "c3",
+      "text": "What is the molar mass of water (H₂O)?",
+      "options": [
+        "16 g/mol",
+        "17 g/mol",
+        "18 g/mol",
+        "20 g/mol"
+      ],
+      "answer_index": 2,
+      "explanation": "2 × 1 (H) + 16 (O) = 18 g/mol.",
+      "subject": "Chemistry",
+      "chapter": "Mole concept",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "c4",
+      "text": "What type of bond holds sodium chloride (NaCl) together?",
+      "options": [
+        "Covalent",
+        "Ionic",
+        "Metallic",
+        "Hydrogen"
+      ],
+      "answer_index": 1,
+      "explanation": "Sodium transfers an electron to chlorine, forming Na⁺ and Cl⁻ ions held by an ionic bond.",
+      "subject": "Chemistry",
+      "chapter": "Chemical bonding",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "c5",
+      "text": "How many moles are in 44 g of carbon dioxide (CO₂)?",
+      "options": [
+        "0.5",
+        "1",
+        "2",
+        "44"
+      ],
+      "answer_index": 1,
+      "explanation": "M(CO₂) = 12 + 2 × 16 = 44 g/mol, so n = 44/44 = 1 mol.",
+      "subject": "Chemistry",
+      "chapter": "Mole concept",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "c6",
+      "text": "Which gas is produced when zinc reacts with hydrochloric acid?",
+      "options": [
+        "Oxygen",
+        "Chlorine",
+        "Hydrogen",
+        "Carbon dioxide"
+      ],
+      "answer_index": 2,
+      "explanation": "Zn + 2HCl → ZnCl₂ + H₂, so hydrogen gas is released.",
+      "subject": "Chemistry",
+      "chapter": "Chemical reactions",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "c7",
+      "text": "What is the oxidation state of Mn in KMnO₄?",
+      "options": [
+        "+2",
+        "+4",
+        "+6",
+        "+7"
+      ],
+      "answer_index": 3,
+      "explanation": "K is +1 and each O is −2: 1 + x − 8 = 0, so x = +7.",
+      "subject": "Chemistry",
+      "chapter": "Redox reactions",
+      "grade": "12",
+      "difficulty": "hard"
+    },
+    {
+      "id": "b1",
+      "text": "Which organelle is known as the powerhouse of the cell?",
+      "options": [
+        "Nucleus",
+        "Ribosome",
+        "Mitochondria",
+        "Golgi body"
+      ],
+      "answer_index": 2,
+      "explanation": "Mitochondria produce most of the cell’s ATP through cellular respiration.",
+      "subject": "Biology",
+      "chapter": "Cell biology",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "b2",
+      "text": "Where does photosynthesis take place in a plant cell?",
+      "options": [
+        "Mitochondria",
+        "Chloroplast",
+        "Vacuole",
+        "Nucleus"
+      ],
+      "answer_index": 1,
+      "explanation": "Chloroplasts contain chlorophyll, which captures light energy for photosynthesis.",
+      "subject": "Biology",
+      "chapter": "Plant biology",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "b3",
+      "text": "In DNA, adenine pairs with which base?",
+      "options": [
+        "Guanine",
+        "Cytosine",
+        "Thymine",
+        "Uracil"
+      ],
+      "answer_index": 2,
+      "explanation": "A pairs with T and G pairs with C. Uracil replaces thymine only in RNA.",
+      "subject": "Biology",
+      "chapter": "Genetics",
+      "grade": "10",
+      "difficulty": "easy"
+    },
+    {
+      "id": "b4",
+      "text": "In a cross Aa × Aa, what fraction of offspring show the recessive phenotype?",
+      "options": [
+        "1/2",
+        "1/4",
+        "3/4",
+        "0"
+      ],
+      "answer_index": 1,
+      "explanation": "The Punnett square gives AA : Aa : aa = 1 : 2 : 1, so 1/4 are aa.",
+      "subject": "Biology",
+      "chapter": "Genetics",
+      "grade": "11",
+      "difficulty": "medium"
+    },
+    {
+      "id": "b5",
+      "text": "Which blood cells mainly fight infection?",
+      "options": [
+        "Red blood cells",
+        "Platelets",
+        "White blood cells",
+        "Plasma"
+      ],
+      "answer_index": 2,
+      "explanation": "White blood cells (leukocytes) are part of the immune system.",
+      "subject": "Biology",
+      "chapter": "Human biology",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "b6",
+      "text": "Which type of cell division produces gametes?",
+      "options": [
+        "Mitosis",
+        "Meiosis",
+        "Binary fission",
+        "Budding"
+      ],
+      "answer_index": 1,
+      "explanation": "Meiosis halves the chromosome number to produce haploid gametes.",
+      "subject": "Biology",
+      "chapter": "Cell division",
+      "grade": "10",
+      "difficulty": "medium"
+    },
+    {
+      "id": "e1",
+      "text": "Choose the correct verb: “She ___ to school every day.”",
+      "options": [
+        "go",
+        "goes",
+        "going",
+        "gone"
+      ],
+      "answer_index": 1,
+      "explanation": "Third-person singular subjects take -s in the simple present: “she goes”.",
+      "subject": "English",
+      "chapter": "Grammar",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "e2",
+      "text": "Which word is a synonym of “abundant”?",
+      "options": [
+        "Scarce",
+        "Plentiful",
+        "Tiny",
+        "Rare"
+      ],
+      "answer_index": 1,
+      "explanation": "“Abundant” means existing in large quantities: plentiful.",
+      "subject": "English",
+      "chapter": "Vocabulary",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "e3",
+      "text": "Choose the passive form of “The teacher marked the papers.”",
+      "options": [
+        "The papers was marked by the teacher.",
+        "The papers were marked by the teacher.",
+        "The teacher was marked by the papers.",
+        "The papers are marking by the teacher."
+      ],
+      "answer_index": 1,
+      "explanation": "The plural subject “papers” takes “were”, followed by the past participle “marked”.",
+      "subject": "English",
+      "chapter": "Grammar",
+      "grade": "10",
+      "difficulty": "medium"
+    },
+    {
+      "id": "e4",
+      "text": "Which word is the opposite of “ancient”?",
+      "options": [
+        "Old",
+        "Modern",
+        "Historic",
+        "Aged"
+      ],
+      "answer_index": 1,
+      "explanation": "“Ancient” means very old, so its antonym is “modern”.",
+      "subject": "English",
+      "chapter": "Vocabulary",
+      "grade": "9",
+      "difficulty": "easy"
+    },
+    {
+      "id": "e5",
+      "text": "Complete the sentence: “If I ___ you, I would study harder.”",
+      "options": [
+        "am",
+        "was",
+        "were",
+        "be"
+      ],
+      "answer_index": 2,
+      "explanation": "Hypothetical (second) conditionals use “were” for all subjects.",
+      "subject": "English",
+      "chapter": "Conditionals",
+      "grade": "11",
+      "difficulty": "medium"
+    }
+  ],
+  "participants": [
+    "Hana Bekele",
+    "Dawit Mekonnen",
+    "Selam Girma",
+    "Yonas Alemu",
+    "Liya Tadesse",
+    "Natnael Haile",
+    "Meron Assefa",
+    "Kidus Wolde",
+    "Bethlehem Fikre",
+    "Samuel Getachew",
+    "Ruth Desta",
+    "Eyob Negash",
+    "Mahlet Kebede",
+    "Robel Ayele",
+    "Tsion Mulugeta",
+    "Biniyam Tekle",
+    "Sara Yohannes",
+    "Henok Abebe",
+    "Feven Lemma",
+    "Mikias Berhanu"
+  ]
+}
