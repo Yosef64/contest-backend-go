@@ -3,6 +3,7 @@
 package config
 
 import (
+	"strconv"
 	"errors"
 	"fmt"
 	"os"
@@ -49,7 +50,27 @@ type Config struct {
 	SMTPUser string
 	SMTPPass string
 	SMTPFrom string
+
+	// Chapa online payments (https://developer.chapa.co). Without the
+	// secret key students send payment proof for an admin to check.
+	ChapaSecretKey     string
+	ChapaWebhookSecret string
+	ChapaBaseURL       string
+	// Where Chapa sends the student after paying (the app's deep link).
+	ChapaReturnURL string
+
+	// AI features (tutor, study analysis, review plans, report summaries)
+	// use the Anthropic Messages API. Without a key they are switched off.
+	AnthropicAPIKey string
+	AIModel         string
+	AIBaseURL       string
+	// Questions a student may ask the AI per day.
+	AIDailyLimit int
 }
+
+func (c Config) ChapaEnabled() bool { return c.ChapaSecretKey != "" }
+
+func (c Config) AIEnabled() bool { return c.AnthropicAPIKey != "" }
 
 func (c Config) MailEnabled() bool { return c.SMTPHost != "" && c.SMTPFrom != "" }
 
@@ -58,6 +79,13 @@ func (c Config) IsDev() bool { return c.Env == Development }
 func env(key, def string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
+	}
+	return def
+}
+
+func envInt(key string, def int) int {
+	if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key))); err == nil && n > 0 {
+		return n
 	}
 	return def
 }
@@ -94,6 +122,14 @@ func Load() (Config, error) {
 		SMTPUser:               os.Getenv("SMTP_USER"),
 		SMTPPass:               os.Getenv("SMTP_PASS"),
 		SMTPFrom:               os.Getenv("SMTP_FROM"),
+		ChapaSecretKey:         os.Getenv("CHAPA_SECRET_KEY"),
+		ChapaWebhookSecret:     os.Getenv("CHAPA_WEBHOOK_SECRET"),
+		ChapaBaseURL:           strings.TrimRight(env("CHAPA_BASE_URL", "https://api.chapa.co"), "/"),
+		ChapaReturnURL:         env("CHAPA_RETURN_URL", "victory://payment"),
+		AnthropicAPIKey:        os.Getenv("ANTHROPIC_API_KEY"),
+		AIModel:                env("AI_MODEL", "claude-sonnet-5-5"),
+		AIBaseURL:              strings.TrimRight(env("AI_BASE_URL", "https://api.anthropic.com"), "/"),
+		AIDailyLimit:           envInt("AI_DAILY_LIMIT", 40),
 	}
 	c.CookieSecure = !c.IsDev()
 

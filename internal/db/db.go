@@ -39,23 +39,13 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// Migrate applies every migration that has not run yet, each in its own
-// transaction. Safe to call on every start; concurrent starts are serialised
-// with an advisory lock.
+// Migrate applies every migration that has not run yet. Safe to call on every
+// start. Pending migrations run in one transaction holding a transaction-level
+// advisory lock, so concurrent starts are serialised and the lock is always
+// released when the transaction ends (session locks can leak through a
+// connection pooler such as Neon's PgBouncer).
 func Migrate(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Release()
-
-	const lockID = 734001 // arbitrary, unique to this app
-	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, lockID); err != nil {
-		return nil, err
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, lockID) //nolint:errcheck
-
-	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    text PRIMARY KEY,
 		applied_at timestamptz NOT NULL DEFAULT now()
 	)`); err != nil {
@@ -68,31 +58,68 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	}
 	sort.Strings(files)
 
-	var applied []string
+	// Fast path: nothing to do (the usual case) needs no lock.
+	done := map[string]bool{}
+	rows, err := pool.Query(ctx, `SELECT version FROM schema_migrations`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		done[v] = true
+	}
+	rows.Close()
+	pending := false
 	for _, f := range files {
-		version := strings.TrimSuffix(strings.TrimPrefix(f, "migrations/"), ".sql")
-		var exists bool
-		if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&exists); err != nil {
-			return applied, err
+		if !done[migrationVersion(f)] {
+			pending = true
+			break
 		}
-		if exists {
-			continue
+	}
+	if !pending {
+		return nil, nil
+	}
+
+	const lockID = 734001 // arbitrary, unique to this app
+	var applied []string
+	err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID); err != nil {
+			return err
 		}
-		sql, err := migrations.ReadFile(f)
-		if err != nil {
-			return applied, err
-		}
-		err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
-			if _, err := tx.Exec(ctx, string(sql)); err != nil {
+		for _, f := range files {
+			version := migrationVersion(f)
+			// Re-check under the lock: another start may have applied it.
+			var exists bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&exists); err != nil {
 				return err
 			}
-			_, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version)
-			return err
-		})
-		if err != nil {
-			return applied, fmt.Errorf("migration %s: %w", version, err)
+			if exists {
+				continue
+			}
+			sql, err := migrations.ReadFile(f)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, string(sql)); err != nil {
+				return fmt.Errorf("migration %s: %w", version, err)
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
+				return err
+			}
+			applied = append(applied, version)
 		}
-		applied = append(applied, version)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return applied, nil
+}
+
+func migrationVersion(file string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(file, "migrations/"), ".sql")
 }

@@ -1,0 +1,8 @@
+# Never send local secrets, uploads or build output to the image.
+.env
+.env.*
+!.env.example
+uploads/
+bin/
+*.exe
+.git/

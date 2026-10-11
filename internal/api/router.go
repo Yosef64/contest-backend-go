@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"victor-contest-go/internal/ai"
 	"victor-contest-go/internal/auth"
 	"victor-contest-go/internal/config"
 	"victor-contest-go/internal/httpx"
@@ -29,11 +30,13 @@ type Server struct {
 	tokens *auth.Tokens
 	media  *media.Store
 	pool   *pgxpool.Pool
+	ai     *ai.Client
 	now    func() time.Time
 }
 
 func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
-	return &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool, now: time.Now}
+	return &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool,
+		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), now: time.Now}
 }
 
 func (s *Server) Router() *gin.Engine {
@@ -41,7 +44,7 @@ func (s *Server) Router() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(gin.Logger(), gin.Recovery(), httpx.ServerTime(time.Now))
 	_ = r.SetTrustedProxies(nil)
 	r.MaxMultipartMemory = 16 << 20
 	r.Use(cors.New(cors.Config{
@@ -49,6 +52,7 @@ func (s *Server) Router() *gin.Engine {
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept"},
 		AllowCredentials: true,
+		ExposeHeaders:    []string{httpx.ServerTimeHeader},
 		MaxAge:           12 * time.Hour,
 	}))
 	r.NoRoute(func(c *gin.Context) { httpx.Fail(c, httpx.NotFound("Endpoint")) })
@@ -63,6 +67,9 @@ func (s *Server) Router() *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/site", httpx.H(s.publicSite))
+	// Chapa calls these; each one only triggers a verification with Chapa.
+	v1.GET("/payments/chapa/callback", s.chapaCallback)
+	v1.POST("/payments/chapa/webhook", s.chapaWebhook)
 
 	// Student sign-in.
 	a := v1.Group("/auth")
@@ -91,6 +98,9 @@ func (s *Server) Router() *gin.Engine {
 	app.GET("/courses", httpx.H(s.appCourses))
 	app.GET("/courses/:id", httpx.H(s.appCourse))
 	app.GET("/chapters/:id", httpx.H(s.appChapter))
+	app.GET("/trainings", httpx.H(s.appTrainings))
+	app.GET("/trainings/:id", httpx.H(s.appTraining))
+	app.PUT("/trainings/:id/progress", httpx.H(s.appTrainingProgress))
 	app.GET("/contests", httpx.H(s.appContests))
 	app.GET("/contests/:id", httpx.H(s.appContest))
 	app.POST("/contests/:id/register", httpx.H(s.appRegister))
@@ -101,6 +111,21 @@ func (s *Server) Router() *gin.Engine {
 	app.GET("/contests/:id/editorial", httpx.H(s.appEditorial))
 	app.GET("/contests/:id/standings", httpx.H(s.appStandings))
 	app.GET("/leaderboard", httpx.H(s.appLeaderboard))
+	app.GET("/ai/status", httpx.H(s.aiStatus))
+	app.POST("/ai/tutor", httpx.H(s.aiTutor))
+	app.GET("/ai/analysis", httpx.H(s.aiAnalysis))
+	app.POST("/ai/review-quiz", httpx.H(s.aiReviewQuiz))
+	app.GET("/payments/options", httpx.H(s.paymentOptions))
+	app.POST("/payments/chapa", httpx.H(s.startChapaPayment))
+	app.GET("/payments/chapa/:tx_ref", httpx.H(s.checkChapaPayment))
+	app.GET("/group-exams", httpx.H(s.listGroupExams))
+	app.POST("/group-exams", httpx.H(s.createGroupExam))
+	app.POST("/group-exams/join", httpx.H(s.joinGroupExam))
+	app.GET("/group-exams/:id", httpx.H(s.getGroupExam))
+	app.POST("/group-exams/:id/start", httpx.H(s.startGroupExam))
+	app.POST("/group-exams/:id/leave", httpx.H(s.leaveGroupExam))
+	app.PUT("/group-exams/:id/answers", httpx.H(s.saveGroupAnswers))
+	app.POST("/group-exams/:id/submit", httpx.H(s.submitGroupExam))
 
 	app.POST("/contests/:id/exam-mode/:action", httpx.H(s.examModePassword))
 	app.POST("/contests/:id/makeup", httpx.H(s.startMakeup))
@@ -137,11 +162,18 @@ func (s *Server) Router() *gin.Engine {
 	ad.GET("/services", httpx.H(s.adminServices))
 	ad.POST("/services", httpx.H(s.adminServiceWrite))
 	ad.GET("/services/reports", httpx.H(s.adminReports))
+	ad.GET("/services/reports/ai-summary", httpx.H(s.aiReportSummary))
 	ad.PUT("/enrollments/:id", httpx.H(s.adminEditEnrollment))
 	ad.PUT("/auth/password", httpx.H(s.changeAdminPassword))
 	ad.GET("/settings/site", httpx.H(s.adminSiteSettings))
 	ad.PUT("/settings/site", httpx.H(s.adminSaveSiteSettings))
 
+	ad.GET("/trainings", httpx.H(s.adminTrainings))
+	ad.POST("/trainings", httpx.H(s.adminCreateTraining))
+	ad.PUT("/trainings/order", httpx.H(s.adminReorderTrainings))
+	ad.GET("/trainings/:id", httpx.H(s.adminTraining))
+	ad.PUT("/trainings/:id", httpx.H(s.adminSaveTraining))
+	ad.DELETE("/trainings/:id", httpx.H(s.adminDeleteTraining))
 	ad.GET("/courses", httpx.H(s.adminCourses))
 	ad.POST("/courses", httpx.H(s.adminCreateCourse))
 	ad.GET("/courses/:id", httpx.H(s.adminCourse))

@@ -39,6 +39,7 @@ type importItem struct {
 	Chapter     string   `json:"chapter"`
 	Topic       string   `json:"topic"`
 	Grade       string   `json:"grade"`
+	Stream      string   `json:"stream"`
 	ImageURL    string   `json:"image_url"`
 }
 
@@ -66,7 +67,7 @@ func (s *Server) adminImportContestQuestions(c *gin.Context) error {
 		qi := questionInput{
 			Text: item.Text, Options: item.Options, AnswerIndex: item.AnswerIndex, Explanation: item.Explanation,
 			Subject: or(item.Subject, exam.Subject), Chapter: or(item.Chapter, chapter), Topic: strings.TrimSpace(item.Topic), Grade: or(item.Grade, exam.Grade),
-			ImageURL: strings.TrimSpace(item.ImageURL),
+			Stream: or(item.Stream, exam.Stream), ImageURL: strings.TrimSpace(item.ImageURL),
 		}
 		if len(qi.Text) > 2000 || len(qi.Explanation) > 4000 || len(qi.Chapter) > 120 || len(qi.Topic) > 120 || len(qi.Options) > 6 {
 			fields["questions["+strconv.Itoa(i)+"]"] = "Too long: text up to 2000 characters, up to 6 options."

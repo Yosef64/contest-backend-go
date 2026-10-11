@@ -20,7 +20,7 @@ func (s *Store) Courses(ctx context.Context, grade string, publishedOnly bool) (
 	if publishedOnly {
 		having = ` HAVING count(ch.id) FILTER (WHERE ch.status = 'published') > 0`
 	}
-	return collect[Course](ctx, s.db, courseSelect+` WHERE ($1 = '' OR c.grade = $1) GROUP BY c.id`+having+` ORDER BY c.grade::int, c.position, c.subject`, grade)
+	return collect[Course](ctx, s.db, courseSelect+` WHERE ($1 = '' OR c.grade = $1) GROUP BY c.id`+having+` ORDER BY `+levelOrder("c.grade")+`, c.position, c.subject`, grade)
 }
 
 func (s *Store) Course(ctx context.Context, id string) (Course, error) {
@@ -290,4 +290,9 @@ func (s *Store) SetChapterCompleted(ctx context.Context, studentID, chapterID st
 		SELECT $1, id FROM chapters WHERE id = $2 AND status = 'published'
 		ON CONFLICT DO NOTHING`, studentID, chapterID)
 	return classify(err)
+}
+
+// levelOrder sorts grades 9-12 first, then remedial and freshman.
+func levelOrder(col string) string {
+	return "CASE " + col + " WHEN 'remedial' THEN 13 WHEN 'freshman' THEN 14 ELSE " + col + "::int END"
 }

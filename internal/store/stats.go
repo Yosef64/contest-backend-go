@@ -111,6 +111,7 @@ type StudentStats struct {
 	GlobalRank        int                    `json:"global_rank"`
 	Subjects          map[string]SubjectStat `json:"subjects"`
 	Chapters          map[string]SubjectStat `json:"chapters"`
+	Topics            map[string]SubjectStat `json:"topics"`
 	Trend             []TrendPoint           `json:"trend"`
 }
 
@@ -122,7 +123,7 @@ type TrendPoint struct {
 
 // StudentStats is computed from the student's submissions.
 func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStats, error) {
-	st := StudentStats{Subjects: map[string]SubjectStat{}, Chapters: map[string]SubjectStat{}, Trend: []TrendPoint{}}
+	st := StudentStats{Subjects: map[string]SubjectStat{}, Chapters: map[string]SubjectStat{}, Topics: map[string]SubjectStat{}, Trend: []TrendPoint{}}
 	err := s.db.QueryRow(ctx, `SELECT count(*)::int, coalesce(sum(total), 0)::int, coalesce(sum(correct), 0)::int,
 		CASE WHEN coalesce(sum(total), 0) = 0 THEN 0 ELSE (sum(time_seconds) / sum(total))::int END,
 		(SELECT count(*)::int FROM chapter_progress WHERE student_id = $1)
@@ -134,8 +135,8 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 		st.Accuracy = float64(st.Correct) / float64(st.Questions)
 	}
 
-	// Per subject/chapter: expand each submission's answers against the questions.
-	rows, err := s.db.Query(ctx, `SELECT q.subject, q.chapter, (sub.answers ->> q.id)::int = q.answer_index AS ok
+	// Per subject/chapter/topic: expand each submission's answers against the questions.
+	rows, err := s.db.Query(ctx, `SELECT q.subject, q.chapter, coalesce(nullif(trim(q.topic), ''), 'General'), (sub.answers ->> q.id)::int = q.answer_index AS ok
 		FROM submissions sub
 		JOIN contest_questions cq ON cq.contest_id = sub.contest_id
 		JOIN questions q ON q.id = cq.question_id
@@ -145,9 +146,9 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var subject, chapter string
+		var subject, chapter, topic string
 		var ok *bool
-		if err := rows.Scan(&subject, &chapter, &ok); err != nil {
+		if err := rows.Scan(&subject, &chapter, &topic, &ok); err != nil {
 			return st, err
 		}
 		inc := func(m map[string]SubjectStat, k string) {
@@ -160,6 +161,7 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 		}
 		inc(st.Subjects, subject)
 		inc(st.Chapters, chapter)
+		inc(st.Topics, subject+" / "+chapter+" / "+topic)
 	}
 	if err := rows.Err(); err != nil {
 		return st, err
@@ -181,8 +183,8 @@ const leaderboardRanks = `SELECT sub.student_id, rank() OVER (ORDER BY sum(sub.c
 
 // AdminStudentDetail backs the admin student profile.
 type AdminStudentDetail struct {
-	Student     Student `json:"student"`
-	Stats       struct {
+	Student Student `json:"student"`
+	Stats   struct {
 		Contests          int     `json:"contests"`
 		Questions         int     `json:"questions"`
 		Correct           int     `json:"correct"`
@@ -216,4 +218,3 @@ func (s *Store) AdminStudentDetail(ctx context.Context, id string) (AdminStudent
 		FROM submissions sub JOIN contests c ON c.id = sub.contest_id WHERE sub.student_id = $1 ORDER BY sub.submitted_at DESC`, id)
 	return d, err
 }
-

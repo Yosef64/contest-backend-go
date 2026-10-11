@@ -22,8 +22,32 @@ type questionInput struct {
 	Chapter     string   `json:"chapter" binding:"required,max=120"`
 	// Optional finer level under the chapter, used in school reports.
 	Topic    string `json:"topic" binding:"max=120"`
-	Grade    string `json:"grade" binding:"required"`
-	ImageURL    string   `json:"image_url" binding:"omitempty,url"`
+	Grade string `json:"grade" binding:"required"`
+	// "natural" or "social" for grade 11 and up; empty means both streams.
+	Stream   string `json:"stream"`
+	ImageURL string `json:"image_url" binding:"omitempty,url"`
+}
+
+// questionLevel normalizes a question's grade (9-12) or university level
+// (remedial, freshman); empty when it isn't one.
+func questionLevel(g string) string {
+	if l := strings.ToLower(strings.TrimSpace(g)); l == "remedial" || l == "freshman" {
+		return l
+	}
+	return NormalizeGrade(g)
+}
+
+// questionStream checks a stream for the level: grades 9 and 10 have none,
+// higher levels take natural, social or empty (both).
+func questionStream(level, stream string) (string, bool) {
+	stream = strings.ToLower(strings.TrimSpace(stream))
+	switch {
+	case level == "9" || level == "10":
+		return "", true
+	case stream == "" || stream == "natural" || stream == "social":
+		return stream, true
+	}
+	return "", false
 }
 
 func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
@@ -35,9 +59,13 @@ func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
 	if in.AnswerIndex == nil || *in.AnswerIndex < 0 || *in.AnswerIndex >= len(in.Options) {
 		fields[prefix+"answer_index"] = "Choose the correct option."
 	}
-	grade := NormalizeGrade(in.Grade)
+	grade := questionLevel(in.Grade)
 	if grade == "" {
-		fields[prefix+"grade"] = "Choose grade 9, 10, 11 or 12."
+		fields[prefix+"grade"] = "Choose grade 9, 10, 11, 12, remedial or freshman."
+	}
+	stream, ok := questionStream(grade, in.Stream)
+	if !ok {
+		fields[prefix+"stream"] = "Choose Natural, Social or both streams."
 	}
 	if !subjects[in.Subject] || in.Subject == "Mixed" {
 		fields[prefix+"subject"] = "Choose a supported subject."
@@ -50,20 +78,21 @@ func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
 	}
 	return store.Question{
 		Text: content.SanitizeText(strings.TrimSpace(in.Text)), Options: opts, AnswerIndex: *in.AnswerIndex, Explanation: content.SanitizeText(strings.TrimSpace(in.Explanation)),
-		Subject: in.Subject, Chapter: strings.TrimSpace(in.Chapter), Topic: strings.TrimSpace(in.Topic), Grade: grade, ImageURL: in.ImageURL,
+		Subject: in.Subject, Chapter: strings.TrimSpace(in.Chapter), Topic: strings.TrimSpace(in.Topic), Grade: grade, Stream: stream, ImageURL: in.ImageURL,
 	}, nil
 }
 
 func (s *Server) adminQuestions(c *gin.Context) error {
 	grade := ""
 	if g := c.Query("grade"); g != "" {
-		grade = NormalizeGrade(g)
+		grade = questionLevel(g)
 	}
+	stream, _ := questionStream(grade, c.Query("stream"))
 	from, until, err := reportDateRange(c.Query("from"), c.Query("to"))
 	if err != nil {
 		return err
 	}
-	list, err := s.store.Questions(c, c.Query("subject"), grade, strings.TrimSpace(c.Query("q")), from, until)
+	list, err := s.store.Questions(c, c.Query("subject"), grade, stream, strings.TrimSpace(c.Query("q")), from, until)
 	if err != nil {
 		return err
 	}
@@ -130,7 +159,7 @@ func (s *Server) adminUpdateQuestion(c *gin.Context) error {
 func (s *Server) adminDeleteQuestion(c *gin.Context) error {
 	err := s.store.DeleteQuestion(c, c.Param("id"))
 	if errors.Is(err, store.ErrInUse) {
-		return httpx.Conflict("in_use", "This question is used in a contest. Remove it from the contest first.")
+		return httpx.Conflict("in_use", "This question is used in an exam. Remove it from the exam first.")
 	}
 	return orNoContent(c, storeErr(err, "Question"))
 }
@@ -146,8 +175,8 @@ type contestInput struct {
 	// At least one for contests; national exam sets may start empty and get
 	// their questions by import.
 	QuestionIDs []string `json:"question_ids" binding:"max=200"`
-	Rules       string    `json:"rules" binding:"max=4000"`
-	Scoring     string    `json:"scoring" binding:"max=2000"`
+	Rules       string   `json:"rules" binding:"max=4000"`
+	Scoring     string   `json:"scoring" binding:"max=2000"`
 	// "national" marks a past national entrance exam set: students take it
 	// as timed practice any time between start_time and end_time.
 	Kind            string `json:"kind" binding:"omitempty,oneof=contest national"`
@@ -158,14 +187,17 @@ type contestInput struct {
 
 func (in *contestInput) toContest() (store.Contest, error) {
 	grade := NormalizeGrade(in.Grade)
+	if in.Grade == "remedial" || in.Grade == "freshman" {
+		grade = in.Grade
+	}
 	national := in.Kind == "national"
 	switch {
 	case grade == "":
-		return store.Contest{}, httpx.Field("grade", "Choose grade 9, 10, 11 or 12.")
+		return store.Contest{}, httpx.Field("grade", "Choose grade 9, 10, 11, 12, remedial or freshman.")
 	case !subjects[in.Subject]:
 		return store.Contest{}, httpx.Field("subject", "Choose a supported subject.")
 	case !national && in.EndTime.Sub(in.StartTime) > 24*time.Hour:
-		return store.Contest{}, httpx.Field("end_time", "A contest can last at most 24 hours.")
+		return store.Contest{}, httpx.Field("end_time", "An exam can last at most 24 hours.")
 	case !national && len(in.QuestionIDs) == 0:
 		return store.Contest{}, httpx.Field("question_ids", "Choose at least one question.")
 	case national && in.ExamYear == nil:
@@ -173,7 +205,10 @@ func (in *contestInput) toContest() (store.Contest, error) {
 	case national && in.DurationMinutes == nil:
 		return store.Contest{}, httpx.Field("duration_minutes", "Enter the time allowed in minutes.")
 	}
-	kind, year, stream, duration := "contest", (*int)(nil), "", (*int)(nil)
+	kind, year, stream, duration := "contest", (*int)(nil), in.Stream, (*int)(nil)
+	if !national && (grade == "9" || grade == "10") {
+		stream = ""
+	}
 	if national {
 		kind, year, stream, duration = "national", in.ExamYear, in.Stream, in.DurationMinutes
 	}
@@ -203,7 +238,7 @@ func (s *Server) adminContests(c *gin.Context) error {
 func (s *Server) adminContest(c *gin.Context) error {
 	contest, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	qs, err := s.store.ContestQuestions(c, contest.ID)
 	if err != nil {
@@ -246,13 +281,13 @@ func (s *Server) adminUpdateContest(c *gin.Context) error {
 		return httpx.Field("question_ids", "Students have already submitted, so the questions can't change.")
 	}
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	return httpx.OK(c, gin.H{"contest": out})
 }
 
 func (s *Server) adminDeleteContest(c *gin.Context) error {
-	return orNoContent(c, storeErr(s.store.DeleteContest(c, c.Param("id")), "Contest"))
+	return orNoContent(c, storeErr(s.store.DeleteContest(c, c.Param("id")), "Exam"))
 }
 
 func (s *Server) adminStandings(c *gin.Context) error {

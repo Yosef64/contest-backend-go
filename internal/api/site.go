@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -80,7 +81,9 @@ func (s *Server) adminSiteSettings(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	out := gin.H{"about": settings["about"]}
+	out := gin.H{"about": settings["about"], "price_academic": settings["price_academic"],
+		"price_training": settings["price_training"], "enrollment_days": settings["enrollment_days"],
+		"chapa_enabled": s.cfg.ChapaEnabled()}
 	for _, l := range siteLinks {
 		out[l.Key] = settings[l.Key]
 	}
@@ -92,7 +95,7 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&in); err != nil {
 		return httpx.BadRequest("Send the settings as a JSON object of strings.")
 	}
-	allowed := map[string]bool{"about": true}
+	allowed := map[string]bool{"about": true, "price_academic": true, "price_training": true, "enrollment_days": true}
 	for _, l := range siteLinks {
 		allowed[l.Key] = true
 	}
@@ -118,6 +121,14 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 			if !supportPhone.MatchString(v) {
 				fields[k] = "Enter a phone number."
 			}
+		case k == "price_academic" || k == "price_training":
+			if n, err := strconv.ParseFloat(v, 64); err != nil || n < 0 || n > 1000000 {
+				fields[k] = "Enter a price in birr, e.g. 499."
+			}
+		case k == "enrollment_days":
+			if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 1095 {
+				fields[k] = "Enter a number of days between 1 and 1095."
+			}
 		default:
 			if u, err := url.Parse(v); err != nil || u.Scheme != "https" || u.Host == "" {
 				fields[k] = "Enter a full https:// link."
@@ -128,21 +139,19 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 	if len(fields) > 0 {
 		return httpx.Invalid(fields)
 	}
-	tx, err := s.pool.Begin(c)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(c) //nolint:errcheck
+	keys := make([]string, 0, len(clean))
+	values := make([]string, 0, len(clean))
 	for k, v := range clean {
-		if _, err := tx.Exec(c, `INSERT INTO site_settings (key, value) VALUES ($1, $2)
-			ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()`, k, v); err != nil {
-			return err
-		}
+		keys = append(keys, k)
+		values = append(values, v)
 	}
-	if _, err := tx.Exec(c, `INSERT INTO audit_events (admin_id, action, resource) VALUES ($1, 'site_settings', 'site')`, currentAdmin(c).ID); err != nil {
-		return err
-	}
-	if err := tx.Commit(c); err != nil {
+	// One statement (one round trip): every setting plus the audit entry.
+	if _, err := s.pool.Exec(c, `WITH saved AS (
+			INSERT INTO site_settings (key, value) SELECT * FROM unnest($1::text[], $2::text[])
+			ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = now()
+		)
+		INSERT INTO audit_events (admin_id, action, resource) VALUES ($3, 'site_settings', 'site')`,
+		keys, values, currentAdmin(c).ID); err != nil {
 		return err
 	}
 	return s.adminSiteSettings(c)
@@ -164,17 +173,14 @@ type chapterLock struct {
 // chapterLocks mirrors checkLearningAccess for every published chapter of
 // the given courses in one query, so course pages can show locks up front.
 func (s *Server) chapterLocks(c *gin.Context, st store.Student, courseIDs ...string) (map[string]chapterLock, error) {
-	// A chapter's own policy wins; without one the chapter follows its
-	// course, which is premium unless the admin made it free.
-	rows, err := s.pool.Query(c, `SELECT ch.id, p.access IS NOT NULL, coalesce(p.access, 'free'), coalesce(p.referral_enabled, false),
+	// Each chapter's own access decides; a chapter without a policy is
+	// premium (academic enrollment) until an admin makes it free.
+	rows, err := s.pool.Query(c, `SELECT ch.id, coalesce(p.access, '`+premiumModule+`'), coalesce(p.referral_enabled, false),
 			(SELECT count(*) FROM referral_visits r WHERE r.owner_id = $2 AND r.chapter_id = ch.id)::int,
-			coalesce(p.access <> 'free' AND EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id = $2
-				AND e.module = p.access AND e.status = 'approved' AND e.expires_at > now()), false),
-			coalesce(cp.access, '`+premiumModule+`') <> 'free' AND NOT EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id = $2
-				AND e.module = coalesce(cp.access, '`+premiumModule+`') AND e.status = 'approved' AND e.expires_at > now())
+			coalesce(p.access, '`+premiumModule+`') <> 'free' AND EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id = $2
+				AND e.module = coalesce(p.access, '`+premiumModule+`') AND e.status = 'approved' AND e.expires_at > now())
 		FROM chapters ch
 		LEFT JOIN learning_policies p ON p.resource_type = 'chapter' AND p.resource_id = ch.id
-		LEFT JOIN learning_policies cp ON cp.resource_type = 'course' AND cp.resource_id = ch.course_id
 		WHERE ch.course_id = ANY($1) AND ch.status = 'published'`, courseIDs, st.ID)
 	if err != nil {
 		return nil, err
@@ -183,17 +189,13 @@ func (s *Server) chapterLocks(c *gin.Context, st store.Student, courseIDs ...str
 	locks := map[string]chapterLock{}
 	for rows.Next() {
 		var id, access string
-		var own, referral, paid, courseLocked bool
+		var referral, paid bool
 		var visits int
-		if err := rows.Scan(&id, &own, &access, &referral, &visits, &paid, &courseLocked); err != nil {
+		if err := rows.Scan(&id, &access, &referral, &visits, &paid); err != nil {
 			return nil, err
 		}
 		share := fmt.Sprintf("%s/r/%s/%s", s.cfg.PublicBaseURL, url.PathEscape(st.ID), url.PathEscape(id))
 		switch {
-		case !own:
-			if courseLocked {
-				locks[id] = chapterLock{Reason: "enrollment"}
-			}
 		case access != "free" && paid:
 		case access != "free" && !referral:
 			locks[id] = chapterLock{Reason: "enrollment"}

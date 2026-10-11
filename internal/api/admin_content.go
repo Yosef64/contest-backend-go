@@ -22,9 +22,9 @@ type courseInput struct {
 }
 
 func (in *courseInput) toCourse() (store.Course, error) {
-	grade := NormalizeGrade(in.Grade)
+	grade := questionLevel(in.Grade)
 	if grade == "" {
-		return store.Course{}, httpx.Field("grade", "Choose grade 9, 10, 11 or 12.")
+		return store.Course{}, httpx.Field("grade", "Choose grade 9, 10, 11, 12, remedial or freshman.")
 	}
 	if !subjects[in.Subject] {
 		return store.Course{}, httpx.Field("subject", "Choose a supported subject.")
@@ -35,7 +35,7 @@ func (in *courseInput) toCourse() (store.Course, error) {
 func (s *Server) adminCourses(c *gin.Context) error {
 	grade := ""
 	if g := c.Query("grade"); g != "" {
-		if grade = NormalizeGrade(g); grade == "" {
+		if grade = questionLevel(g); grade == "" {
 			return httpx.BadRequest("Unknown grade.")
 		}
 	}

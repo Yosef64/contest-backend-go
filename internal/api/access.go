@@ -6,10 +6,11 @@ import (
 	"victor-contest-go/internal/store"
 )
 
-// Premium by default: a course or contest the admin has not given an access
-// policy needs an approved academic enrollment. Past national exam sets are
-// part of the free tier (guide: free users get past national exam
-// questions), and a chapter without its own policy follows its course.
+// Premium by default, decided per chapter: a chapter (or a scheduled exam)
+// without an access policy needs an approved academic enrollment; admins
+// make individual chapters free. A course's own policy only limits who sees
+// it (department, stream, school). Past national exam sets are part of the
+// free tier (guide: free users get past national exam questions).
 const premiumModule = "academic"
 
 // defaultAccessSQL is the access a resource has without a policy row, for a
@@ -20,7 +21,7 @@ const defaultContestAccessSQL = `CASE WHEN co.kind = 'national' THEN 'free' ELSE
 // defaultAccess returns the access a resource without a policy requires.
 func (s *Server) defaultAccess(c *gin.Context, kind, id string) (string, error) {
 	switch kind {
-	case "course":
+	case "chapter":
 		return premiumModule, nil
 	case "contest":
 		var access string
@@ -43,7 +44,8 @@ type resourceAccess struct {
 }
 
 // accessFor works out premium/locked for many courses or contests in one
-// query. kind is "course" or "contest".
+// query. kind is "course" or "contest". A course is premium when any of its
+// published chapters is, and locked when any of those is locked.
 func (s *Server) accessFor(c *gin.Context, st store.Student, kind string, ids []string) (map[string]resourceAccess, error) {
 	out := map[string]resourceAccess{}
 	if len(ids) == 0 {
@@ -54,10 +56,11 @@ func (s *Server) accessFor(c *gin.Context, st store.Student, kind string, ids []
 		FROM contests co LEFT JOIN learning_policies p ON p.resource_type = 'contest' AND p.resource_id = co.id
 		WHERE co.id = ANY($1))`
 	if kind == "course" {
+		// One row per premium module used by the course's chapters.
 		query = `WITH r AS (
-		SELECT co.id, coalesce(p.access, '` + premiumModule + `') AS access
-		FROM courses co LEFT JOIN learning_policies p ON p.resource_type = 'course' AND p.resource_id = co.id
-		WHERE co.id = ANY($1))`
+		SELECT DISTINCT ch.course_id AS id, coalesce(p.access, '` + premiumModule + `') AS access
+		FROM chapters ch LEFT JOIN learning_policies p ON p.resource_type = 'chapter' AND p.resource_id = ch.id
+		WHERE ch.course_id = ANY($1) AND ch.status = 'published')`
 	}
 	rows, err := s.pool.Query(c, query+`
 		SELECT r.id, r.access, r.access <> 'free' AND EXISTS (SELECT 1 FROM enrollment_requests e
@@ -73,10 +76,11 @@ func (s *Server) accessFor(c *gin.Context, st store.Student, kind string, ids []
 		if err := rows.Scan(&id, &access, &paid); err != nil {
 			return nil, err
 		}
-		a := resourceAccess{Premium: access != "free"}
-		if a.Premium {
+		a := out[id]
+		if access != "free" {
+			a.Premium = true
 			a.Module = access
-			a.Locked = !paid
+			a.Locked = a.Locked || !paid
 		}
 		out[id] = a
 	}

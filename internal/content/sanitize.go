@@ -67,3 +67,4 @@ func SanitizeText(s string) string {
 	}
 	return SanitizeHTML(s)
 }
+

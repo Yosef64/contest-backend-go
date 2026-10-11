@@ -67,7 +67,7 @@ func (s *Server) appOfflinePaper(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if err = s.offlineContest(c, co, st); err != nil {
 		return err

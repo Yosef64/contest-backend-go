@@ -99,6 +99,8 @@ type Question struct {
 	Chapter     string    `json:"chapter" db:"chapter"`
 	Topic       string    `json:"topic" db:"topic"`
 	Grade       string    `json:"grade" db:"grade"`
+	// Stream ("natural" or "social") for grade 11 and up; empty suits both.
+	Stream      string    `json:"stream" db:"stream"`
 	ImageURL    string    `json:"image_url" db:"image_url"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	CreatedBy   string    `json:"created_by" db:"created_by"`

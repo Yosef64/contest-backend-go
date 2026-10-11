@@ -1,8 +1,8 @@
 package api
 
 import (
-	"strconv"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -274,13 +274,22 @@ func (s *Server) putMyProgress(c *gin.Context) error {
 // Courses ----------------------------------------------------------------------
 
 func (s *Server) appCourses(c *gin.Context) error {
-	grade := NormalizeGrade(c.Query("grade"))
+	// A grade (9-12) or university level (remedial, freshman); by default
+	// the student's own: remedial and freshman students see their courses.
+	grade := questionLevel(c.Query("grade"))
 	if grade == "" {
 		st, err := s.me(c)
 		if err != nil {
 			return err
 		}
 		grade = st.Grade
+		academic, err := s.academicProfile(c, st.ID)
+		if err != nil {
+			return err
+		}
+		if d, _ := academic["department"].(string); d == "remedial" || d == "freshman" {
+			grade = d
+		}
 	}
 	courses, err := s.store.Courses(c, grade, true)
 	if err != nil {
@@ -354,21 +363,12 @@ func (s *Server) appChapter(c *gin.Context) error {
 	if e != nil {
 		return e
 	}
-	var own bool
-	if e = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM learning_policies WHERE resource_type='chapter' AND resource_id=$1)", ch.ID).Scan(&own); e != nil {
+	// The course limits who may see it; the chapter's own access (premium
+	// unless made free) decides whether it opens.
+	if e = s.checkLearningGroup(c, st, "course", ch.CourseID); e != nil {
 		return e
 	}
-	if own {
-		// The chapter's own policy (a free sample or referral chapter)
-		// decides access; the course still limits who may see it.
-		if e = s.checkLearningGroup(c, st, "course", ch.CourseID); e != nil {
-			return e
-		}
-		e = s.checkLearningAccess(c, st, "chapter", ch.ID)
-	} else {
-		e = s.checkLearningAccess(c, st, "course", ch.CourseID)
-	}
-	if e != nil {
+	if e = s.checkLearningAccess(c, st, "chapter", ch.ID); e != nil {
 		return e
 	}
 	ch.Lock = nil
@@ -441,11 +441,12 @@ func (s *Server) appContests(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	contests, err := s.store.Contests(c, st.Grade)
+	academic, err := s.academicProfile(c, st.ID)
 	if err != nil {
 		return err
 	}
-	academic, err := s.academicProfile(c, st.ID)
+	department, _ := academic["department"].(string)
+	contests, err := s.store.Contests(c, st.Grade, department)
 	if err != nil {
 		return err
 	}
@@ -466,18 +467,36 @@ func (s *Server) appContests(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	// Which exams run in exam mode: the app locks the phone for them.
+	examMode := map[string]bool{}
+	rows, err := s.pool.Query(c, "SELECT contest_id FROM exam_mode_settings WHERE enabled AND contest_id = ANY($1)", ids)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		examMode[id] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	out := make([]appContest, 0, len(contests))
 	for _, co := range contests {
 		if e := s.checkLearningGroup(c, st, "contest", co.ID); e != nil {
 			continue
 		}
-		if co.IsNational() && co.Stream != "" && myStream != "" && co.Stream != myStream {
+		if co.Stream != "" && co.Stream != myStream {
 			continue
 		}
 		if co.IsNational() && len(co.QuestionIDs) == 0 {
 			continue // still being prepared
 		}
-		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID]}
+		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID], ExamMode: examMode[co.ID]}
 		if ac.Participants == nil {
 			ac.Participants = []string{}
 		}
@@ -496,7 +515,7 @@ func (s *Server) appContest(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if err = s.checkLearningGroup(c, st, "contest", co.ID); err != nil {
 		return err
@@ -550,13 +569,13 @@ func (s *Server) appRegister(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if err = s.checkLearningAccess(c, st, "contest", co.ID); err != nil {
 		return err
 	}
 	if co.Phase == "ended" {
-		return httpx.Conflict("contest_ended", "Registration for this contest has closed.")
+		return httpx.Conflict("contest_ended", "Registration for this exam has closed.")
 	}
 	if err := s.store.Register(c, co.ID, st.ID, trimAll(in.Subjects), in.Experience); err != nil {
 		return err
@@ -572,7 +591,7 @@ func (s *Server) contestForPlay(c *gin.Context) (store.Student, store.Contest, e
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return st, co, storeErr(err, "Contest")
+		return st, co, storeErr(err, "Exam")
 	}
 	if err = s.checkLearningAccess(c, st, "contest", co.ID); err != nil {
 		return st, co, err
@@ -583,13 +602,13 @@ func (s *Server) contestForPlay(c *gin.Context) (store.Student, store.Contest, e
 	}
 	switch {
 	case !registered[co.ID] && !co.IsNational():
-		return st, co, httpx.Forbidden("Register for this contest first.")
+		return st, co, httpx.Forbidden("Register for this exam first.")
 	case co.Phase == "upcoming":
-		return st, co, httpx.Conflict("not_started", "This contest hasn't started yet.")
+		return st, co, httpx.Conflict("not_started", "This exam hasn't started yet.")
 	case len(co.QuestionIDs) == 0:
 		return st, co, httpx.Conflict("not_ready", "This exam isn't ready yet.")
 	case submitted[co.ID].StudentID != "":
-		return st, co, httpx.Conflict("already_submitted", "You have already submitted this contest.")
+		return st, co, httpx.Conflict("already_submitted", "You have already submitted this exam.")
 	}
 	return st, co, nil
 }
@@ -600,7 +619,7 @@ func (s *Server) appContestQuestions(c *gin.Context) error {
 		return err
 	}
 	if co.Phase == "ended" {
-		return httpx.Conflict("contest_ended", "This contest has ended.")
+		return httpx.Conflict("contest_ended", "This exam has ended.")
 	}
 	if err = s.requireExamEntry(c, st.ID, co.ID); err != nil {
 		return err
@@ -672,7 +691,7 @@ func (s *Server) appSubmit(c *gin.Context) error {
 	sub := store.Submission{ContestID: co.ID, StudentID: st.ID, Answers: answers, Correct: correct, Total: len(qs), TimeSeconds: in.TimeSeconds, SubmittedAt: s.now()}
 	if err := s.store.CreateSubmission(c, sub); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
-			return httpx.Conflict("already_submitted", "You have already submitted this contest.")
+			return httpx.Conflict("already_submitted", "You have already submitted this exam.")
 		}
 		return err
 	}
@@ -687,7 +706,7 @@ func (s *Server) appEditorial(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if err = s.checkLearningAccess(c, st, "contest", co.ID); err != nil {
 		return err
@@ -703,7 +722,7 @@ func (s *Server) appEditorial(c *gin.Context) error {
 		if co.IsNational() {
 			return httpx.Conflict("not_submitted", "Answers are shown after you submit the exam.")
 		}
-		return httpx.Conflict("not_ended", "The editorial is published when the contest ends.")
+		return httpx.Conflict("not_ended", "The editorial is published when the exam ends.")
 	}
 	qs, err := s.store.ContestQuestions(c, co.ID)
 	if err != nil {

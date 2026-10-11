@@ -62,6 +62,11 @@ func managerSchool(c *gin.Context) (string, bool) {
 }
 
 func (s *Server) checkLearningAccess(c *gin.Context, st store.Student, kind, id string) error {
+	if kind == "contest" {
+		if err := s.checkLearningGroup(c, st, kind, id); err != nil {
+			return err
+		}
+	}
 	var access, department, stream string
 	var school *string
 	var referral bool
@@ -488,38 +493,41 @@ func (s *Server) changeAdminPassword(c *gin.Context) error {
 	}
 	return orNoContent(c, s.store.ServiceExec(c, "UPDATE admins SET password_hash=$1 WHERE id=$2", hash, a.ID))
 }
-func (s *Server) adminReports(c *gin.Context) error {
+
+// reportData runs one report breakdown (group: overall, subject, chapter,
+// topic, gender, …) with the request's filters. School managers only ever
+// see their own school.
+func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, error) {
 	school := c.Query("school_id")
 	if role, _ := c.Get("permission_role"); role == "manager" {
 		v, _ := c.Get("manager_school")
 		id, _ := v.(*string)
 		if id == nil {
-			return httpx.Forbidden("No school assigned.")
+			return nil, httpx.Forbidden("No school assigned.")
 		}
 		school = *id
 	}
-	group := c.DefaultQuery("group", "school")
 	// Postgres rejects a bare string constant in GROUP BY, hence the cast on "overall".
 	column := map[string]string{"overall": "'All students'::text", "school": "s.school", "gender": "s.gender", "city": "s.city", "region": "s.region", "subject": "co.subject", "chapter": "breakdown.subject || ' / ' || breakdown.chapter", "topic": "breakdown.topic", "department": "coalesce(p.department,'unassigned')", "stream": "coalesce(p.stream,'unassigned')",
 		// Score distribution: each submission falls in one 20-point band.
 		"score": "CASE WHEN sub.total = 0 OR sub.correct*5 < sub.total THEN '0–19%' WHEN sub.correct*5 < sub.total*2 THEN '20–39%' WHEN sub.correct*5 < sub.total*3 THEN '40–59%' WHEN sub.correct*5 < sub.total*4 THEN '60–79%' ELSE '80–100%' END"}[group]
 	if column == "" {
-		return httpx.BadRequest("Invalid report dimension.")
+		return nil, httpx.BadRequest("Invalid report dimension.")
 	}
 	grade := c.Query("grade")
 	if grade != "" {
 		grade = NormalizeGrade(grade)
 		if grade == "" {
-			return httpx.BadRequest("Invalid report grade.")
+			return nil, httpx.BadRequest("Invalid report grade.")
 		}
 	}
 	subject := c.Query("subject")
 	if subject != "" && !subjects[subject] {
-		return httpx.BadRequest("Invalid report subject.")
+		return nil, httpx.BadRequest("Invalid report subject.")
 	}
 	from, until, err := reportDateRange(c.Query("from"), c.Query("to"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	query := fmt.Sprintf(`SELECT jsonb_build_object('group',%s,'attempts',count(*),'students',count(DISTINCT s.id),'accuracy',round(coalesce(sum(sub.correct)::numeric/nullif(sum(sub.total),0),0)*100,2),'pass',count(*) FILTER(WHERE sub.correct*2>=sub.total AND sub.total>0),'fail',count(*) FILTER(WHERE sub.correct*2<sub.total OR sub.total=0),'average_seconds',round(avg(sub.time_seconds))) FROM submissions sub JOIN students s ON s.id=sub.student_id JOIN contests co ON co.id=sub.contest_id LEFT JOIN academic_profiles p ON p.student_id=s.id WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR co.subject=$3) AND ($4::timestamptz IS NULL OR sub.submitted_at >= $4) AND ($5::timestamptz IS NULL OR sub.submitted_at < $5) GROUP BY %s ORDER BY %s`, column, column, column)
 	if group == "chapter" || group == "topic" {
@@ -545,7 +553,11 @@ FROM breakdown b JOIN students s ON s.id=b.student_id JOIN contests co ON co.id=
 WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR b.subject=$3) AND ($4::timestamptz IS NULL OR b.submitted_at >= $4) AND ($5::timestamptz IS NULL OR b.submitted_at < $5)
 GROUP BY ` + keys + ` ORDER BY ` + keys
 	}
-	rows, err := s.store.ServiceRows(c, query, school, grade, subject, from, until)
+	return s.store.ServiceRows(c, query, school, grade, subject, from, until)
+}
+
+func (s *Server) adminReports(c *gin.Context) error {
+	rows, err := s.reportData(c, c.DefaultQuery("group", "school"))
 	if err != nil {
 		return err
 	}
@@ -578,6 +590,21 @@ GROUP BY ` + keys + ` ORDER BY ` + keys
 
 // Group isolation also applies to discovery; paid content can remain discoverable.
 func (s *Server) checkLearningGroup(c *gin.Context, st store.Student, kind, id string) error {
+	if kind == "contest" {
+		co, err := s.store.Contest(c, id)
+		if err != nil {
+			return storeErr(err, "Exam")
+		}
+		academic, err := s.academicProfile(c, st.ID)
+		if err != nil {
+			return err
+		}
+		department, _ := academic["department"].(string)
+		stream, _ := academic["stream"].(string)
+		if !examAudienceMatches(co, st.Grade, department, stream) {
+			return httpx.Forbidden("This exam is for another grade, level or science stream.")
+		}
+	}
 	var permitted bool
 	err := s.pool.QueryRow(c, `SELECT NOT EXISTS(SELECT 1 FROM learning_policies p LEFT JOIN academic_profiles a ON a.student_id=$1 WHERE p.resource_type=$2 AND p.resource_id=$3 AND ((p.department<>'' AND p.department<>coalesce(a.department,'')) OR (p.stream<>'' AND coalesce(a.stream,'')<>'' AND p.stream<>a.stream) OR (p.school_id IS NOT NULL AND p.school_id IS DISTINCT FROM a.school_id)))`, st.ID, kind, id).Scan(&permitted)
 	if err != nil {
@@ -629,7 +656,7 @@ func (s *Server) adminQuestionBatch(c *gin.Context) error {
 		return err
 	}
 	if used {
-		return httpx.Conflict("in_use", "Remove questions from contests before changing or deleting them.")
+		return httpx.Conflict("in_use", "Remove questions from exams before changing or deleting them.")
 	}
 	q := "DELETE FROM questions WHERE id=ANY($1)"
 	args := []any{in.IDs}
@@ -668,7 +695,7 @@ func (s *Server) startMakeup(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if err = s.checkLearningAccess(c, st, "contest", co.ID); err != nil {
 		return err
@@ -753,7 +780,7 @@ func (s *Server) adminMakeup(c *gin.Context) error {
 	}
 	co, err := s.store.Contest(c, in.ContestID)
 	if err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	if co.Phase != "ended" || !in.Until.After(s.now()) {
 		return httpx.BadRequest("Choose an ended exam and a future makeup deadline.")
@@ -849,13 +876,11 @@ const offlineLease = 30 * 24 * time.Hour
 
 func (s *Server) offlineExpiry(c *gin.Context, st store.Student, courseID, chapterID string) (time.Time, error) {
 	until := s.now().Add(offlineLease)
-	// The chapter's own policy decides when it has one; otherwise its
-	// course's (premium unless the admin made it free), as in appChapter.
+	// The chapter's own access decides (premium unless made free).
 	var module string
 	err := s.pool.QueryRow(c, `SELECT coalesce(
-			(SELECT access FROM learning_policies WHERE resource_type='chapter' AND resource_id=$2),
-			(SELECT access FROM learning_policies WHERE resource_type='course' AND resource_id=$1),
-			'`+premiumModule+`')`, courseID, chapterID).Scan(&module)
+			(SELECT access FROM learning_policies WHERE resource_type='chapter' AND resource_id=$1),
+			'`+premiumModule+`')`, chapterID).Scan(&module)
 	if err != nil || module == "free" {
 		return until, err
 	}
@@ -886,7 +911,7 @@ func (s *Server) adminExamMode(c *gin.Context) error {
 		return httpx.BadRequest("Use different entry and exit passwords with at least 8 characters.")
 	}
 	if _, err := s.store.Contest(c, in.ContestID); err != nil {
-		return storeErr(err, "Contest")
+		return storeErr(err, "Exam")
 	}
 	entry, err := auth.HashPassword(in.Entry)
 	if err != nil {
@@ -903,7 +928,10 @@ func (s *Server) examModePassword(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.Param("action") == "enter" {
+	// "check" validates an entry the same way as "enter" without starting the
+	// session, so the app can confirm the password before locking the phone.
+	action := c.Param("action")
+	if action == "enter" || action == "check" {
 		if err = s.checkLearningAccess(c, st, "contest", c.Param("id")); err != nil {
 			return err
 		}
@@ -914,8 +942,7 @@ func (s *Server) examModePassword(c *gin.Context) error {
 	if err = httpx.Bind(c, &in); err != nil {
 		return err
 	}
-	action := c.Param("action")
-	if action != "enter" && action != "exit" {
+	if action != "enter" && action != "check" && action != "exit" {
 		return httpx.BadRequest("Invalid exam action.")
 	}
 	var entry, exit string
@@ -923,7 +950,7 @@ func (s *Server) examModePassword(c *gin.Context) error {
 	if err = s.pool.QueryRow(c, "SELECT entry_hash,exit_hash,enabled FROM exam_mode_settings WHERE contest_id=$1", c.Param("id")).Scan(&entry, &exit, &enabled); err != nil {
 		return httpx.NotFound("Exam mode")
 	}
-	if action == "enter" && !enabled {
+	if action != "exit" && !enabled {
 		return httpx.NotFound("Exam mode")
 	}
 	hash := entry
@@ -943,12 +970,19 @@ func (s *Server) examModePassword(c *gin.Context) error {
 	if co.Phase != "active" {
 		return httpx.Conflict("not_active", "Exam mode is available during the scheduled exam.")
 	}
-	var registered bool
-	if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM registrations WHERE contest_id=$1 AND student_id=$2)", co.ID, st.ID).Scan(&registered); err != nil {
-		return err
+	// Past national exams are taken without registering.
+	if co.Kind != "national" {
+		var registered bool
+		if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM registrations WHERE contest_id=$1 AND student_id=$2)", co.ID, st.ID).Scan(&registered); err != nil {
+			return err
+		}
+		if !registered {
+			return httpx.Forbidden("Register for the exam first.")
+		}
 	}
-	if !registered {
-		return httpx.Forbidden("Register for the exam first.")
+	if action == "check" {
+		c.Status(http.StatusNoContent)
+		return nil
 	}
 	return orNoContent(c, s.store.ServiceExec(c, "INSERT INTO exam_mode_sessions(contest_id,student_id) VALUES($1,$2) ON CONFLICT(contest_id,student_id) DO UPDATE SET entered_at=now(),exited_at=NULL", co.ID, st.ID))
 }
@@ -1009,4 +1043,9 @@ func (s *Server) auditServiceChange(c *gin.Context, action, resource, query stri
 		return err
 	}
 	return orNoContent(c, tx.Commit(c))
+}
+
+// Legacy numeric grades remain available to students stored in that grade.
+func examAudienceMatches(co store.Contest, grade, department, stream string) bool {
+	return (co.Grade == grade || ((co.Grade == "remedial" || co.Grade == "freshman") && co.Grade == department)) && (co.Stream == "" || co.Stream == stream)
 }
