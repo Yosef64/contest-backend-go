@@ -2,8 +2,11 @@ package api
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"net/http"
 	"strings"
 	"time"
@@ -207,15 +210,28 @@ func (s *Server) requestEnrollment(c *gin.Context) error {
 		return err
 	}
 	var in struct {
-		Module    string `json:"module" binding:"required,oneof=academic training"`
+		Module    string `json:"module" binding:"required,oneof=academic training both"`
 		Reference string `json:"reference" binding:"required,min=3,max=120"`
 		ProofURL  string `json:"proof_url" binding:"omitempty,url,max=1000"`
 	}
 	if err = httpx.Bind(c, &in); err != nil {
 		return err
 	}
-	err = s.store.ServiceExec(c, "INSERT INTO enrollment_requests(student_id,module,reference,proof_url) VALUES($1,$2,$3,$4)", st.ID, in.Module, strings.TrimSpace(in.Reference), in.ProofURL)
-	return orNoContent(c, storeErr(err, "Pending enrollment"))
+	// The "both" plan is one request per plan, with the same reference, so
+	// the academy reviews each.
+	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+		for _, module := range planModules(in.Module) {
+			if _, err := tx.Exec(c, "INSERT INTO enrollment_requests(student_id,module,reference,proof_url) VALUES($1,$2,$3,$4)", st.ID, module, strings.TrimSpace(in.Reference), in.ProofURL); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return httpx.Conflict("already_pending", "You already have a payment waiting for review for this plan.")
+	}
+	return orNoContent(c, err)
 }
 func (s *Server) saveTarget(c *gin.Context) error {
 	st, err := s.me(c)

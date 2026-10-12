@@ -47,6 +47,14 @@ func (s *Server) enrollmentPrice(c *gin.Context, module string) (float64, int, e
 		return 0, 0, err
 	}
 	price, _ := strconv.ParseFloat(settings["price_"+module], 64)
+	if module == "both" && price <= 0 {
+		// No bundle price set: both plans cost the two prices together.
+		a, _ := strconv.ParseFloat(settings["price_academic"], 64)
+		t, _ := strconv.ParseFloat(settings["price_training"], 64)
+		if a > 0 && t > 0 {
+			price = a + t
+		}
+	}
 	days, _ := strconv.Atoi(settings["enrollment_days"])
 	if days <= 0 {
 		days = defaultEnrollmentDays
@@ -101,7 +109,7 @@ func (s *Server) chapaRequest(c context.Context, method, path string, body any, 
 // POST /payments/chapa {module}
 func (s *Server) startChapaPayment(c *gin.Context) error {
 	var in struct {
-		Module string `json:"module" binding:"required,oneof=academic training"`
+		Module string `json:"module" binding:"required,oneof=academic training both"`
 	}
 	if err := httpx.Bind(c, &in); err != nil {
 		return err
@@ -135,7 +143,7 @@ func (s *Server) startChapaPayment(c *gin.Context) error {
 		"return_url":   s.cfg.ChapaReturnURL + "?tx_ref=" + url.QueryEscape(txRef),
 		"customization": map[string]string{
 			"title":       "Victory",
-			"description": map[string]string{"academic": "Academic enrollment", "training": "Training program"}[in.Module],
+			"description": map[string]string{"academic": "Academic plan", "training": "Training plan", "both": "Academic and Training plans"}[in.Module],
 		},
 	}
 	// Chapa wants a valid email and an Ethiopian mobile number when given.
@@ -243,13 +251,18 @@ func (s *Server) verifyChapa(c *gin.Context, txRef string) (string, error) {
 		if err != nil || tag.RowsAffected() == 0 {
 			return err // already approved by another request
 		}
-		// A renewal extends from the current end, never shortens it.
-		_, err = tx.Exec(c, `INSERT INTO enrollment_requests (student_id, module, reference, status, note, expires_at)
-			VALUES ($1, $2, $3, 'approved', 'Paid online with Chapa',
-				greatest(now(), coalesce((SELECT max(expires_at) FROM enrollment_requests
-					WHERE student_id = $1 AND module = $2 AND status = 'approved'), now())) + make_interval(days => $4))`,
-			p.studentID, p.module, "Chapa "+txRef, days)
-		return err
+		// A renewal extends from the current end, never shortens it. The
+		// "both" plan approves the academic and the training plan.
+		for _, module := range planModules(p.module) {
+			if _, err := tx.Exec(c, `INSERT INTO enrollment_requests (student_id, module, reference, status, note, expires_at)
+				VALUES ($1, $2, $3, 'approved', 'Paid online with Chapa',
+					greatest(now(), coalesce((SELECT max(expires_at) FROM enrollment_requests
+						WHERE student_id = $1 AND module = $2 AND status = 'approved'), now())) + make_interval(days => $4))`,
+				p.studentID, module, "Chapa "+txRef, days); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return "", err
@@ -323,10 +336,22 @@ func (s *Server) paymentOptions(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	both, _, err := s.enrollmentPrice(c, "both")
+	if err != nil {
+		return err
+	}
 	return httpx.OK(c, gin.H{
 		"chapa":           s.cfg.ChapaEnabled(),
 		"currency":        "ETB",
 		"enrollment_days": days,
-		"prices":          gin.H{"academic": academic, "training": training},
+		"prices":          gin.H{"academic": academic, "training": training, "both": both},
 	})
+}
+
+// planModules lists the enrollment modules a plan grants.
+func planModules(plan string) []string {
+	if plan == "both" {
+		return []string{"academic", "training"}
+	}
+	return []string{plan}
 }

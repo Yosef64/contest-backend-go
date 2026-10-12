@@ -82,7 +82,7 @@ func (s *Server) adminSiteSettings(c *gin.Context) error {
 		return err
 	}
 	out := gin.H{"about": settings["about"], "price_academic": settings["price_academic"],
-		"price_training": settings["price_training"], "enrollment_days": settings["enrollment_days"],
+		"price_training": settings["price_training"], "price_both": settings["price_both"], "enrollment_days": settings["enrollment_days"],
 		"chapa_enabled": s.cfg.ChapaEnabled()}
 	for _, l := range siteLinks {
 		out[l.Key] = settings[l.Key]
@@ -95,7 +95,7 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&in); err != nil {
 		return httpx.BadRequest("Send the settings as a JSON object of strings.")
 	}
-	allowed := map[string]bool{"about": true, "price_academic": true, "price_training": true, "enrollment_days": true}
+	allowed := map[string]bool{"about": true, "price_academic": true, "price_training": true, "price_both": true, "enrollment_days": true}
 	for _, l := range siteLinks {
 		allowed[l.Key] = true
 	}
@@ -121,7 +121,7 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 			if !supportPhone.MatchString(v) {
 				fields[k] = "Enter a phone number."
 			}
-		case k == "price_academic" || k == "price_training":
+		case k == "price_academic" || k == "price_training" || k == "price_both":
 			if n, err := strconv.ParseFloat(v, 64); err != nil || n < 0 || n > 1000000 {
 				fields[k] = "Enter a price in birr, e.g. 499."
 			}
