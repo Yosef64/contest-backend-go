@@ -56,7 +56,7 @@ func (s *Store) DeleteAdmin(ctx context.Context, id string) error {
 
 // Students --------------------------------------------------------------------
 
-const studentCols = `id, auth_provider, auth_subject, name, phone_number, gender, age, school, grade, city, region, photo_url, is_suspended, created_at, updated_at`
+const studentCols = `id, auth_provider, auth_subject, name, phone_number, gender, age, school, grade, city, region, photo_url, photo_custom, is_suspended, created_at, updated_at`
 
 func (s *Store) StudentByID(ctx context.Context, id string) (Student, error) {
 	return one[Student](ctx, s.db, `SELECT `+studentCols+` FROM students WHERE id = $1`, id)
@@ -82,8 +82,15 @@ func (s *Store) UpsertStudentProfile(ctx context.Context, st Student) (Student, 
 }
 
 // SetStudentPhoto replaces the student's profile picture URL ("" removes it).
+// SetStudentPhoto sets the picture the student chose (or "" for none).
 func (s *Store) SetStudentPhoto(ctx context.Context, id, url string) (Student, error) {
-	return one[Student](ctx, s.db, `UPDATE students SET photo_url = $2, updated_at = now() WHERE id = $1 RETURNING `+studentCols, id, url)
+	return one[Student](ctx, s.db, `UPDATE students SET photo_url = $2, photo_custom = true, updated_at = now() WHERE id = $1 RETURNING `+studentCols, id, url)
+}
+
+// SyncSignInPhoto updates the picture from the sign-in account, unless the
+// student chose their own.
+func (s *Store) SyncSignInPhoto(ctx context.Context, id, url string) (Student, error) {
+	return one[Student](ctx, s.db, `UPDATE students SET photo_url = $2, updated_at = now() WHERE id = $1 AND NOT photo_custom RETURNING `+studentCols, id, url)
 }
 
 // DeleteStudent removes the student and, by cascade, their registrations,

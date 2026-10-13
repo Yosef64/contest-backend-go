@@ -21,7 +21,7 @@ import (
 
 const (
 	MaxImageBytes = 8 << 20
-	MaxVideoBytes = 80 << 20
+	MaxVideoBytes = 100 << 20
 )
 
 var allowed = map[string]string{
@@ -102,14 +102,14 @@ func (s *Store) Store(ctx context.Context, fh *multipart.FileHeader) (Saved, err
 		return Saved{}, ErrUnsupported
 	}
 	if (kind == "image" && fh.Size > MaxImageBytes) || (kind == "video" && fh.Size > MaxVideoBytes) {
-		return Saved{}, fmt.Errorf("file is too large (max %d MB for %ss)", map[string]int{"image": 8, "video": 80}[kind], kind)
+		return Saved{}, fmt.Errorf("file is too large (max %d MB for %ss)", map[string]int{"image": MaxImageBytes >> 20, "video": MaxVideoBytes >> 20}[kind], kind)
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return Saved{}, err
 	}
 
 	if s.cld != nil {
-		res, err := s.cld.Upload.Upload(ctx, f, uploader.UploadParams{Folder: "victory/lessons", ResourceType: kind})
+		res, err := s.cld.Upload.Upload(ctx, f, uploader.UploadParams{Folder: Folder, ResourceType: kind})
 		if err != nil {
 			return Saved{}, err
 		}

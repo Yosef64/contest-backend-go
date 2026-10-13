@@ -27,7 +27,8 @@ type account struct {
 // completeSignIn issues an app token and returns the existing profile, if
 // any. A null student means the app should show profile setup.
 func (s *Server) completeSignIn(c *gin.Context, acc account, studentID string) error {
-	token, err := s.tokens.IssueStudent(studentID, acc.DisplayName, acc.Provider, acc.ID, s.cfg.StudentTokenTTL)
+	photo := signInPhoto(acc)
+	token, err := s.tokens.IssueStudent(studentID, acc.DisplayName, acc.Provider, acc.ID, photo, s.cfg.StudentTokenTTL)
 	if err != nil {
 		return err
 	}
@@ -35,6 +36,7 @@ func (s *Server) completeSignIn(c *gin.Context, acc account, studentID string) e
 	st, err := s.store.StudentByIdentity(c, acc.Provider, acc.ID)
 	switch {
 	case err == nil:
+		st = s.syncSignInPhoto(c, st, photo)
 		student = &st
 	case errors.Is(err, store.ErrNotFound):
 	default:
@@ -44,6 +46,30 @@ func (s *Server) completeSignIn(c *gin.Context, acc account, studentID string) e
 		return httpx.Forbidden("This account has been suspended. Contact Victory support.")
 	}
 	return httpx.OK(c, gin.H{"token": token, "account": acc, "student": student})
+}
+
+// signInPhoto is the Google or Telegram account picture, at a size fit
+// for the profile (Google serves 96 px by default).
+func signInPhoto(acc account) string {
+	if (acc.Provider != "google" && acc.Provider != "telegram") || !strings.HasPrefix(acc.PhotoURL, "https://") {
+		return ""
+	}
+	if i := strings.LastIndex(acc.PhotoURL, "=s96-c"); i > 0 && acc.Provider == "google" {
+		return acc.PhotoURL[:i] + "=s256-c"
+	}
+	return acc.PhotoURL
+}
+
+// syncSignInPhoto keeps the profile on the sign-in picture until the
+// student picks their own.
+func (s *Server) syncSignInPhoto(c *gin.Context, st store.Student, photo string) store.Student {
+	if photo == "" || st.PhotoCustom || st.PhotoURL == photo {
+		return st
+	}
+	if synced, err := s.store.SyncSignInPhoto(c, st.ID, photo); err == nil {
+		return synced
+	}
+	return st
 }
 
 func (s *Server) signInGoogle(c *gin.Context) error {
@@ -105,6 +131,7 @@ func (s *Server) getMe(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	st = s.syncSignInPhoto(c, st, auth.Caller(c).Photo)
 	academic, err := s.academicProfile(c, st.ID)
 	if err != nil {
 		return err
@@ -192,7 +219,8 @@ func (s *Server) putMe(c *gin.Context) error {
 	}
 	claims := auth.Caller(c)
 	existing, err := s.store.StudentByID(c, claims.Subject)
-	photo := ""
+	// A new profile starts with the sign-in picture.
+	photo := claims.Photo
 	if err == nil {
 		if existing.IsSuspended {
 			return httpx.Forbidden("This account has been suspended.")

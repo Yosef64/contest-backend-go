@@ -73,7 +73,7 @@ func (s *Server) publicSite(c *gin.Context) error {
 		}
 		links = append(links, gin.H{"key": l.Key, "label": l.Label, "value": v, "url": href})
 	}
-	return httpx.OK(c, gin.H{"about": settings["about"], "links": links})
+	return httpx.OK(c, gin.H{"about": settings["about"], "links": links, "ads": adsConfig(settings)})
 }
 
 func (s *Server) adminSiteSettings(c *gin.Context) error {
@@ -83,6 +83,8 @@ func (s *Server) adminSiteSettings(c *gin.Context) error {
 	}
 	out := gin.H{"about": settings["about"], "price_academic": settings["price_academic"],
 		"price_training": settings["price_training"], "price_both": settings["price_both"], "enrollment_days": settings["enrollment_days"],
+		"ads_enabled": settings["ads_enabled"], "ads_cards": settings["ads_cards"],
+		"ads_free_minutes": settings["ads_free_minutes"], "ads_paid_minutes": settings["ads_paid_minutes"],
 		"chapa_enabled": s.cfg.ChapaEnabled()}
 	for _, l := range siteLinks {
 		out[l.Key] = settings[l.Key]
@@ -95,7 +97,8 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&in); err != nil {
 		return httpx.BadRequest("Send the settings as a JSON object of strings.")
 	}
-	allowed := map[string]bool{"about": true, "price_academic": true, "price_training": true, "price_both": true, "enrollment_days": true}
+	allowed := map[string]bool{"about": true, "price_academic": true, "price_training": true, "price_both": true, "enrollment_days": true,
+		"ads_enabled": true, "ads_cards": true, "ads_free_minutes": true, "ads_paid_minutes": true}
 	for _, l := range siteLinks {
 		allowed[l.Key] = true
 	}
@@ -124,6 +127,14 @@ func (s *Server) adminSaveSiteSettings(c *gin.Context) error {
 		case k == "price_academic" || k == "price_training" || k == "price_both":
 			if n, err := strconv.ParseFloat(v, 64); err != nil || n < 0 || n > 1000000 {
 				fields[k] = "Enter a price in birr, e.g. 499."
+			}
+		case k == "ads_enabled" || k == "ads_cards":
+			if v != "on" && v != "off" {
+				fields[k] = "Choose on or off."
+			}
+		case k == "ads_free_minutes" || k == "ads_paid_minutes":
+			if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 240 {
+				fields[k] = "Enter minutes between 1 and 240."
 			}
 		case k == "enrollment_days":
 			if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 1095 {
@@ -286,4 +297,22 @@ func (s *Server) appAnnouncements(c *gin.Context) error {
 		return err
 	}
 	return httpx.OK(c, gin.H{"announcements": rows})
+}
+
+// adsConfig is what the app needs to show ads: full-screen ads every N
+// minutes of use (fewer for paid plans) and "Sponsored" cards in lists.
+// Defaults: on, 3 minutes for free students, 5 for paid ones.
+func adsConfig(settings map[string]string) gin.H {
+	minutes := func(key string, def int) int {
+		if n, err := strconv.Atoi(settings[key]); err == nil && n > 0 {
+			return n
+		}
+		return def
+	}
+	return gin.H{
+		"enabled":      settings["ads_enabled"] != "off",
+		"cards":        settings["ads_cards"] != "off",
+		"free_minutes": minutes("ads_free_minutes", 3),
+		"paid_minutes": minutes("ads_paid_minutes", 5),
+	}
 }

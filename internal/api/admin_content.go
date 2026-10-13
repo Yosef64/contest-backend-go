@@ -298,13 +298,7 @@ func (s *Server) adminUpload(c *gin.Context) error {
 		return err
 	}
 	admin := currentAdmin(c)
-	name := fh.Filename
-	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
-		name = name[i+1:]
-	}
-	if name = strings.TrimSpace(name); len(name) > 255 {
-		name = name[:255]
-	}
+	name := uploadFileName(fh.Filename)
 	upload, err := s.store.RecordUpload(c, store.MediaUpload{
 		URL: saved.URL, Kind: saved.Kind, ContentType: saved.ContentType, FileName: name, SizeBytes: fh.Size, UploaderName: admin.Name,
 	}, admin.ID)
@@ -312,6 +306,74 @@ func (s *Server) adminUpload(c *gin.Context) error {
 		return err
 	}
 	return httpx.Created(c, gin.H{"url": saved.URL, "kind": saved.Kind, "upload": upload})
+}
+
+// uploadFileName keeps the base name of a client file name, for display.
+func uploadFileName(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	if name = strings.TrimSpace(name); len(name) > 255 {
+		name = name[:255]
+	}
+	return name
+}
+
+// adminSignUpload starts a direct browser-to-Cloudinary upload (bulk
+// uploads and large videos). mode "server" means: POST the file to /media.
+func (s *Server) adminSignUpload(c *gin.Context) error {
+	var in struct {
+		ContentType string `json:"content_type" binding:"required"`
+		SizeBytes   int64  `json:"size_bytes" binding:"required,min=1"`
+	}
+	if err := httpx.Bind(c, &in); err != nil {
+		return err
+	}
+	kind, err := media.Check(in.ContentType, in.SizeBytes)
+	if err != nil {
+		return httpx.Field("file", err.Error())
+	}
+	direct, err := s.media.SignDirect(kind)
+	if err != nil {
+		return err
+	}
+	if direct == nil {
+		return httpx.OK(c, gin.H{"mode": "server", "kind": kind})
+	}
+	return httpx.OK(c, gin.H{"mode": "direct", "kind": kind, "upload_url": direct.UploadURL, "fields": direct.Fields})
+}
+
+// adminRegisterUpload records a finished direct upload in the uploads list.
+func (s *Server) adminRegisterUpload(c *gin.Context) error {
+	var in struct {
+		URL         string `json:"url" binding:"required,max=1000"`
+		ContentType string `json:"content_type" binding:"required"`
+		FileName    string `json:"file_name" binding:"max=1000"`
+		SizeBytes   int64  `json:"size_bytes" binding:"required,min=1"`
+	}
+	if err := httpx.Bind(c, &in); err != nil {
+		return err
+	}
+	kind, err := media.Check(in.ContentType, in.SizeBytes)
+	if err != nil {
+		return httpx.Field("file", err.Error())
+	}
+	url, ok := s.media.DirectURL(in.URL, kind)
+	if !ok {
+		return httpx.Field("url", "This file wasn't uploaded to Victory's media storage.")
+	}
+	contentType := in.ContentType
+	if kind == "video" && strings.HasSuffix(url, ".mp4") {
+		contentType = "video/mp4"
+	}
+	admin := currentAdmin(c)
+	upload, err := s.store.RecordUpload(c, store.MediaUpload{
+		URL: url, Kind: kind, ContentType: contentType, FileName: uploadFileName(in.FileName), SizeBytes: in.SizeBytes, UploaderName: admin.Name,
+	}, admin.ID)
+	if err != nil {
+		return err
+	}
+	return httpx.Created(c, gin.H{"url": url, "kind": kind, "upload": upload})
 }
 
 func (s *Server) adminMedia(c *gin.Context) error {
@@ -324,6 +386,49 @@ func (s *Server) adminMedia(c *gin.Context) error {
 		return err
 	}
 	return httpx.OK(c, gin.H{"uploads": list})
+}
+
+// mediaUses lists the content that shows an uploaded file.
+func (s *Server) mediaUses(c *gin.Context, u store.MediaUpload) ([]store.MediaUse, error) {
+	key := media.FileKey(u.URL)
+	if key == "" {
+		return []store.MediaUse{}, nil
+	}
+	return s.store.MediaUses(c, key)
+}
+
+func (s *Server) adminMediaUses(c *gin.Context) error {
+	u, err := s.store.MediaUploadByID(c, c.Param("id"))
+	if err != nil {
+		return storeErr(err, "Upload")
+	}
+	uses, err := s.mediaUses(c, u)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, gin.H{"uses": uses})
+}
+
+// adminDeleteMedia deletes an upload from storage and from the list. A file
+// still shown in lessons, trainings or questions is kept unless ?force=1.
+func (s *Server) adminDeleteMedia(c *gin.Context) error {
+	u, err := s.store.MediaUploadByID(c, c.Param("id"))
+	if err != nil {
+		return storeErr(err, "Upload")
+	}
+	if c.Query("force") != "1" {
+		uses, err := s.mediaUses(c, u)
+		if err != nil {
+			return err
+		}
+		if len(uses) > 0 {
+			return httpx.Conflict("media_in_use", "This file is still used in your content.")
+		}
+	}
+	if err := s.media.DeleteUpload(c, u.URL, u.Kind); err != nil {
+		return err
+	}
+	return orNoContent(c, s.store.DeleteMediaUpload(c, u.ID))
 }
 
 func orNoContent(c *gin.Context, err error) error {

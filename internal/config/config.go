@@ -33,6 +33,8 @@ type Config struct {
 	// client IDs; Telegram Login payloads are verified with the bot token.
 	GoogleClientIDs  []string
 	TelegramBotToken string
+	// The login bot's @username (without @), for Telegram's login widget.
+	TelegramBotUsername string
 
 	// Media uploads go to Cloudinary when set, otherwise to local disk.
 	CloudinaryURL string
@@ -112,6 +114,7 @@ func Load() (Config, error) {
 		AllowedOrigins:         list("CORS_ORIGINS"),
 		GoogleClientIDs:        list("GOOGLE_CLIENT_IDS"),
 		TelegramBotToken:       os.Getenv("TELEGRAM_LOGIN_BOT_TOKEN"),
+		TelegramBotUsername:    strings.TrimPrefix(os.Getenv("TELEGRAM_LOGIN_BOT_USERNAME"), "@"),
 		CloudinaryURL:          os.Getenv("CLOUDINARY_URL"),
 		UploadDir:              env("UPLOAD_DIR", "uploads"),
 		PublicBaseURL:          strings.TrimRight(env("PUBLIC_BASE_URL", "http://localhost:8080"), "/"),

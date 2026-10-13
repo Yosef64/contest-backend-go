@@ -30,6 +30,7 @@ type Student struct {
 	City         string    `json:"city" db:"city"`
 	Region       string    `json:"region" db:"region"`
 	PhotoURL     string    `json:"photo_url" db:"photo_url"`
+	PhotoCustom  bool      `json:"-" db:"photo_custom"` // own picture chosen: sign-in picture no longer replaces it
 	IsSuspended  bool      `json:"is_suspended" db:"is_suspended"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"-" db:"updated_at"`

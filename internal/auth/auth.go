@@ -33,6 +33,8 @@ type Claims struct {
 	// created on first sign-up without trusting client input.
 	Provider string `json:"prv,omitempty"`
 	Identity string `json:"idn,omitempty"`
+	// Photo is the sign-in picture (Google), the profile's first picture.
+	Photo string `json:"pic,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -47,8 +49,8 @@ func (t *Tokens) Issue(role Role, subject, name string, ttl time.Duration) (stri
 }
 
 // IssueStudent issues an app token for a signed-in identity.
-func (t *Tokens) IssueStudent(studentID, name, provider, identity string, ttl time.Duration) (string, error) {
-	return t.issue(Claims{Role: RoleStudent, Name: name, Provider: provider, Identity: identity}, studentID, ttl)
+func (t *Tokens) IssueStudent(studentID, name, provider, identity, photo string, ttl time.Duration) (string, error) {
+	return t.issue(Claims{Role: RoleStudent, Name: name, Provider: provider, Identity: identity, Photo: photo}, studentID, ttl)
 }
 
 func (t *Tokens) issue(claims Claims, subject string, ttl time.Duration) (string, error) {
@@ -58,6 +60,7 @@ func (t *Tokens) issue(claims Claims, subject string, ttl time.Duration) (string
 		Name:     claims.Name,
 		Provider: claims.Provider,
 		Identity: claims.Identity,
+		Photo:    claims.Photo,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   subject,
 			Issuer:    "victory-api",

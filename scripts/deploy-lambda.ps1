@@ -60,7 +60,9 @@ $tag = "$(git rev-parse --short HEAD 2>$null)-$(Get-Date -Format 'yyyyMMddHHmmss
 $image = "$registry/${repo}:$tag"
 # Lambda needs a plain image manifest (no provenance attestation).
 docker build --provenance=false --platform linux/amd64 -f Dockerfile.lambda -t $image . ; if ($LASTEXITCODE) { throw "docker build failed" }
-(Aws ecr get-login-password) | docker login --username AWS --password-stdin $registry | Out-Null
+# Piped through cmd: Windows PowerShell can mangle the password on a native pipe.
+cmd /c "aws.exe --region $Region ecr get-login-password | docker login --username AWS --password-stdin $registry" | Out-Null
+if ($LASTEXITCODE) { throw "docker login failed" }
 docker push $image ; if ($LASTEXITCODE) { throw "docker push failed" }
 Write-Host "Pushed $image"
 
