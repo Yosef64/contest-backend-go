@@ -19,6 +19,45 @@ type Totals struct {
 	Registrations30d  int `json:"registrations_30d"`
 }
 
+// Earnings is the money taken from plan payments, in ETB.
+type Earnings struct {
+	Currency string `json:"currency"`
+	// Total is Online plus Manual.
+	Total float64 `json:"total"`
+	// Online: Chapa payments, the amounts actually paid.
+	Online      float64 `json:"online"`
+	OnlineCount int     `json:"online_count"`
+	// Manual: bank transfers approved by an admin. Their amount isn't
+	// recorded, so each is valued at the plan's current price.
+	Manual      float64 `json:"manual"`
+	ManualCount int     `json:"manual_count"`
+	ThisMonth   float64 `json:"this_month"`
+	LastMonth   float64 `json:"last_month"`
+}
+
+// earningsQuery adds up online payments and approved bank transfers (the
+// approvals Chapa makes itself are skipped: they are counted as online).
+const earningsQuery = `WITH price AS (
+		SELECT
+			coalesce((SELECT CASE WHEN value ~ '^[0-9]+(\.[0-9]+)?$' THEN value::numeric END FROM site_settings WHERE key = 'price_academic'), 0) AS academic,
+			coalesce((SELECT CASE WHEN value ~ '^[0-9]+(\.[0-9]+)?$' THEN value::numeric END FROM site_settings WHERE key = 'price_training'), 0) AS training
+	), online AS (
+		SELECT coalesce(verified_at, created_at) AS at, amount FROM chapa_payments WHERE status = 'success'
+	), manual AS (
+		SELECT e.created_at AS at, CASE e.module WHEN 'academic' THEN p.academic ELSE p.training END AS amount
+		FROM enrollment_requests e CROSS JOIN price p
+		WHERE e.status = 'approved' AND e.reference NOT LIKE 'Chapa %'
+	), paid AS (
+		SELECT at, amount FROM online UNION ALL SELECT at, amount FROM manual
+	)
+	SELECT
+		coalesce((SELECT sum(amount) FROM online), 0)::float8,
+		(SELECT count(*) FROM online)::int,
+		coalesce((SELECT sum(amount) FROM manual), 0)::float8,
+		(SELECT count(*) FROM manual)::int,
+		coalesce((SELECT sum(amount) FROM paid WHERE at >= date_trunc('month', now())), 0)::float8,
+		coalesce((SELECT sum(amount) FROM paid WHERE at >= date_trunc('month', now()) - interval '1 month' AND at < date_trunc('month', now())), 0)::float8`
+
 type MonthCount struct {
 	Month string `json:"month" db:"month"`
 	Count int    `json:"count" db:"count"`
@@ -37,6 +76,7 @@ type Overview struct {
 	NextContest          *Contest     `json:"next_contest"`
 	RecentContests       []Contest    `json:"recent_contests"`
 	RecentStudents       []Student    `json:"recent_students"`
+	Earnings             Earnings     `json:"earnings"`
 }
 
 // monthly counts for the last six months, including empty months.
@@ -92,6 +132,13 @@ func (s *Store) Overview(ctx context.Context) (Overview, error) {
 	g.Go(func() (err error) {
 		o.RecentStudents, err = collect[Student](ctx, s.db, `SELECT `+studentCols+` FROM students ORDER BY created_at DESC LIMIT 6`)
 		return
+	})
+	g.Go(func() error {
+		e := &o.Earnings
+		e.Currency = "ETB"
+		err := s.db.QueryRow(ctx, earningsQuery).Scan(&e.Online, &e.OnlineCount, &e.Manual, &e.ManualCount, &e.ThisMonth, &e.LastMonth)
+		e.Total = e.Online + e.Manual
+		return err
 	})
 	return o, g.Wait()
 }
