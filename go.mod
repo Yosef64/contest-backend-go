@@ -9,13 +9,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.44.1
 	github.com/cloudinary/cloudinary-go/v2 v2.11.0
 	github.com/gin-gonic/gin v1.10.1
-	github.com/google/uuid v1.6.0 // indirect
+	github.com/google/uuid v1.6.0
 	google.golang.org/api v0.186.0
 )
 
 require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/microcosm-cc/bluemonday v1.0.27
+	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.23.0
 )
 
@@ -44,7 +45,6 @@ require (
 	go.opentelemetry.io/otel v1.26.0 // indirect
 	go.opentelemetry.io/otel/metric v1.26.0 // indirect
 	go.opentelemetry.io/otel/trace v1.26.0 // indirect
-	golang.org/x/oauth2 v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/grpc v1.64.1 // indirect
 )

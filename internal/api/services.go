@@ -1,18 +1,21 @@
 package api
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 	"victor-contest-go/internal/auth"
 	"victor-contest-go/internal/content"
 	"victor-contest-go/internal/httpx"
+	"victor-contest-go/internal/push"
 	"victor-contest-go/internal/store"
 )
 
@@ -489,7 +492,33 @@ func (s *Server) adminServiceWrite(c *gin.Context) error {
 	if _, err = tx.Exec(c, "INSERT INTO audit_events(admin_id,action,resource) VALUES($1,$2,$3)", a.ID, in.Kind, in.ID+in.ResourceID); err != nil {
 		return err
 	}
-	return orNoContent(c, tx.Commit(c))
+	if err := tx.Commit(c); err != nil {
+		return err
+	}
+	// A new announcement notifies its students' phones (edits don't).
+	if in.Kind == "announcement" && in.ID == "" && in.Active {
+		s.announce(c, in.Title, in.Body, in.Department, in.SchoolID)
+	}
+	return httpx.NoContent(c)
+}
+
+// announce sends a push notification for an announcement. It runs before
+// the response: on Lambda nothing runs after it. A failure is only logged.
+func (s *Server) announce(c *gin.Context, title, body, department string, schoolID *string) {
+	if s.push == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c, 8*time.Second)
+	defer cancel()
+	topic, condition := push.Audience(department, schoolID)
+	if len(body) > 240 {
+		body = body[:237] + "…"
+	}
+	err := s.push.Send(ctx, push.Message{Topic: topic, Condition: condition, Title: title, Body: body,
+		Data: map[string]string{"type": "announcement"}})
+	if err != nil {
+		slog.Error("announcement push", "err", err)
+	}
 }
 func (s *Server) changeAdminPassword(c *gin.Context) error {
 	var in struct {

@@ -9,6 +9,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"victor-contest-go/internal/config"
 	"victor-contest-go/internal/httpx"
 	"victor-contest-go/internal/media"
+	"victor-contest-go/internal/push"
 	"victor-contest-go/internal/store"
 )
 
@@ -31,12 +33,17 @@ type Server struct {
 	media  *media.Store
 	pool   *pgxpool.Pool
 	ai     *ai.Client
+	push   *push.Sender
 	now    func() time.Time
 }
 
 func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
+	sender, err := push.New(cfg.FirebaseProjectID, cfg.FirebaseClientEmail, cfg.FirebasePrivateKey)
+	if err != nil {
+		slog.Error("push notifications off", "err", err)
+	}
 	return &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool,
-		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), now: time.Now}
+		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), push: sender, now: time.Now}
 }
 
 func (s *Server) Router() *gin.Engine {

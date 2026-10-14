@@ -3,10 +3,10 @@
 package config
 
 import (
-	"strconv"
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,6 +35,12 @@ type Config struct {
 	TelegramBotToken string
 	// The login bot's @username (without @), for Telegram's login widget.
 	TelegramBotUsername string
+
+	// Push notifications (Firebase Cloud Messaging): the service account
+	// that sends them. Empty: no push.
+	FirebaseProjectID   string
+	FirebaseClientEmail string
+	FirebasePrivateKey  string
 
 	// Media uploads go to Cloudinary when set, otherwise to local disk.
 	CloudinaryURL string
@@ -115,6 +121,9 @@ func Load() (Config, error) {
 		GoogleClientIDs:        list("GOOGLE_CLIENT_IDS"),
 		TelegramBotToken:       os.Getenv("TELEGRAM_LOGIN_BOT_TOKEN"),
 		TelegramBotUsername:    strings.TrimPrefix(os.Getenv("TELEGRAM_LOGIN_BOT_USERNAME"), "@"),
+		FirebaseProjectID:      os.Getenv("FIREBASE_PROJECT_ID"),
+		FirebaseClientEmail:    os.Getenv("FIREBASE_CLIENT_EMAIL"),
+		FirebasePrivateKey:     os.Getenv("FIREBASE_PRIVATE_KEY"),
 		CloudinaryURL:          os.Getenv("CLOUDINARY_URL"),
 		UploadDir:              env("UPLOAD_DIR", "uploads"),
 		PublicBaseURL:          strings.TrimRight(env("PUBLIC_BASE_URL", "http://localhost:8080"), "/"),
