@@ -231,13 +231,8 @@ const leaderboardRanks = `SELECT sub.student_id, rank() OVER (ORDER BY sum(sub.c
 // AdminStudentDetail backs the admin student profile.
 type AdminStudentDetail struct {
 	Student Student `json:"student"`
-	Stats   struct {
-		Contests          int     `json:"contests"`
-		Questions         int     `json:"questions"`
-		Correct           int     `json:"correct"`
-		Accuracy          float64 `json:"accuracy"`
-		ChaptersCompleted int     `json:"chapters_completed"`
-	} `json:"stats"`
+	// The same statistics the student sees in the app.
+	Stats       StudentStats    `json:"stats"`
 	Submissions []SubmissionRow `json:"submissions"`
 }
 
@@ -246,6 +241,8 @@ type SubmissionRow struct {
 	ContestTitle string    `json:"contest_title" db:"contest_title"`
 	Correct      int       `json:"correct" db:"correct"`
 	Total        int       `json:"total" db:"total"`
+	TimeSeconds  int       `json:"time_seconds" db:"time_seconds"`
+	Subject      string    `json:"subject" db:"subject"`
 	SubmittedAt  time.Time `json:"submitted_at" db:"submitted_at"`
 }
 
@@ -255,13 +252,10 @@ func (s *Store) AdminStudentDetail(ctx context.Context, id string) (AdminStudent
 	if d.Student, err = s.StudentByID(ctx, id); err != nil {
 		return d, err
 	}
-	stats, err := s.StudentStats(ctx, id)
-	if err != nil {
+	if d.Stats, err = s.StudentStats(ctx, id); err != nil {
 		return d, err
 	}
-	d.Stats.Contests, d.Stats.Questions, d.Stats.Correct, d.Stats.Accuracy, d.Stats.ChaptersCompleted =
-		stats.Contests, stats.Questions, stats.Correct, stats.Accuracy, stats.ChaptersCompleted
-	d.Submissions, err = collect[SubmissionRow](ctx, s.db, `SELECT sub.contest_id, c.title AS contest_title, sub.correct, sub.total, sub.submitted_at
+	d.Submissions, err = collect[SubmissionRow](ctx, s.db, `SELECT sub.contest_id, c.title AS contest_title, sub.correct, sub.total, sub.time_seconds, c.subject, sub.submitted_at
 		FROM submissions sub JOIN contests c ON c.id = sub.contest_id WHERE sub.student_id = $1 ORDER BY sub.submitted_at DESC`, id)
 	return d, err
 }
