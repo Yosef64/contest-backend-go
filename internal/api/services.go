@@ -958,7 +958,16 @@ func (s *Server) adminAgentReview(c *gin.Context) error {
 	if err := httpx.Bind(c, &in); err != nil {
 		return err
 	}
-	return orNoContent(c, s.store.ServiceExec(c, "UPDATE field_agents SET status=$1 WHERE id=$2", in.Status, c.Param("id")))
+	if err := s.store.ServiceExec(c, "UPDATE field_agents SET status=$1 WHERE id=$2", in.Status, c.Param("id")); err != nil {
+		return err
+	}
+	if in.Status == "approved" {
+		// Approved agents get their referral code at once.
+		if err := s.ensureAgentCode(c, c.Param("id")); err != nil {
+			return err
+		}
+	}
+	return orNoContent(c, nil)
 }
 
 func (s *Server) adminBulkChapters(c *gin.Context) error {

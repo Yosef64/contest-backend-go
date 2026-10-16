@@ -80,6 +80,7 @@ func (s *Server) Router() *gin.Engine {
 
 	// Public page behind shared referral links.
 	r.GET("/r/:owner/:chapter", s.referralLanding)
+	r.GET("/a/:code", s.agentLanding)
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/site", httpx.H(s.publicSite))
@@ -149,6 +150,8 @@ func (s *Server) Router() *gin.Engine {
 
 	app.POST("/contests/:id/exam-mode/:action", httpx.H(s.examModePassword))
 	app.POST("/contests/:id/exam-violations", httpx.H(s.appExamViolation))
+	app.GET("/me/agent", httpx.H(s.appAgent))
+	app.POST("/me/agent-code", httpx.H(s.appUseAgentCode))
 	app.POST("/contests/:id/makeup", httpx.H(s.startMakeup))
 	app.POST("/contests/:id/makeup/submit", httpx.H(s.submitMakeup))
 	app.POST("/learning-hub/agent", httpx.H(s.registerAgent))
@@ -246,6 +249,9 @@ func (s *Server) Router() *gin.Engine {
 	ad.GET("/students", httpx.H(s.adminStudents))
 	ad.GET("/students/:id", httpx.H(s.adminStudent))
 	ad.GET("/students/:id/insights", httpx.H(s.adminStudentInsights))
+	ad.GET("/agents", httpx.H(s.adminAgents))
+	ad.PATCH("/agents/:id", httpx.H(s.adminUpdateAgent))
+	ad.POST("/agents/:id/payout", httpx.H(s.adminAgentPayout))
 	ad.PATCH("/students/:id", httpx.H(s.adminPatchStudent))
 	ad.POST("/students/:id/password-reset", httpx.H(s.adminPasswordReset))
 	ad.DELETE("/students/:id", httpx.H(s.adminDeleteStudent))

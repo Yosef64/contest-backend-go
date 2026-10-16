@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 
+	"victor-contest-go/internal/auth"
 	"victor-contest-go/internal/config"
 	"victor-contest-go/internal/db"
 	"victor-contest-go/internal/store"
@@ -242,6 +244,44 @@ func TestIntegrationNewFeatures(t *testing.T) {
 	}
 	if err := s.checkLearningAccess(gc, paid, "contest", examID); err == nil {
 		t.Fatal("a student of another school reached the school's exam")
+	}
+
+	// Agents: approved agent gets a code, a new student joins with it, and
+	// approving their plan earns the agent the commission.
+	exec(t, s, `DELETE FROM field_agents WHERE student_id = 'it_s1'`)
+	exec(t, s, `DELETE FROM agent_referrals WHERE student_id = 'it_s2'`)
+	exec(t, s, `DELETE FROM enrollment_requests WHERE student_id = 'it_s2'`)
+	exec(t, s, `INSERT INTO site_settings (key, value) VALUES ('price_academic', '500') ON CONFLICT (key) DO UPDATE SET value = '500'`)
+	var agentID string
+	if err := s.pool.QueryRow(ctx, `INSERT INTO field_agents (student_id, name, phone, city, region, status, commission_rate)
+		VALUES ('it_s1', 'Abel Agent', '0911', 'Adama', 'Oromia', 'pending', 12) RETURNING id`).Scan(&agentID); err != nil {
+		t.Fatal(err)
+	}
+	agents := call(t, s.adminUpdateAgent, http.MethodPatch, "/x", `{"status":"approved"}`, nil, gin.Params{{Key: "id", Value: agentID}})
+	var code string
+	for _, a := range agents["agents"].([]any) {
+		if m := a.(map[string]any); m["id"] == agentID {
+			code, _ = m["code"].(string)
+		}
+	}
+	if len(code) != 6 {
+		t.Fatalf("agent code: %q", code)
+	}
+	student := func(id string) map[string]any {
+		return map[string]any{"auth.claims": &auth.Claims{RegisteredClaims: jwt.RegisteredClaims{Subject: id}}}
+	}
+	call(t, s.appUseAgentCode, http.MethodPost, "/x", `{"code":"`+strings.ToLower(code)+`"}`, student("it_s2"), nil)
+	exec(t, s, `INSERT INTO enrollment_requests (student_id, module, reference, status) VALUES ('it_s2', 'academic', 'proof', 'pending')`)
+	exec(t, s, `UPDATE enrollment_requests SET status = 'approved', expires_at = now() + interval '30 days' WHERE student_id = 'it_s2'`)
+	dash := call(t, s.appAgent, http.MethodGet, "/x", "", student("it_s1"), nil)
+	stats := dash["stats"].(map[string]any)
+	if stats["sign_ups"].(float64) != 1 || stats["paying"].(float64) != 1 || stats["pending"].(float64) != 60 {
+		t.Fatalf("agent stats: %v", dash)
+	}
+	exec(t, s, `INSERT INTO admins (id, name, email, password_hash, is_approved) VALUES ('it_admin', 'IT Admin', 'it@victory.test', 'x', true) ON CONFLICT (id) DO NOTHING`)
+	payout := call(t, s.adminAgentPayout, http.MethodPost, "/x", "", map[string]any{"admin": store.Admin{ID: "it_admin"}}, gin.Params{{Key: "id", Value: agentID}})
+	if payout["paid"].(float64) != 60 {
+		t.Fatalf("payout: %v", payout)
 	}
 
 	// Uploader role is allowed by the constraint.
