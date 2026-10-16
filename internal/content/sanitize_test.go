@@ -84,3 +84,28 @@ func TestSanitizeTextKeepsPlainText(t *testing.T) {
 		t.Errorf("markup not sanitized: %q", got)
 	}
 }
+
+func TestSanitizeKeepsEditorStyling(t *testing.T) {
+	in := `<p><span style="color: #13814f; font-size: 20px; font-family: serif">Big</span>` +
+		`<span style="background-color: #fde68a">marked</span>` +
+		`<span class="math" data-tex="\frac{a}{b}"></span>` +
+		`<span style="position: fixed; color: #000">x</span>` +
+		`<span style="font-family: url(evil)">y</span></p>` +
+		`<iframe src="https://www.youtube-nocookie.com/embed/abc123" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
+	out := SanitizeHTML(in)
+	for _, want := range []string{
+		`style="color: #13814f; font-size: 20px; font-family: serif"`,
+		`style="background-color: #fde68a"`,
+		`data-tex="\frac{a}{b}"`,
+		`referrerpolicy="strict-origin-when-cross-origin"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in %s", want, out)
+		}
+	}
+	for _, bad := range []string{"position", "url(evil)"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("kept %q: %s", bad, out)
+		}
+	}
+}

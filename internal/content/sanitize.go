@@ -11,12 +11,23 @@ import (
 
 var policy = newPolicy()
 
+// styleAttr is the inline styling the editor produces and the app renders:
+// alignment, text and background colour, font size and family, and media
+// width. Anything else (positioning, urls, expressions) drops the attribute.
+var styleAttr = regexp.MustCompile(`^\s*((` + strings.Join([]string{
+	`text-align:\s*(left|center|right|justify)`,
+	`(background-)?color:\s*(#[0-9a-fA-F]{3,8}|inherit)`,
+	`width:\s*\d{1,3}%`,
+	`font-size:\s*\d{1,2}(\.\d{1,2})?(px|em|rem)`,
+	`font-family:\s*(serif|sans-serif|monospace|cursive)`,
+}, "|") + `);?\s*)+$`)
+
 func newPolicy() *bluemonday.Policy {
 	p := bluemonday.UGCPolicy()
 	p.AllowAttrs("data-tex").OnElements("span", "div")
 	p.AllowStyling() // class attributes
 	p.AllowElements("figure", "figcaption", "mark", "u", "s", "sub", "sup")
-	p.AllowAttrs("style").Matching(regexp.MustCompile(`^(text-align:\s*(left|center|right|justify);?\s*|color:\s*#[0-9a-fA-F]{3,8};?\s*|width:\s*\d{1,3}%;?\s*)+$`)).Globally()
+	p.AllowAttrs("style").Matching(styleAttr).Globally()
 	p.AllowAttrs("data-youtube-video").OnElements("div")
 
 	// Video: our own files or any https source.
@@ -29,6 +40,8 @@ func newPolicy() *bluemonday.Policy {
 	p.AllowElements("iframe")
 	p.AllowAttrs("src").Matching(regexp.MustCompile(`^https://(www\.)?(youtube\.com|youtube-nocookie\.com)/embed/[\w-]+`)).OnElements("iframe")
 	p.AllowAttrs("width", "height", "allowfullscreen", "frameborder", "allow").OnElements("iframe")
+	// YouTube refuses to play without a referrer (Error 153).
+	p.AllowAttrs("referrerpolicy").Matching(regexp.MustCompile(`^strict-origin-when-cross-origin$`)).OnElements("iframe")
 
 	// Inline SVG diagrams: shapes and text only (no scripts, no foreign content).
 	svgEls := []string{"svg", "g", "rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text", "tspan", "defs", "lineargradient", "stop"}
