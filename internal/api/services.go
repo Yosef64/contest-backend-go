@@ -42,6 +42,10 @@ func (s *Server) requirePermission(c *gin.Context) {
 		httpx.Fail(c, httpx.Forbidden("School managers can access their school reports and students only."))
 		return
 	}
+	if role == "uploader" && !uploaderMay(c.Request.Method, path) {
+		httpx.Fail(c, httpx.Forbidden("Question uploaders can add questions and pictures only."))
+		return
+	}
 	if role == "analyst" && c.Request.Method != http.MethodGet && !strings.HasSuffix(path, "/auth/password") {
 		httpx.Fail(c, httpx.Forbidden("Analysts have read-only access."))
 		return
@@ -51,6 +55,26 @@ func (s *Server) requirePermission(c *gin.Context) {
 		return
 	}
 	c.Next()
+}
+
+// uploaderMay is what a question uploader can do: add and edit questions
+// (not delete them), upload and list pictures, and read the subjects. Their
+// password is set by the owner, so they can't change it.
+func uploaderMay(method, path string) bool {
+	rest := strings.TrimPrefix(path, "/api/v1/admin")
+	switch {
+	case rest == "/auth/me":
+		return true
+	case rest == "/subjects":
+		return method == http.MethodGet
+	case rest == "/questions/batch": // batch delete and retag
+		return false
+	case rest == "/questions" || strings.HasPrefix(rest, "/questions/"):
+		return method != http.MethodDelete
+	case rest == "/media" || strings.HasPrefix(rest, "/media/"):
+		return method == http.MethodGet || method == http.MethodPost
+	}
+	return false
 }
 
 // managerSchool reports whether the caller is a school manager and, if so,
@@ -463,7 +487,7 @@ func (s *Server) adminServiceWrite(c *gin.Context) error {
 		if !a.IsOwner {
 			return httpx.Forbidden("Only the owner can assign roles.")
 		}
-		if in.Role != "editor" && in.Role != "analyst" && in.Role != "manager" {
+		if in.Role != "editor" && in.Role != "analyst" && in.Role != "manager" && in.Role != "uploader" {
 			return httpx.BadRequest("Invalid role.")
 		}
 		if in.Role == "manager" && (in.SchoolID == nil || strings.TrimSpace(*in.SchoolID) == "") {
