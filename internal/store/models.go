@@ -104,12 +104,14 @@ type Question struct {
 	Stream   string `json:"stream" db:"stream"`
 	ImageURL string `json:"image_url" db:"image_url"`
 	// One picture per option ('' for none), or empty when no option has one.
-	OptionImages        []string  `json:"option_images" db:"option_images"`
-	ExplanationImageURL string    `json:"explanation_image_url" db:"explanation_image_url"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at"`
-	CreatedBy           string    `json:"created_by" db:"created_by"`
-	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
-	UpdatedBy           string    `json:"updated_by" db:"updated_by"`
+	OptionImages        []string `json:"option_images" db:"option_images"`
+	ExplanationImageURL string   `json:"explanation_image_url" db:"explanation_image_url"`
+	// A partner school's own question (nil: the main office's).
+	SchoolID  *string   `json:"school_id" db:"school_id"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	CreatedBy string    `json:"created_by" db:"created_by"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	UpdatedBy string    `json:"updated_by" db:"updated_by"`
 }
 
 // PublicQuestion is what students see during a contest: no answer.
@@ -158,10 +160,13 @@ type Contest struct {
 	Rules           string `json:"rules" db:"rules"`
 	Scoring         string `json:"scoring" db:"scoring"`
 	// Each student sees the questions / options in their own order.
-	ShuffleQuestions bool      `json:"shuffle_questions" db:"shuffle_questions"`
-	ShuffleOptions   bool      `json:"shuffle_options" db:"shuffle_options"`
-	CreatedBy        string    `json:"created_by" db:"created_by"`
-	UpdatedAt        time.Time `json:"updated_at" db:"updated_at"`
+	ShuffleQuestions bool `json:"shuffle_questions" db:"shuffle_questions"`
+	ShuffleOptions   bool `json:"shuffle_options" db:"shuffle_options"`
+	// A partner school's internal exam, seen only by its students (nil: for
+	// everyone the exam's grade and stream fit).
+	SchoolID  *string   `json:"school_id" db:"school_id"`
+	CreatedBy string    `json:"created_by" db:"created_by"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (c *Contest) IsNational() bool { return c.Kind == "national" }

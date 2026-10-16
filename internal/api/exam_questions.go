@@ -18,6 +18,9 @@ const maxExamQuestions = 200
 
 // adminContestQuestions returns the exam's questions in order, with answers.
 func (s *Server) adminContestQuestions(c *gin.Context) error {
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
 	if _, err := s.store.Contest(c, c.Param("id")); err != nil {
 		return storeErr(err, "Exam")
 	}

@@ -81,6 +81,9 @@ type violationRow struct {
 
 // GET /admin/contests/:id/violations — who broke exam mode, how often.
 func (s *Server) adminExamViolations(c *gin.Context) error {
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(c, `SELECT v.student_id, coalesce(st.name, ''), coalesce(st.school, ''),
 			count(*) FILTER (WHERE v.kind = 'unpinned')::int,
 			count(*) FILTER (WHERE v.kind = 'left_app')::int,

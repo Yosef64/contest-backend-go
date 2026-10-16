@@ -129,6 +129,9 @@ func (s *Server) adminQuestions(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	if school, staff := managerSchool(c); staff {
+		list = ofSchool(list, school, func(q store.Question) *string { return q.SchoolID })
+	}
 	return httpx.OK(c, gin.H{"questions": list})
 }
 
@@ -142,6 +145,7 @@ func (s *Server) adminCreateQuestion(c *gin.Context) error {
 		return err
 	}
 	q.CreatedBy = currentAdmin(c).Name
+	q.SchoolID = staffSchool(c)
 	out, err := s.store.CreateQuestion(c, q)
 	if err != nil {
 		return err
@@ -163,6 +167,7 @@ func (s *Server) adminBulkQuestions(c *gin.Context) error {
 			return err
 		}
 		q.CreatedBy = currentAdmin(c).Name
+		q.SchoolID = staffSchool(c)
 		qs = append(qs, q)
 	}
 	n, err := s.store.CreateQuestions(c, qs)
@@ -182,6 +187,9 @@ func (s *Server) adminUpdateQuestion(c *gin.Context) error {
 		return err
 	}
 	q.UpdatedBy = currentAdmin(c).Name
+	if err := s.ownsItem(c, "questions", c.Param("id")); err != nil {
+		return err
+	}
 	out, err := s.store.UpdateQuestion(c, c.Param("id"), q)
 	if err != nil {
 		return storeErr(err, "Question")
@@ -190,6 +198,9 @@ func (s *Server) adminUpdateQuestion(c *gin.Context) error {
 }
 
 func (s *Server) adminDeleteQuestion(c *gin.Context) error {
+	if err := s.ownsItem(c, "questions", c.Param("id")); err != nil {
+		return err
+	}
 	err := s.store.DeleteQuestion(c, c.Param("id"))
 	if errors.Is(err, store.ErrInUse) {
 		return httpx.Conflict("in_use", "This question is used in an exam. Remove it from the exam first.")
@@ -270,10 +281,16 @@ func (s *Server) adminContests(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	if school, staff := managerSchool(c); staff {
+		list = ofSchool(list, school, func(co store.Contest) *string { return co.SchoolID })
+	}
 	return httpx.OK(c, gin.H{"contests": list})
 }
 
 func (s *Server) adminContest(c *gin.Context) error {
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
 	contest, err := s.store.Contest(c, c.Param("id"))
 	if err != nil {
 		return storeErr(err, "Exam")
@@ -295,6 +312,10 @@ func (s *Server) adminCreateContest(c *gin.Context) error {
 		return err
 	}
 	contest.CreatedBy = currentAdmin(c).Name
+	contest.SchoolID = staffSchool(c)
+	if err := s.staffQuestionsOnly(c, contest.QuestionIDs); err != nil {
+		return err
+	}
 	out, err := s.store.CreateContest(c, contest)
 	if errors.Is(err, store.ErrInUse) {
 		return httpx.Field("question_ids", "One of the selected questions no longer exists.")
@@ -314,6 +335,12 @@ func (s *Server) adminUpdateContest(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
+	if err := s.staffQuestionsOnly(c, contest.QuestionIDs); err != nil {
+		return err
+	}
 	out, err := s.store.UpdateContest(c, c.Param("id"), contest)
 	if errors.Is(err, store.ErrInUse) {
 		return httpx.Field("question_ids", "Students have already submitted, so the questions can't change.")
@@ -325,10 +352,16 @@ func (s *Server) adminUpdateContest(c *gin.Context) error {
 }
 
 func (s *Server) adminDeleteContest(c *gin.Context) error {
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
 	return orNoContent(c, storeErr(s.store.DeleteContest(c, c.Param("id")), "Exam"))
 }
 
 func (s *Server) adminStandings(c *gin.Context) error {
+	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
+		return err
+	}
 	rows, err := s.store.Standings(c, c.Param("id"))
 	if err != nil {
 		return err
@@ -418,4 +451,63 @@ func (s *Server) adminDeleteAdmin(c *gin.Context) error {
 		return httpx.BadRequest("You can't remove your own account.")
 	}
 	return orNoContent(c, storeErr(s.store.DeleteAdmin(c, c.Param("id")), "Admin"))
+}
+
+// School staff (a partner school's admins and teachers) work on their own
+// school's questions and exams only; the main office works on everything.
+
+// staffSchool is the school new content belongs to: the staff member's, or
+// nil for the main office.
+func staffSchool(c *gin.Context) *string {
+	if school, staff := managerSchool(c); staff {
+		return &school
+	}
+	return nil
+}
+
+// ofSchool keeps the items of one school.
+func ofSchool[T any](list []T, school string, of func(T) *string) []T {
+	out := make([]T, 0, len(list))
+	for _, x := range list {
+		if id := of(x); id != nil && *id == school {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+// ownsItem lets school staff change only their school's question or exam
+// (anything else looks missing to them).
+func (s *Server) ownsItem(c *gin.Context, table, id string) error {
+	school, staff := managerSchool(c)
+	if !staff {
+		return nil
+	}
+	var ok bool
+	if err := s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM `+table+` WHERE id = $1 AND school_id = $2)`, id, school).Scan(&ok); err != nil {
+		return err
+	}
+	if !ok {
+		if table == "contests" {
+			return httpx.NotFound("Exam")
+		}
+		return httpx.NotFound("Question")
+	}
+	return nil
+}
+
+// staffQuestionsOnly: a school's exam uses that school's questions.
+func (s *Server) staffQuestionsOnly(c *gin.Context, ids []string) error {
+	school, staff := managerSchool(c)
+	if !staff || len(ids) == 0 {
+		return nil
+	}
+	var mine int
+	if err := s.pool.QueryRow(c, `SELECT count(*) FROM questions WHERE id = ANY($1) AND school_id = $2`, ids, school).Scan(&mine); err != nil {
+		return err
+	}
+	if mine != len(ids) {
+		return httpx.Field("question_ids", "Use your school's own questions.")
+	}
+	return nil
 }

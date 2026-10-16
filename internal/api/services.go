@@ -38,8 +38,8 @@ func (s *Server) requirePermission(c *gin.Context) {
 	// Managers may also read (never change) their own school's students; the
 	// student handlers scope those reads to the school.
 	readsStudents := c.Request.Method == http.MethodGet && (path == "/api/v1/admin/students" || strings.HasPrefix(path, "/api/v1/admin/students/") && (strings.Count(path, "/") == 5 || strings.Count(path, "/") == 6 && strings.HasSuffix(path, "/insights")))
-	if role == "manager" && !readsStudents && !strings.HasSuffix(path, "/auth/me") && !strings.Contains(path, "/services/reports") && !strings.HasSuffix(path, "/auth/password") {
-		httpx.Fail(c, httpx.Forbidden("School managers can access their school reports and students only."))
+	if (role == "manager" || role == "teacher") && !readsStudents && !schoolStaffMay(c.Request.Method, path) {
+		httpx.Fail(c, httpx.Forbidden("School staff can use their school's exams, questions, students and reports only."))
 		return
 	}
 	if role == "uploader" && !uploaderMay(c.Request.Method, path) {
@@ -55,6 +55,28 @@ func (s *Server) requirePermission(c *gin.Context) {
 		return
 	}
 	c.Next()
+}
+
+// schoolStaffMay is what a partner school's admins and teachers can reach
+// besides their students: their reports, their own questions and exams
+// (handlers keep them to their school), pictures and the subject list.
+func schoolStaffMay(method, path string) bool {
+	rest := strings.TrimPrefix(path, "/api/v1/admin")
+	switch {
+	case rest == "/auth/me", rest == "/auth/password", strings.HasPrefix(rest, "/services/reports"):
+		return true
+	case rest == "/subjects":
+		return method == http.MethodGet
+	case rest == "/questions/batch", strings.HasSuffix(rest, "/questions/import"):
+		return false
+	case rest == "/questions" || strings.HasPrefix(rest, "/questions/"):
+		return true
+	case rest == "/contests" || strings.HasPrefix(rest, "/contests/"):
+		return true
+	case rest == "/media" || strings.HasPrefix(rest, "/media/"):
+		return method == http.MethodGet || method == http.MethodPost
+	}
+	return false
 }
 
 // uploaderMay is what a question uploader can do: add and edit questions
@@ -81,7 +103,7 @@ func uploaderMay(method, path string) bool {
 // the school they are limited to. A manager without a school gets an id that
 // matches no student rather than an empty filter, which would match all.
 func managerSchool(c *gin.Context) (string, bool) {
-	if role, _ := c.Get("permission_role"); role != "manager" {
+	if role, _ := c.Get("permission_role"); role != "manager" && role != "teacher" {
 		return "", false
 	}
 	v, _ := c.Get("manager_school")
@@ -487,11 +509,11 @@ func (s *Server) adminServiceWrite(c *gin.Context) error {
 		if !a.IsOwner {
 			return httpx.Forbidden("Only the owner can assign roles.")
 		}
-		if in.Role != "editor" && in.Role != "analyst" && in.Role != "manager" && in.Role != "uploader" {
+		if in.Role != "editor" && in.Role != "analyst" && in.Role != "manager" && in.Role != "teacher" && in.Role != "uploader" {
 			return httpx.BadRequest("Invalid role.")
 		}
-		if in.Role == "manager" && (in.SchoolID == nil || strings.TrimSpace(*in.SchoolID) == "") {
-			return httpx.BadRequest("School managers require a school.")
+		if (in.Role == "manager" || in.Role == "teacher") && (in.SchoolID == nil || strings.TrimSpace(*in.SchoolID) == "") {
+			return httpx.BadRequest("School admins and teachers need a school.")
 		}
 		q = "UPDATE admins SET permission_role=$1,school_id=$2 WHERE id=$3 AND NOT is_owner"
 		args = []any{in.Role, in.SchoolID, in.ID}
@@ -570,13 +592,8 @@ func (s *Server) changeAdminPassword(c *gin.Context) error {
 // see their own school.
 func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, error) {
 	school := c.Query("school_id")
-	if role, _ := c.Get("permission_role"); role == "manager" {
-		v, _ := c.Get("manager_school")
-		id, _ := v.(*string)
-		if id == nil {
-			return nil, httpx.Forbidden("No school assigned.")
-		}
-		school = *id
+	if id, staff := managerSchool(c); staff {
+		school = id // school admins and teachers: their school only
 	}
 	// Postgres rejects a bare string constant in GROUP BY, hence the cast on "overall".
 	column := map[string]string{"overall": "'All students'::text", "school": "s.school", "gender": "s.gender", "city": "s.city", "region": "s.region", "subject": "co.subject", "chapter": "breakdown.subject || ' / ' || breakdown.chapter", "topic": "breakdown.topic", "department": "coalesce(p.department,'unassigned')", "stream": "coalesce(p.stream,'unassigned')",
@@ -742,6 +759,13 @@ func (s *Server) checkLearningGroup(c *gin.Context, st store.Student, kind, id s
 		stream, _ := academic["stream"].(string)
 		if !examAudienceMatches(co, st.Grade, department, stream) {
 			return httpx.Forbidden("This exam is for another grade, level or science stream.")
+		}
+		// A school's internal exam is for that school's students only.
+		if co.SchoolID != nil {
+			mine, _ := academic["school_id"].(*string)
+			if mine == nil || *mine != *co.SchoolID {
+				return httpx.NotFound("Exam")
+			}
 		}
 	}
 	var permitted bool

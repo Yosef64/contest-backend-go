@@ -22,6 +22,7 @@ import (
 
 	"victor-contest-go/internal/config"
 	"victor-contest-go/internal/db"
+	"victor-contest-go/internal/store"
 )
 
 func integrationServer(t *testing.T) *Server {
@@ -204,6 +205,43 @@ func TestIntegrationNewFeatures(t *testing.T) {
 	rows := v["violations"].([]any)
 	if len(rows) != 1 || rows[0].(map[string]any)["unpinned"].(float64) != 1 || v["max_violations"].(float64) != 2 {
 		t.Fatalf("violations: %v", v)
+	}
+
+	// Partner school content: a teacher's question and exam belong to the
+	// school, other schools (and the teacher's list) don't see others'.
+	exec(t, s, `DELETE FROM contests WHERE title = 'School quiz'`)
+	exec(t, s, `DELETE FROM questions WHERE text = 'School Q'`)
+	exec(t, s, `INSERT INTO schools (id, name) VALUES ('it_school', 'Adama Science') ON CONFLICT (id) DO NOTHING`)
+	exec(t, s, `UPDATE academic_profiles SET school_id = 'it_school' WHERE student_id = 'it_free'`)
+	school := "it_school"
+	teacher := map[string]any{"permission_role": "teacher", "manager_school": &school, "admin": store.Admin{Name: "Teacher T"}}
+	created := call(t, s.adminCreateQuestion, http.MethodPost, "/x",
+		`{"text":"School Q","options":["A","B"],"answer_index":0,"subject":"Logic","chapter":"Sets","grade":"12"}`, teacher, nil)
+	qid := created["question"].(map[string]any)["id"].(string)
+	if created["question"].(map[string]any)["school_id"] != "it_school" {
+		t.Fatalf("teacher's question school: %v", created)
+	}
+	mine := call(t, s.adminQuestions, http.MethodGet, "/x", "", teacher, nil)["questions"].([]any)
+	if len(mine) != 1 {
+		t.Fatalf("teacher sees %d questions, want only their school's", len(mine))
+	}
+	start, end := now.Add(-time.Minute).UTC().Format(time.RFC3339), now.Add(time.Hour).UTC().Format(time.RFC3339)
+	exam := call(t, s.adminCreateContest, http.MethodPost, "/x",
+		`{"title":"School quiz","subject":"Logic","grade":"12","start_time":"`+start+`","end_time":"`+end+`","question_ids":["`+qid+`"]}`, teacher, nil)
+	examID := exam["contest"].(map[string]any)["id"].(string)
+	if exam["contest"].(map[string]any)["school_id"] != "it_school" {
+		t.Fatalf("school exam: %v", exam)
+	}
+	free, _ := s.store.StudentByID(ctx, "it_free")
+	paid, _ := s.store.StudentByID(ctx, "it_paid")
+	w := httptest.NewRecorder()
+	gc, _ := gin.CreateTestContext(w)
+	gc.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	if err := s.checkLearningAccess(gc, free, "contest", examID); err != nil {
+		t.Fatalf("the school's student: %v", err)
+	}
+	if err := s.checkLearningAccess(gc, paid, "contest", examID); err == nil {
+		t.Fatal("a student of another school reached the school's exam")
 	}
 
 	// Uploader role is allowed by the constraint.
