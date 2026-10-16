@@ -148,6 +148,7 @@ func (s *Server) Router() *gin.Engine {
 	app.POST("/group-exams/:id/submit", httpx.H(s.submitGroupExam))
 
 	app.POST("/contests/:id/exam-mode/:action", httpx.H(s.examModePassword))
+	app.POST("/contests/:id/exam-violations", httpx.H(s.appExamViolation))
 	app.POST("/contests/:id/makeup", httpx.H(s.startMakeup))
 	app.POST("/contests/:id/makeup/submit", httpx.H(s.submitMakeup))
 	app.POST("/learning-hub/agent", httpx.H(s.registerAgent))
@@ -230,6 +231,7 @@ func (s *Server) Router() *gin.Engine {
 	ad.PUT("/contests/:id", httpx.H(s.adminUpdateContest))
 	ad.DELETE("/contests/:id", httpx.H(s.adminDeleteContest))
 	ad.GET("/contests/:id/standings", httpx.H(s.adminStandings))
+	ad.GET("/contests/:id/violations", httpx.H(s.adminExamViolations))
 	ad.GET("/contests/:id/questions", httpx.H(s.adminContestQuestions))
 	ad.POST("/contests/:id/questions/import", httpx.H(s.adminImportContestQuestions))
 

@@ -339,7 +339,7 @@ func (s *Server) adminServices(c *gin.Context) error {
 		"enrollments":    "SELECT to_jsonb(e)||jsonb_build_object('student_name',s.name) FROM enrollment_requests e JOIN students s ON s.id=e.student_id ORDER BY e.created_at DESC",
 		"announcements":  "SELECT to_jsonb(x) FROM announcements x ORDER BY created_at DESC",
 		"programs":       "SELECT to_jsonb(x) FROM habit_programs x ORDER BY created_at DESC",
-		"exam_modes":     "SELECT jsonb_build_object('contest_id',x.contest_id,'title',c.title,'enabled',x.enabled) FROM exam_mode_settings x JOIN contests c ON c.id=x.contest_id",
+		"exam_modes":     "SELECT jsonb_build_object('contest_id',x.contest_id,'title',c.title,'enabled',x.enabled,'max_violations',x.max_violations) FROM exam_mode_settings x JOIN contests c ON c.id=x.contest_id",
 		"makeup":         "SELECT to_jsonb(x)||jsonb_build_object('title',c.title) FROM makeup_settings x JOIN contests c ON c.id=x.contest_id ORDER BY available_until DESC",
 		"habit_activity": "SELECT jsonb_build_object('student_id',s.id,'student_name',s.name,'program',p.title,'started_on',e.started_on,'days_logged',count(l.day),'tasks_checked',coalesce(sum(cardinality(l.checked)),0),'last_log',max(l.day)) FROM habit_enrollments e JOIN students s ON s.id=e.student_id JOIN habit_programs p ON p.id=e.program_id LEFT JOIN habit_logs l ON l.student_id=e.student_id AND l.program_id=e.program_id GROUP BY s.id,p.id,e.started_on ORDER BY max(l.day) NULLS FIRST",
 		"agents":         "SELECT to_jsonb(x) FROM field_agents x ORDER BY created_at DESC",
@@ -948,12 +948,19 @@ func (s *Server) adminExamMode(c *gin.Context) error {
 		Entry     string `json:"entry_password" binding:"max=72"`
 		Exit      string `json:"exit_password" binding:"max=72"`
 		Enabled   bool   `json:"enabled"`
+		// Breaks (unpinning, leaving the app) before the app submits the
+		// exam; 0 never submits. Omitted: unchanged (3 for a new exam).
+		MaxViolations *int `json:"max_violations" binding:"omitempty,min=0,max=50"`
 	}
 	if err := httpx.Bind(c, &in); err != nil {
 		return err
 	}
 	if !in.Enabled {
 		return s.auditServiceChange(c, "exam_mode.disable", in.ContestID, "UPDATE exam_mode_settings SET enabled=false WHERE contest_id=$1", in.ContestID)
+	}
+	// Only the limit: the passwords stay as they are.
+	if in.Entry == "" && in.Exit == "" && in.MaxViolations != nil {
+		return s.auditServiceChange(c, "exam_mode.limit", in.ContestID, "UPDATE exam_mode_settings SET max_violations=$2 WHERE contest_id=$1", in.ContestID, *in.MaxViolations)
 	}
 	if len(in.Entry) < 8 || len(in.Exit) < 8 || in.Entry == in.Exit {
 		return httpx.BadRequest("Use different entry and exit passwords with at least 8 characters.")
@@ -969,7 +976,7 @@ func (s *Server) adminExamMode(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.auditServiceChange(c, "exam_mode.save", in.ContestID, "INSERT INTO exam_mode_settings(contest_id,entry_hash,exit_hash) VALUES($1,$2,$3) ON CONFLICT(contest_id) DO UPDATE SET entry_hash=$2,exit_hash=$3,enabled=true", in.ContestID, entry, exit)
+	return s.auditServiceChange(c, "exam_mode.save", in.ContestID, "INSERT INTO exam_mode_settings(contest_id,entry_hash,exit_hash,max_violations) VALUES($1,$2,$3,coalesce($4,3)) ON CONFLICT(contest_id) DO UPDATE SET entry_hash=$2,exit_hash=$3,enabled=true,max_violations=coalesce($4,exam_mode_settings.max_violations)", in.ContestID, entry, exit, in.MaxViolations)
 }
 func (s *Server) examModePassword(c *gin.Context) error {
 	st, err := s.me(c)

@@ -414,6 +414,8 @@ func (s *Server) appChapter(c *gin.Context) error {
 
 type appContest struct {
 	ExamMode bool `json:"exam_mode"`
+	// Exam-mode breaks before the app submits the exam (0: never).
+	MaxViolations int `json:"max_violations"`
 	resourceAccess
 	store.Contest
 	QuestionIDs   []string           `json:"question_ids,omitempty"`
@@ -497,17 +499,19 @@ func (s *Server) appContests(c *gin.Context) error {
 	}
 	// Which exams run in exam mode: the app locks the phone for them.
 	examMode := map[string]bool{}
-	rows, err := s.pool.Query(c, "SELECT contest_id FROM exam_mode_settings WHERE enabled AND contest_id = ANY($1)", ids)
+	maxViolations := map[string]int{}
+	rows, err := s.pool.Query(c, "SELECT contest_id, max_violations FROM exam_mode_settings WHERE enabled AND contest_id = ANY($1)", ids)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var id string
-		if err := rows.Scan(&id); err != nil {
+		var limit int
+		if err := rows.Scan(&id, &limit); err != nil {
 			rows.Close()
 			return err
 		}
-		examMode[id] = true
+		examMode[id], maxViolations[id] = true, limit
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -524,7 +528,7 @@ func (s *Server) appContests(c *gin.Context) error {
 		if co.IsNational() && len(co.QuestionIDs) == 0 {
 			continue // still being prepared
 		}
-		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID], ExamMode: examMode[co.ID]}
+		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID], ExamMode: examMode[co.ID], MaxViolations: maxViolations[co.ID]}
 		if ac.Participants == nil {
 			ac.Participants = []string{}
 		}
@@ -567,7 +571,7 @@ func (s *Server) appContest(c *gin.Context) error {
 		return err
 	}
 	ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: []string{}, IsRegistered: registered[co.ID]}
-	if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM exam_mode_settings WHERE contest_id=$1 AND enabled)", co.ID).Scan(&ac.ExamMode); err != nil {
+	if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM exam_mode_settings WHERE contest_id=$1 AND enabled), coalesce((SELECT max_violations FROM exam_mode_settings WHERE contest_id=$1 AND enabled), 0)", co.ID).Scan(&ac.ExamMode, &ac.MaxViolations); err != nil {
 		return err
 	}
 	if sub, ok := submitted[co.ID]; ok {
