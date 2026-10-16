@@ -183,6 +183,7 @@ func (s *Server) Router() *gin.Engine {
 	ad.GET("/services", httpx.H(s.adminServices))
 	ad.POST("/services", httpx.H(s.adminServiceWrite))
 	ad.GET("/services/reports", httpx.H(s.adminReports))
+	ad.GET("/services/reports/master", httpx.H(s.adminMasterReport))
 	ad.GET("/services/reports/ai-summary", httpx.H(s.aiReportSummary))
 	ad.PUT("/enrollments/:id", httpx.H(s.adminEditEnrollment))
 	ad.PUT("/auth/password", httpx.H(s.changeAdminPassword))
@@ -244,6 +245,7 @@ func (s *Server) Router() *gin.Engine {
 
 	ad.GET("/students", httpx.H(s.adminStudents))
 	ad.GET("/students/:id", httpx.H(s.adminStudent))
+	ad.GET("/students/:id/insights", httpx.H(s.adminStudentInsights))
 	ad.PATCH("/students/:id", httpx.H(s.adminPatchStudent))
 	ad.POST("/students/:id/password-reset", httpx.H(s.adminPasswordReset))
 	ad.DELETE("/students/:id", httpx.H(s.adminDeleteStudent))

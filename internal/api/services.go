@@ -37,7 +37,7 @@ func (s *Server) requirePermission(c *gin.Context) {
 	path := c.Request.URL.Path
 	// Managers may also read (never change) their own school's students; the
 	// student handlers scope those reads to the school.
-	readsStudents := c.Request.Method == http.MethodGet && (path == "/api/v1/admin/students" || strings.HasPrefix(path, "/api/v1/admin/students/") && strings.Count(path, "/") == 5)
+	readsStudents := c.Request.Method == http.MethodGet && (path == "/api/v1/admin/students" || strings.HasPrefix(path, "/api/v1/admin/students/") && (strings.Count(path, "/") == 5 || strings.Count(path, "/") == 6 && strings.HasSuffix(path, "/insights")))
 	if role == "manager" && !readsStudents && !strings.HasSuffix(path, "/auth/me") && !strings.Contains(path, "/services/reports") && !strings.HasSuffix(path, "/auth/password") {
 		httpx.Fail(c, httpx.Forbidden("School managers can access their school reports and students only."))
 		return
@@ -581,6 +581,7 @@ func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, err
 	// Postgres rejects a bare string constant in GROUP BY, hence the cast on "overall".
 	column := map[string]string{"overall": "'All students'::text", "school": "s.school", "gender": "s.gender", "city": "s.city", "region": "s.region", "subject": "co.subject", "chapter": "breakdown.subject || ' / ' || breakdown.chapter", "topic": "breakdown.topic", "department": "coalesce(p.department,'unassigned')", "stream": "coalesce(p.stream,'unassigned')",
 		// Score distribution: each submission falls in one 20-point band.
+		"plan":  "CASE WHEN " + paidAt("sub.student_id", "sub.submitted_at") + " THEN 'Paid' ELSE 'Free' END",
 		"score": "CASE WHEN sub.total = 0 OR sub.correct*5 < sub.total THEN '0–19%' WHEN sub.correct*5 < sub.total*2 THEN '20–39%' WHEN sub.correct*5 < sub.total*3 THEN '40–59%' WHEN sub.correct*5 < sub.total*4 THEN '60–79%' ELSE '80–100%' END"}[group]
 	if column == "" {
 		return nil, httpx.BadRequest("Invalid report dimension.")
@@ -600,7 +601,11 @@ func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, err
 	if err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf(`SELECT jsonb_build_object('group',%s,'attempts',count(*),'students',count(DISTINCT s.id),'accuracy',round(coalesce(sum(sub.correct)::numeric/nullif(sum(sub.total),0),0)*100,2),'pass',count(*) FILTER(WHERE sub.correct*2>=sub.total AND sub.total>0),'fail',count(*) FILTER(WHERE sub.correct*2<sub.total OR sub.total=0),'average_seconds',round(avg(sub.time_seconds))) FROM submissions sub JOIN students s ON s.id=sub.student_id JOIN contests co ON co.id=sub.contest_id LEFT JOIN academic_profiles p ON p.student_id=s.id WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR co.subject=$3) AND ($4::timestamptz IS NULL OR sub.submitted_at >= $4) AND ($5::timestamptz IS NULL OR sub.submitted_at < $5) GROUP BY %s ORDER BY %s`, column, column, column)
+	plan := c.DefaultQuery("plan", "paid")
+	if plan != "paid" && plan != "free" && plan != "all" {
+		return nil, httpx.BadRequest("Invalid report plan.")
+	}
+	query := fmt.Sprintf(`SELECT jsonb_build_object('group',%s,'attempts',count(*),'students',count(DISTINCT s.id),'accuracy',round(coalesce(sum(sub.correct)::numeric/nullif(sum(sub.total),0),0)*100,2),'pass',count(*) FILTER(WHERE sub.correct*2>=sub.total AND sub.total>0),'fail',count(*) FILTER(WHERE sub.correct*2<sub.total OR sub.total=0),'average_seconds',round(avg(sub.time_seconds))) FROM submissions sub JOIN students s ON s.id=sub.student_id JOIN contests co ON co.id=sub.contest_id LEFT JOIN academic_profiles p ON p.student_id=s.id WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR co.subject=$3) AND ($4::timestamptz IS NULL OR sub.submitted_at >= $4) AND ($5::timestamptz IS NULL OR sub.submitted_at < $5) AND ($6='all' OR ($6='paid')=`+paidAt("sub.student_id", "sub.submitted_at")+`) GROUP BY %s ORDER BY %s`, column, column, column)
 	if group == "chapter" || group == "topic" {
 		// Per-question breakdown: each submission is scored separately for
 		// every chapter (or chapter topic) its questions cover. Contests count
@@ -622,9 +627,72 @@ SELECT jsonb_build_object('group',` + label + `,'attempts',count(*),'students',c
 'pass',count(*) FILTER(WHERE b.correct*2>=b.total),'fail',count(*) FILTER(WHERE b.correct*2<b.total),'average_seconds',round(avg(b.time_seconds)))
 FROM breakdown b JOIN students s ON s.id=b.student_id JOIN contests co ON co.id=b.contest_id LEFT JOIN academic_profiles p ON p.student_id=s.id
 WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR b.subject=$3) AND ($4::timestamptz IS NULL OR b.submitted_at >= $4) AND ($5::timestamptz IS NULL OR b.submitted_at < $5)
+AND ($6='all' OR ($6='paid')=` + paidAt("b.student_id", "b.submitted_at") + `)
 GROUP BY ` + keys + ` ORDER BY ` + keys
 	}
-	return s.store.ServiceRows(c, query, school, grade, subject, from, until)
+	return s.store.ServiceRows(c, query, school, grade, subject, from, until, plan)
+}
+
+// paidAt is an SQL condition: the student had an approved academic plan
+// when they submitted. Free and paid results are reported apart, so free
+// users never mix into paid analytics (and the other way round).
+func paidAt(student, at string) string {
+	return "EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id=" + student +
+		" AND e.module='academic' AND e.status='approved' AND e.created_at<=" + at + " AND e.expires_at>" + at + ")"
+}
+
+// reportDimensions are the breakdowns of the master report, in its order.
+var reportDimensions = []string{"overall", "plan", "gender", "region", "city", "school", "department", "stream", "subject", "chapter", "topic", "score"}
+
+// GET /admin/services/reports/master — every breakdown at once (same
+// filters as one report), plus the strongest and weakest students, for the
+// one-click styled report.
+func (s *Server) adminMasterReport(c *gin.Context) error {
+	sections := gin.H{}
+	for _, d := range reportDimensions {
+		rows, err := s.reportData(c, d)
+		if err != nil {
+			return err
+		}
+		sections[d] = rows
+	}
+	students, err := s.reportStudents(c)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, gin.H{
+		"sections":       sections,
+		"order":          reportDimensions,
+		"students":       students,
+		"pass_threshold": 50,
+		"plan":           c.DefaultQuery("plan", "paid"),
+		"generated_at":   time.Now(),
+	})
+}
+
+// reportStudents ranks students by accuracy within the report's filters
+// (at least two attempts, so one lucky exam doesn't top the list).
+func (s *Server) reportStudents(c *gin.Context) ([]map[string]any, error) {
+	school := c.Query("school_id")
+	if id, ok := managerSchool(c); ok {
+		school = id
+	}
+	grade := NormalizeGrade(c.Query("grade"))
+	from, until, err := reportDateRange(c.Query("from"), c.Query("to"))
+	if err != nil {
+		return nil, err
+	}
+	plan := c.DefaultQuery("plan", "paid")
+	return s.store.ServiceRows(c, `SELECT jsonb_build_object('id',s.id,'name',s.name,'school',s.school,'region',s.region,
+			'attempts',count(*),'accuracy',round(sum(sub.correct)::numeric/nullif(sum(sub.total),0)*100,1))
+		FROM submissions sub JOIN students s ON s.id=sub.student_id JOIN contests co ON co.id=sub.contest_id
+		LEFT JOIN academic_profiles p ON p.student_id=s.id
+		WHERE ($1='' OR p.school_id=$1) AND ($2='' OR co.grade=$2) AND ($3='' OR co.subject=$3)
+		AND ($4::timestamptz IS NULL OR sub.submitted_at >= $4) AND ($5::timestamptz IS NULL OR sub.submitted_at < $5)
+		AND ($6='all' OR ($6='paid')=`+paidAt("sub.student_id", "sub.submitted_at")+`)
+		GROUP BY s.id, s.name, s.school, s.region HAVING count(*) >= 2 AND sum(sub.total) > 0
+		ORDER BY sum(sub.correct)::numeric/sum(sub.total) DESC, count(*) DESC LIMIT 200`,
+		school, grade, c.Query("subject"), from, until, plan)
 }
 
 func (s *Server) adminReports(c *gin.Context) error {
