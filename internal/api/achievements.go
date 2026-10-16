@@ -53,6 +53,15 @@ func (s *Server) appAchievements(c *gin.Context) error {
 }
 
 func (s *Server) writeAchievements(c *gin.Context, studentID string) error {
+	a, err := s.achievements(c, studentID)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, a)
+}
+
+// achievements: the student's streak, recent active days and badges.
+func (s *Server) achievements(c *gin.Context, studentID string) (gin.H, error) {
 	rows, err := s.pool.Query(c, `WITH days AS (
 			SELECT day FROM student_activity WHERE student_id = $1
 			UNION SELECT (completed_at AT TIME ZONE 'Africa/Addis_Ababa')::date FROM chapter_progress WHERE student_id = $1
@@ -61,7 +70,7 @@ func (s *Server) writeAchievements(c *gin.Context, studentID string) error {
 			UNION SELECT (starts_at AT TIME ZONE 'Africa/Addis_Ababa')::date FROM study_sessions WHERE student_id = $1 AND done)
 		SELECT day, `+addisDay+` FROM days WHERE day <= `+addisDay+` ORDER BY day DESC LIMIT 400`, studentID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var days []time.Time
 	var today time.Time
@@ -69,13 +78,13 @@ func (s *Server) writeAchievements(c *gin.Context, studentID string) error {
 		var d time.Time
 		if err := rows.Scan(&d, &today); err != nil {
 			rows.Close()
-			return err
+			return nil, err
 		}
 		days = append(days, d)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	current, best := streaks(days, today)
 
@@ -90,7 +99,7 @@ func (s *Server) writeAchievements(c *gin.Context, studentID string) error {
 			(SELECT count(*) FROM habit_logs WHERE student_id = $1 AND cardinality(checked) > 0)::int`, studentID).
 		Scan(&chapters, &contests, &nationals, &sharp, &sessions, &habitDays)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	b := func(id, title, desc, icon string, progress, target int) badge {
 		return badge{id, title, desc, icon, min(progress, target), target, progress >= target}
@@ -116,14 +125,14 @@ func (s *Server) writeAchievements(c *gin.Context, studentID string) error {
 		}
 	}
 	activeToday := len(days) > 0 && days[0].Equal(today)
-	return httpx.OK(c, gin.H{
+	return gin.H{
 		"streak":       current,
 		"best_streak":  best,
 		"active_today": activeToday,
 		"recent_days":  recent,
 		"today":        today.Format("2006-01-02"),
 		"badges":       badges,
-	})
+	}, nil
 }
 
 // streaks: days are distinct, newest first. The current streak runs back

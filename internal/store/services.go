@@ -53,6 +53,7 @@ func (s *Store) PrivateStandings(ctx context.Context, id, studentID string) ([]S
 		OR student_id = $2
 	ORDER BY rank, name`, id, studentID)
 }
+
 // PrivateLeaderboard ranks finished, non-school contests within one level
 // ("9", "10", "11" for high school by grade, or "entrance", "remedial",
 // "freshman" by department) and stream ("" for every stream). It returns the

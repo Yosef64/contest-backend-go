@@ -248,7 +248,7 @@ func (s *Server) saveTarget(c *gin.Context) error {
 	if err = httpx.Bind(c, &in); err != nil {
 		return err
 	}
-	if !subjects[in.Subject] || in.Subject == "Mixed" {
+	if !subjectOK(in.Subject, false) {
 		return httpx.Field("subject", "Choose a supported subject.")
 	}
 	return orNoContent(c, s.store.ServiceExec(c, "INSERT INTO score_targets(student_id,subject,target) VALUES($1,$2,$3) ON CONFLICT(student_id,subject) DO UPDATE SET target=$3", st.ID, in.Subject, in.Target))
@@ -514,11 +514,13 @@ func (s *Server) announce(c *gin.Context, title, body, department string, school
 	if len(body) > 240 {
 		body = body[:237] + "…"
 	}
-	err := s.push.Send(ctx, push.Message{Topic: topic, Condition: condition, Title: title, Body: body,
+	id, err := s.push.Send(ctx, push.Message{Topic: topic, Condition: condition, Title: title, Body: body,
 		Data: map[string]string{"type": "announcement"}})
 	if err != nil {
-		slog.Error("announcement push", "err", err)
+		slog.Error("announcement push", "err", err, "topic", topic, "condition", condition)
+		return
 	}
+	slog.Info("announcement push sent", "topic", topic, "condition", condition, "message", id)
 }
 func (s *Server) changeAdminPassword(c *gin.Context) error {
 	var in struct {
@@ -567,7 +569,7 @@ func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, err
 		}
 	}
 	subject := c.Query("subject")
-	if subject != "" && !subjects[subject] {
+	if subject != "" && !subjectOK(subject, true) {
 		return nil, httpx.BadRequest("Invalid report subject.")
 	}
 	from, until, err := reportDateRange(c.Query("from"), c.Query("to"))
@@ -671,7 +673,7 @@ func (s *Server) adminQuestionBatch(c *gin.Context) error {
 	if err := httpx.Bind(c, &in); err != nil {
 		return err
 	}
-	if in.Action == "tag" && (!subjects[in.Subject] || in.Subject == "Mixed" || strings.TrimSpace(in.Chapter) == "") {
+	if in.Action == "tag" && (!subjectOK(in.Subject, false) || strings.TrimSpace(in.Chapter) == "") {
 		return httpx.BadRequest("Choose a subject and chapter.")
 	}
 	tx, err := s.pool.Begin(c)
@@ -764,11 +766,7 @@ func (s *Server) startMakeup(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	out := make([]store.PublicQuestion, len(qs))
-	for i, q := range qs {
-		out[i] = q.Public()
-	}
-	return httpx.OK(c, gin.H{"questions": out, "ends_at": ends})
+	return httpx.OK(c, gin.H{"questions": playQuestions(co, st.ID, qs), "ends_at": ends})
 }
 func (s *Server) submitMakeup(c *gin.Context) error {
 	st, err := s.me(c)
@@ -791,14 +789,19 @@ func (s *Server) submitMakeup(c *gin.Context) error {
 	if s.now().After(ends.Add(submitGrace)) {
 		return httpx.Conflict("makeup_ended", "Your makeup submission window has expired.")
 	}
-	qs, err := s.store.ContestQuestions(c, c.Param("id"))
+	co, err := s.store.Contest(c, c.Param("id"))
+	if err != nil {
+		return storeErr(err, "Exam")
+	}
+	qs, err := s.store.ContestQuestions(c, co.ID)
 	if err != nil {
 		return err
 	}
+	given := unshuffleAnswers(co, st.ID, qs, in.Answers)
 	answers := map[string]int{}
 	correct := 0
 	for _, q := range qs {
-		v, ok := in.Answers[q.ID]
+		v, ok := given[q.ID]
 		if ok && v >= 0 && v < len(q.Options) {
 			answers[q.ID] = v
 			if v == q.AnswerIndex {

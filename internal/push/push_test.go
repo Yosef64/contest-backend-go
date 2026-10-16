@@ -33,7 +33,7 @@ func TestNewWithoutConfig(t *testing.T) {
 		t.Fatalf("New() = %v, %v; want nil, nil", s, err)
 	}
 	// A nil sender sends nothing (push not configured).
-	if err := s.Send(t.Context(), Message{Topic: "all"}); err != nil {
+	if _, err := s.Send(t.Context(), Message{Topic: "all"}); err != nil {
 		t.Fatal(err)
 	}
 }

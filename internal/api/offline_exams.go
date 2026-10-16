@@ -30,6 +30,9 @@ type offlineQuestion struct {
 	Topic       string   `json:"topic"`
 	Grade       string   `json:"grade"`
 	ImageURL    string   `json:"image_url"`
+	// Aligned with Options; empty when no option has a picture.
+	OptionImages        []string `json:"option_images"`
+	ExplanationImageURL string   `json:"explanation_image_url"`
 }
 
 // offlineContest checks the student may take this exam offline.
@@ -81,7 +84,8 @@ func (s *Server) appOfflinePaper(c *gin.Context) error {
 	}
 	out := make([]offlineQuestion, len(qs))
 	for i, q := range qs {
-		out[i] = offlineQuestion{q.ID, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL}
+		out[i] = offlineQuestion{q.ID, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL,
+			nonNilStrings(q.OptionImages), q.ExplanationImageURL}
 	}
 	return httpx.OK(c, gin.H{
 		"contest_id":       co.ID,
@@ -89,6 +93,9 @@ func (s *Server) appOfflinePaper(c *gin.Context) error {
 		"available_until":  co.EndTime,
 		"updated_at":       co.UpdatedAt,
 		"questions":        out,
+		// Answers come back in the original option order.
+		"shuffle_questions": co.ShuffleQuestions,
+		"shuffle_options":   co.ShuffleOptions,
 	})
 }
 
@@ -170,4 +177,11 @@ func scoreAnswers(qs []store.Question, given map[string]int) (map[string]int, in
 		}
 	}
 	return answers, correct
+}
+
+func nonNilStrings(ss []string) []string {
+	if ss == nil {
+		return []string{}
+	}
+	return ss
 }

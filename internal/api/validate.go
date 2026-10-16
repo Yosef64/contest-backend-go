@@ -8,7 +8,19 @@ import (
 	"victor-contest-go/internal/store"
 )
 
-var subjects = map[string]bool{"Mathematics": true, "Physics": true, "Chemistry": true, "Biology": true, "English": true, "History": true, "Geography": true, "Economics": true, "Civics": true, "Mixed": true}
+// defaultSubjects are the subjects every academy starts with (migration
+// 0023); tests check against them.
+var defaultSubjects = map[string]bool{"Mathematics": true, "Physics": true, "Chemistry": true, "Biology": true, "English": true, "History": true, "Geography": true, "Economics": true, "Civics": true}
+
+// subjectOK reports whether name is a subject; mixed allows "Mixed" (an
+// exam across subjects). The server replaces it with a lookup in the
+// subjects table (see NewServer).
+var subjectOK = func(name string, mixed bool) bool {
+	if name == "Mixed" {
+		return mixed
+	}
+	return defaultSubjects[name]
+}
 
 // NormalizeGrade accepts "9".."12", and the old mini app's "1".."4".
 func NormalizeGrade(g string) string {

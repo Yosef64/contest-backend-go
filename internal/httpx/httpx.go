@@ -30,10 +30,12 @@ func NewError(status int, code, msg string) *Error {
 	return &Error{Status: status, Code: code, Message: msg}
 }
 
-func BadRequest(msg string) *Error    { return NewError(http.StatusBadRequest, "bad_request", msg) }
-func Unauthorized(msg string) *Error  { return NewError(http.StatusUnauthorized, "unauthorized", msg) }
-func Forbidden(msg string) *Error     { return NewError(http.StatusForbidden, "forbidden", msg) }
-func NotFound(what string) *Error     { return NewError(http.StatusNotFound, "not_found", what+" not found") }
+func BadRequest(msg string) *Error   { return NewError(http.StatusBadRequest, "bad_request", msg) }
+func Unauthorized(msg string) *Error { return NewError(http.StatusUnauthorized, "unauthorized", msg) }
+func Forbidden(msg string) *Error    { return NewError(http.StatusForbidden, "forbidden", msg) }
+func NotFound(what string) *Error {
+	return NewError(http.StatusNotFound, "not_found", what+" not found")
+}
 func Conflict(code, msg string) *Error { return NewError(http.StatusConflict, code, msg) }
 
 // Invalid reports field-level validation problems.

@@ -47,7 +47,7 @@ func (in *studyInput) validate() error {
 	if in.Title == "" {
 		return httpx.Field("title", "Give the session a name.")
 	}
-	if in.Subject != "" && !subjects[in.Subject] {
+	if in.Subject != "" && !subjectOK(in.Subject, false) {
 		return httpx.Field("subject", "Choose a supported subject.")
 	}
 	if in.StartsAt.Before(time.Now().AddDate(-1, 0, 0)) || in.StartsAt.After(time.Now().AddDate(2, 0, 0)) {

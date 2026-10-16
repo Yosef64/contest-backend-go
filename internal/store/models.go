@@ -91,22 +91,25 @@ type ChapterComment struct {
 }
 
 type Question struct {
-	ID          string    `json:"id" db:"id"`
-	Text        string    `json:"text" db:"text"`
-	Options     []string  `json:"options" db:"options"`
-	AnswerIndex int       `json:"answer_index" db:"answer_index"`
-	Explanation string    `json:"explanation" db:"explanation"`
-	Subject     string    `json:"subject" db:"subject"`
-	Chapter     string    `json:"chapter" db:"chapter"`
-	Topic       string    `json:"topic" db:"topic"`
-	Grade       string    `json:"grade" db:"grade"`
+	ID          string   `json:"id" db:"id"`
+	Text        string   `json:"text" db:"text"`
+	Options     []string `json:"options" db:"options"`
+	AnswerIndex int      `json:"answer_index" db:"answer_index"`
+	Explanation string   `json:"explanation" db:"explanation"`
+	Subject     string   `json:"subject" db:"subject"`
+	Chapter     string   `json:"chapter" db:"chapter"`
+	Topic       string   `json:"topic" db:"topic"`
+	Grade       string   `json:"grade" db:"grade"`
 	// Stream ("natural" or "social") for grade 11 and up; empty suits both.
-	Stream      string    `json:"stream" db:"stream"`
-	ImageURL    string    `json:"image_url" db:"image_url"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	CreatedBy   string    `json:"created_by" db:"created_by"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
-	UpdatedBy   string    `json:"updated_by" db:"updated_by"`
+	Stream   string `json:"stream" db:"stream"`
+	ImageURL string `json:"image_url" db:"image_url"`
+	// One picture per option ('' for none), or empty when no option has one.
+	OptionImages        []string  `json:"option_images" db:"option_images"`
+	ExplanationImageURL string    `json:"explanation_image_url" db:"explanation_image_url"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	CreatedBy           string    `json:"created_by" db:"created_by"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
+	UpdatedBy           string    `json:"updated_by" db:"updated_by"`
 }
 
 // PublicQuestion is what students see during a contest: no answer.
@@ -118,10 +121,16 @@ type PublicQuestion struct {
 	Chapter  string   `json:"chapter"`
 	Grade    string   `json:"grade"`
 	ImageURL string   `json:"image_url"`
+	// Aligned with Options; omitted when no option has a picture.
+	OptionImages []string `json:"option_images,omitempty"`
 }
 
 func (q Question) Public() PublicQuestion {
-	return PublicQuestion{ID: q.ID, Text: q.Text, Options: q.Options, Subject: q.Subject, Chapter: q.Chapter, Grade: q.Grade, ImageURL: q.ImageURL}
+	p := PublicQuestion{ID: q.ID, Text: q.Text, Options: q.Options, Subject: q.Subject, Chapter: q.Chapter, Grade: q.Grade, ImageURL: q.ImageURL}
+	if len(q.OptionImages) == len(q.Options) {
+		p.OptionImages = q.OptionImages
+	}
+	return p
 }
 
 type Contest struct {
@@ -137,19 +146,22 @@ type Contest struct {
 	Registrations int       `json:"registrations" db:"registrations"`
 	Submissions   int       `json:"submissions" db:"submissions"`
 	// Started timed attempts (national exam sets).
-	Attempts int `json:"attempts" db:"attempts"`
-	Phase         string    `json:"phase" db:"-"`
+	Attempts int    `json:"attempts" db:"attempts"`
+	Phase    string `json:"phase" db:"-"`
 
 	// "contest" (scheduled) or "national" (past national exam, timed practice
 	// open between StartTime and EndTime).
-	Kind            string    `json:"kind" db:"kind"`
-	ExamYear        *int      `json:"exam_year" db:"exam_year"`
-	Stream          string    `json:"stream" db:"stream"`
-	DurationMinutes *int      `json:"duration_minutes" db:"duration_minutes"`
-	Rules           string    `json:"rules" db:"rules"`
-	Scoring         string    `json:"scoring" db:"scoring"`
-	CreatedBy       string    `json:"created_by" db:"created_by"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	Kind            string `json:"kind" db:"kind"`
+	ExamYear        *int   `json:"exam_year" db:"exam_year"`
+	Stream          string `json:"stream" db:"stream"`
+	DurationMinutes *int   `json:"duration_minutes" db:"duration_minutes"`
+	Rules           string `json:"rules" db:"rules"`
+	Scoring         string `json:"scoring" db:"scoring"`
+	// Each student sees the questions / options in their own order.
+	ShuffleQuestions bool      `json:"shuffle_questions" db:"shuffle_questions"`
+	ShuffleOptions   bool      `json:"shuffle_options" db:"shuffle_options"`
+	CreatedBy        string    `json:"created_by" db:"created_by"`
+	UpdatedAt        time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (c *Contest) IsNational() bool { return c.Kind == "national" }

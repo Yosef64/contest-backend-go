@@ -42,8 +42,17 @@ func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
 	if err != nil {
 		slog.Error("push notifications off", "err", err)
 	}
-	return &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool,
+	s := &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool,
 		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), push: sender, now: time.Now}
+	if pool != nil {
+		// Subjects come from the subjects table (admins add their own).
+		subjectOK = func(name string, mixed bool) bool {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			return s.isSubject(ctx, name, mixed)
+		}
+	}
+	return s
 }
 
 func (s *Server) Router() *gin.Engine {
@@ -74,6 +83,7 @@ func (s *Server) Router() *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/site", httpx.H(s.publicSite))
+	v1.GET("/subjects", httpx.H(s.publicSubjects))
 	// Chapa calls these; each one only triggers a verification with Chapa.
 	v1.GET("/payments/chapa/callback", s.chapaCallback)
 	v1.POST("/payments/chapa/webhook", s.chapaWebhook)
@@ -120,6 +130,7 @@ func (s *Server) Router() *gin.Engine {
 	app.GET("/contests/:id/editorial", httpx.H(s.appEditorial))
 	app.GET("/contests/:id/standings", httpx.H(s.appStandings))
 	app.GET("/leaderboard", httpx.H(s.appLeaderboard))
+	app.GET("/students/:id/profile", httpx.H(s.appStudentProfile))
 	app.GET("/ai/status", httpx.H(s.aiStatus))
 	app.POST("/ai/tutor", httpx.H(s.aiTutor))
 	app.GET("/ai/analysis", httpx.H(s.aiAnalysis))
@@ -203,6 +214,10 @@ func (s *Server) Router() *gin.Engine {
 	ad.POST("/chapters/:id/comments", httpx.H(s.adminAddComment))
 	ad.PATCH("/comments/:id", httpx.H(s.adminResolveComment))
 	ad.POST("/media", httpx.H(s.adminUpload))
+	ad.GET("/subjects", httpx.H(s.adminSubjects))
+	ad.POST("/subjects", httpx.H(s.adminCreateSubject))
+	ad.PATCH("/subjects/:name", httpx.H(s.adminUpdateSubject))
+	ad.DELETE("/subjects/:name", httpx.H(s.adminDeleteSubject))
 	ad.POST("/media/sign", httpx.H(s.adminSignUpload))
 	ad.POST("/media/register", httpx.H(s.adminRegisterUpload))
 	ad.GET("/media/:id/uses", httpx.H(s.adminMediaUses))

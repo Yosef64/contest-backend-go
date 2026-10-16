@@ -665,11 +665,7 @@ func (s *Server) appContestQuestions(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	out := make([]store.PublicQuestion, len(qs))
-	for i, q := range qs {
-		out[i] = q.Public()
-	}
-	return httpx.OK(c, gin.H{"questions": out, "ends_at": endsAt})
+	return httpx.OK(c, gin.H{"questions": playQuestions(co, st.ID, qs), "ends_at": endsAt})
 }
 
 // submitGrace allows for network delay when the timer auto-submits at the end.
@@ -712,7 +708,7 @@ func (s *Server) appSubmit(c *gin.Context) error {
 		return err
 	}
 	// Score on the server; ignore answers for unknown questions or options.
-	answers, correct := scoreAnswers(qs, in.Answers)
+	answers, correct := scoreAnswers(qs, unshuffleAnswers(co, st.ID, qs, in.Answers))
 	if in.TimeSeconds > maxSeconds {
 		in.TimeSeconds = maxSeconds
 	}

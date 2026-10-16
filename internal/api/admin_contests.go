@@ -21,11 +21,14 @@ type questionInput struct {
 	Subject     string   `json:"subject" binding:"required"`
 	Chapter     string   `json:"chapter" binding:"required,max=120"`
 	// Optional finer level under the chapter, used in school reports.
-	Topic    string `json:"topic" binding:"max=120"`
+	Topic string `json:"topic" binding:"max=120"`
 	Grade string `json:"grade" binding:"required"`
 	// "natural" or "social" for grade 11 and up; empty means both streams.
 	Stream   string `json:"stream"`
 	ImageURL string `json:"image_url" binding:"omitempty,url"`
+	// One picture per option ('' for none); an option may be a picture only.
+	OptionImages        []string `json:"option_images" binding:"max=6,dive,omitempty,url"`
+	ExplanationImageURL string   `json:"explanation_image_url" binding:"omitempty,url"`
 }
 
 // questionLevel normalizes a question's grade (9-12) or university level
@@ -51,10 +54,10 @@ func questionStream(level, stream string) (string, bool) {
 }
 
 func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
-	opts := trimAll(in.Options)
+	opts, images, ok := optionsWithImages(in.Options, in.OptionImages)
 	fields := map[string]string{}
-	if len(opts) < 2 || len(opts) != len(in.Options) {
-		fields[prefix+"options"] = "Fill in at least two options and remove empty ones."
+	if !ok {
+		fields[prefix+"options"] = "Give every option text or a picture, and remove empty ones."
 	}
 	if in.AnswerIndex == nil || *in.AnswerIndex < 0 || *in.AnswerIndex >= len(in.Options) {
 		fields[prefix+"answer_index"] = "Choose the correct option."
@@ -67,7 +70,7 @@ func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
 	if !ok {
 		fields[prefix+"stream"] = "Choose Natural, Social or both streams."
 	}
-	if !subjects[in.Subject] || in.Subject == "Mixed" {
+	if !subjectOK(in.Subject, false) {
 		fields[prefix+"subject"] = "Choose a supported subject."
 	}
 	if strings.TrimSpace(in.Text) == "" {
@@ -79,7 +82,37 @@ func (in *questionInput) toQuestion(prefix string) (store.Question, error) {
 	return store.Question{
 		Text: content.SanitizeText(strings.TrimSpace(in.Text)), Options: opts, AnswerIndex: *in.AnswerIndex, Explanation: content.SanitizeText(strings.TrimSpace(in.Explanation)),
 		Subject: in.Subject, Chapter: strings.TrimSpace(in.Chapter), Topic: strings.TrimSpace(in.Topic), Grade: grade, Stream: stream, ImageURL: in.ImageURL,
+		OptionImages: images, ExplanationImageURL: in.ExplanationImageURL,
 	}, nil
+}
+
+// optionsWithImages trims the options and lines up their pictures: an option
+// needs text or a picture, and there must be at least two. images is empty
+// when no option has a picture.
+func optionsWithImages(options, images []string) ([]string, []string, bool) {
+	if len(images) > len(options) {
+		return nil, nil, false
+	}
+	opts := make([]string, len(options))
+	pics := make([]string, len(options))
+	pictures := false
+	for i, o := range options {
+		opts[i] = strings.TrimSpace(o)
+		if i < len(images) {
+			pics[i] = strings.TrimSpace(images[i])
+		}
+		if opts[i] == "" && pics[i] == "" {
+			return nil, nil, false
+		}
+		pictures = pictures || pics[i] != ""
+	}
+	if len(opts) < 2 {
+		return nil, nil, false
+	}
+	if !pictures {
+		pics = []string{}
+	}
+	return opts, pics, true
 }
 
 func (s *Server) adminQuestions(c *gin.Context) error {
@@ -177,6 +210,9 @@ type contestInput struct {
 	QuestionIDs []string `json:"question_ids" binding:"max=200"`
 	Rules       string   `json:"rules" binding:"max=4000"`
 	Scoring     string   `json:"scoring" binding:"max=2000"`
+	// Per-student order of questions and options (default on).
+	ShuffleQuestions *bool `json:"shuffle_questions"`
+	ShuffleOptions   *bool `json:"shuffle_options"`
 	// "national" marks a past national entrance exam set: students take it
 	// as timed practice any time between start_time and end_time.
 	Kind            string `json:"kind" binding:"omitempty,oneof=contest national"`
@@ -194,7 +230,7 @@ func (in *contestInput) toContest() (store.Contest, error) {
 	switch {
 	case grade == "":
 		return store.Contest{}, httpx.Field("grade", "Choose grade 9, 10, 11, 12, remedial or freshman.")
-	case !subjects[in.Subject]:
+	case !subjectOK(in.Subject, true):
 		return store.Contest{}, httpx.Field("subject", "Choose a supported subject.")
 	case !national && in.EndTime.Sub(in.StartTime) > 24*time.Hour:
 		return store.Contest{}, httpx.Field("end_time", "An exam can last at most 24 hours.")
@@ -224,6 +260,8 @@ func (in *contestInput) toContest() (store.Contest, error) {
 		StartTime: in.StartTime.UTC(), EndTime: in.EndTime.UTC(), Prize: strings.TrimSpace(in.Prize), QuestionIDs: in.QuestionIDs,
 		Rules: strings.TrimSpace(in.Rules), Scoring: strings.TrimSpace(in.Scoring),
 		Kind: kind, ExamYear: year, Stream: stream, DurationMinutes: duration,
+		ShuffleQuestions: in.ShuffleQuestions == nil || *in.ShuffleQuestions,
+		ShuffleOptions:   in.ShuffleOptions == nil || *in.ShuffleOptions,
 	}, nil
 }
 

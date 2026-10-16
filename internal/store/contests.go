@@ -10,7 +10,7 @@ import (
 
 // Questions -------------------------------------------------------------------
 
-const questionCols = `id, text, options, answer_index, explanation, subject, chapter, topic, grade, stream, image_url, created_at, created_by, updated_at, updated_by`
+const questionCols = `id, text, options, answer_index, explanation, subject, chapter, topic, grade, stream, image_url, option_images, explanation_image_url, created_at, created_by, updated_at, updated_by`
 
 // Questions lists the bank, filtered by subject, grade (or level), stream,
 // text/chapter search and the date they were added ([from, until)). A stream
@@ -26,9 +26,9 @@ func (s *Store) Questions(ctx context.Context, subject, grade, stream, q string,
 
 // CreateQuestion records the author in created_by and updated_by.
 func (s *Store) CreateQuestion(ctx context.Context, q Question) (Question, error) {
-	out, err := one[Question](ctx, s.db, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11) RETURNING `+questionCols,
-		q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream)
+	out, err := one[Question](ctx, s.db, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream, option_images, explanation_image_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13) RETURNING `+questionCols,
+		q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream, nonNil(q.OptionImages), q.ExplanationImageURL)
 	return out, classify(err)
 }
 
@@ -36,8 +36,8 @@ func (s *Store) CreateQuestion(ctx context.Context, q Question) (Question, error
 func (s *Store) CreateQuestions(ctx context.Context, qs []Question) (int, error) {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		for _, q := range qs {
-			if _, err := tx.Exec(ctx, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11)`, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream, option_images, explanation_image_url)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13)`, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream, nonNil(q.OptionImages), q.ExplanationImageURL); err != nil {
 				return err
 			}
 		}
@@ -49,8 +49,10 @@ func (s *Store) CreateQuestions(ctx context.Context, qs []Question) (int, error)
 // UpdateQuestion records the editor in updated_by.
 func (s *Store) UpdateQuestion(ctx context.Context, id string, q Question) (Question, error) {
 	out, err := one[Question](ctx, s.db, `UPDATE questions SET text = $2, options = $3, answer_index = $4, explanation = $5,
-		subject = $6, chapter = $7, grade = $8, image_url = $9, updated_by = $10, topic = $11, stream = $12, updated_at = now() WHERE id = $1 RETURNING `+questionCols,
-		id, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Grade, q.ImageURL, q.UpdatedBy, q.Topic, q.Stream)
+		subject = $6, chapter = $7, grade = $8, image_url = $9, updated_by = $10, topic = $11, stream = $12,
+		option_images = $13, explanation_image_url = $14, updated_at = now() WHERE id = $1 RETURNING `+questionCols,
+		id, q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Grade, q.ImageURL, q.UpdatedBy, q.Topic, q.Stream,
+		nonNil(q.OptionImages), q.ExplanationImageURL)
 	return out, classify(err)
 }
 
@@ -69,7 +71,7 @@ func (s *Store) DeleteQuestion(ctx context.Context, id string) error {
 // Contests --------------------------------------------------------------------
 
 const contestSelect = `SELECT c.id, c.title, c.description, c.subject, c.grade, c.start_time, c.end_time, c.prize,
-	c.kind, c.exam_year, c.stream, c.duration_minutes, c.rules, c.scoring, c.created_by, c.updated_at,
+	c.kind, c.exam_year, c.stream, c.duration_minutes, c.rules, c.scoring, c.shuffle_questions, c.shuffle_options, c.created_by, c.updated_at,
 	coalesce((SELECT array_agg(question_id ORDER BY position) FROM contest_questions WHERE contest_id = c.id), '{}') AS question_ids,
 	(SELECT count(*)::int FROM registrations WHERE contest_id = c.id) AS registrations,
 	(SELECT count(*)::int FROM submissions WHERE contest_id = c.id) AS submissions,
@@ -105,7 +107,7 @@ func (s *Store) Contest(ctx context.Context, id string) (Contest, error) {
 // ContestQuestions returns the contest's questions in order.
 func (s *Store) ContestQuestions(ctx context.Context, contestID string) ([]Question, error) {
 	return collect[Question](ctx, s.db, `SELECT q.id, q.text, q.options, q.answer_index, q.explanation, q.subject, q.chapter, q.topic, q.grade, q.stream, q.image_url,
-		q.created_at, q.created_by, q.updated_at, q.updated_by
+		q.option_images, q.explanation_image_url, q.created_at, q.created_by, q.updated_at, q.updated_by
 		FROM contest_questions cq JOIN questions q ON q.id = cq.question_id WHERE cq.contest_id = $1 ORDER BY cq.position`, contestID)
 }
 
@@ -122,10 +124,10 @@ func (s *Store) CreateContest(ctx context.Context, c Contest) (Contest, error) {
 	var id string
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `INSERT INTO contests (title, description, subject, grade, start_time, end_time, prize,
-			kind, exam_year, stream, duration_minutes, rules, scoring, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+			kind, exam_year, stream, duration_minutes, rules, scoring, created_by, shuffle_questions, shuffle_options)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
 			c.Title, c.Description, c.Subject, c.Grade, c.StartTime, c.EndTime, c.Prize,
-			c.Kind, c.ExamYear, c.Stream, c.DurationMinutes, c.Rules, c.Scoring, c.CreatedBy).Scan(&id); err != nil {
+			c.Kind, c.ExamYear, c.Stream, c.DurationMinutes, c.Rules, c.Scoring, c.CreatedBy, c.ShuffleQuestions, c.ShuffleOptions).Scan(&id); err != nil {
 			return err
 		}
 		return s.saveContestQuestions(ctx, tx, id, c.QuestionIDs)
@@ -141,9 +143,10 @@ func (s *Store) CreateContest(ctx context.Context, c Contest) (Contest, error) {
 func (s *Store) UpdateContest(ctx context.Context, id string, c Contest) (Contest, error) {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE contests SET title = $2, description = $3, subject = $4, grade = $5, start_time = $6, end_time = $7, prize = $8,
-			kind = $9, exam_year = $10, stream = $11, duration_minutes = $12, rules = $13, scoring = $14, updated_at = now()
+			kind = $9, exam_year = $10, stream = $11, duration_minutes = $12, rules = $13, scoring = $14,
+			shuffle_questions = $15, shuffle_options = $16, updated_at = now()
 			WHERE id = $1`, id, c.Title, c.Description, c.Subject, c.Grade, c.StartTime, c.EndTime, c.Prize,
-			c.Kind, c.ExamYear, c.Stream, c.DurationMinutes, c.Rules, c.Scoring)
+			c.Kind, c.ExamYear, c.Stream, c.DurationMinutes, c.Rules, c.Scoring, c.ShuffleQuestions, c.ShuffleOptions)
 		if err != nil {
 			return err
 		}
@@ -206,9 +209,9 @@ func (s *Store) ImportContestQuestions(ctx context.Context, contestID string, qs
 		}
 		for i, q := range qs {
 			var id string
-			if err := tx.QueryRow(ctx, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11) RETURNING id`,
-				q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream).Scan(&id); err != nil {
+			if err := tx.QueryRow(ctx, `INSERT INTO questions (text, options, answer_index, explanation, subject, chapter, topic, grade, image_url, created_by, updated_by, stream, option_images, explanation_image_url)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13) RETURNING id`,
+				q.Text, q.Options, q.AnswerIndex, q.Explanation, q.Subject, q.Chapter, q.Topic, q.Grade, q.ImageURL, q.CreatedBy, q.Stream, nonNil(q.OptionImages), q.ExplanationImageURL).Scan(&id); err != nil {
 				return err
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO contest_questions (contest_id, question_id, position) VALUES ($1, $2, $3)`,
@@ -336,4 +339,12 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// nonNil stores an empty array rather than NULL.
+func nonNil(ss []string) []string {
+	if ss == nil {
+		return []string{}
+	}
+	return ss
 }

@@ -46,6 +46,7 @@ func (s *Store) MediaUses(ctx context.Context, fileKey string) ([]MediaUse, erro
 		UNION ALL SELECT 'Training', title FROM trainings WHERE html LIKE $1
 		UNION ALL SELECT 'Question', left(regexp_replace(text, '<[^>]+>', '', 'g'), 80) FROM questions
 			WHERE text LIKE $1 OR explanation LIKE $1 OR image_url LIKE $1 OR array_to_string(options, ' ') LIKE $1
+				OR explanation_image_url LIKE $1 OR array_to_string(option_images, ' ') LIKE $1
 		UNION ALL SELECT 'Announcement', title FROM announcements WHERE body LIKE $1
 		UNION ALL SELECT 'Site setting', key FROM site_settings WHERE value LIKE $1
 		LIMIT 20`, pattern)

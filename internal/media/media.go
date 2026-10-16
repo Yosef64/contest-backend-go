@@ -25,12 +25,12 @@ const (
 )
 
 var allowed = map[string]string{
-	"image/png":     "image",
-	"image/jpeg":    "image",
-	"image/webp":    "image",
-	"image/gif":     "image",
-	"video/mp4":     "video",
-	"video/webm":    "video",
+	"image/png":  "image",
+	"image/jpeg": "image",
+	"image/webp": "image",
+	"image/gif":  "image",
+	"video/mp4":  "video",
+	"video/webm": "video",
 }
 
 // extensions maps each allowed type to the extension it is stored under.

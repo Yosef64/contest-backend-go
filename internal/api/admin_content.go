@@ -26,7 +26,7 @@ func (in *courseInput) toCourse() (store.Course, error) {
 	if grade == "" {
 		return store.Course{}, httpx.Field("grade", "Choose grade 9, 10, 11, 12, remedial or freshman.")
 	}
-	if !subjects[in.Subject] {
+	if !subjectOK(in.Subject, true) {
 		return store.Course{}, httpx.Field("subject", "Choose a supported subject.")
 	}
 	return store.Course{Grade: grade, Subject: in.Subject, Title: strings.TrimSpace(in.Title), Description: strings.TrimSpace(in.Description)}, nil

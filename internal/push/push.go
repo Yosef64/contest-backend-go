@@ -81,12 +81,13 @@ type Message struct {
 }
 
 // Send delivers a message. Android shows it on the "Announcements" channel.
-func (s *Sender) Send(ctx context.Context, m Message) error {
+// It returns FCM's message ID.
+func (s *Sender) Send(ctx context.Context, m Message) (string, error) {
 	if s == nil {
-		return nil
+		return "", nil
 	}
 	if m.Topic == "" && m.Condition == "" {
-		return errors.New("push: no topic or condition")
+		return "", errors.New("push: no topic or condition")
 	}
 	msg := map[string]any{
 		"notification": map[string]string{"title": m.Title, "body": m.Body},
@@ -106,22 +107,26 @@ func (s *Sender) Send(ctx context.Context, m Message) error {
 	}
 	body, err := json.Marshal(map[string]any{"message": msg})
 	if err != nil {
-		return err
+		return "", err
 	}
 	url := "https://fcm.googleapis.com/v1/projects/" + s.projectID + "/messages:send"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := s.client.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		detail, _ := io.ReadAll(io.LimitReader(res.Body, 500))
-		return fmt.Errorf("push: FCM %d: %s", res.StatusCode, detail)
+		return "", fmt.Errorf("push: FCM %d: %s", res.StatusCode, detail)
 	}
-	return nil
+	var sent struct {
+		Name string `json:"name"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&sent)
+	return sent.Name, nil
 }
