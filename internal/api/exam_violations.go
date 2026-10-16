@@ -112,3 +112,23 @@ func (s *Server) adminExamViolations(c *gin.Context) error {
 	_ = s.pool.QueryRow(c, `SELECT max_violations FROM exam_mode_settings WHERE contest_id = $1`, c.Param("id")).Scan(&limit)
 	return httpx.OK(c, gin.H{"violations": out, "max_violations": limit})
 }
+
+// studentBreaks counts a student's exam-mode breaks per exam.
+func (s *Server) studentBreaks(c *gin.Context, studentID string) (map[string]int, error) {
+	rows, err := s.pool.Query(c, `SELECT contest_id, count(*)::int FROM exam_violations
+		WHERE student_id = $1 AND kind <> 'auto_submitted' GROUP BY contest_id`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}

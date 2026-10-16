@@ -414,8 +414,10 @@ func (s *Server) appChapter(c *gin.Context) error {
 
 type appContest struct {
 	ExamMode bool `json:"exam_mode"`
-	// Exam-mode breaks before the app submits the exam (0: never).
+	// Exam-mode breaks before the app submits the exam (0: never), and
+	// this student's breaks so far (so a restarted app still knows).
 	MaxViolations int `json:"max_violations"`
+	Violations    int `json:"violations"`
 	resourceAccess
 	store.Contest
 	QuestionIDs   []string           `json:"question_ids,omitempty"`
@@ -500,6 +502,10 @@ func (s *Server) appContests(c *gin.Context) error {
 	// Which exams run in exam mode: the app locks the phone for them.
 	examMode := map[string]bool{}
 	maxViolations := map[string]int{}
+	breaks, err := s.studentBreaks(c, st.ID)
+	if err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(c, "SELECT contest_id, max_violations FROM exam_mode_settings WHERE enabled AND contest_id = ANY($1)", ids)
 	if err != nil {
 		return err
@@ -528,7 +534,7 @@ func (s *Server) appContests(c *gin.Context) error {
 		if co.IsNational() && len(co.QuestionIDs) == 0 {
 			continue // still being prepared
 		}
-		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID], ExamMode: examMode[co.ID], MaxViolations: maxViolations[co.ID]}
+		ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: participants[co.ID], IsRegistered: registered[co.ID], ExamMode: examMode[co.ID], MaxViolations: maxViolations[co.ID], Violations: breaks[co.ID]}
 		if ac.Participants == nil {
 			ac.Participants = []string{}
 		}
@@ -572,6 +578,9 @@ func (s *Server) appContest(c *gin.Context) error {
 	}
 	ac := appContest{Contest: co, resourceAccess: access[co.ID], QuestionCount: len(co.QuestionIDs), Participants: []string{}, IsRegistered: registered[co.ID]}
 	if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM exam_mode_settings WHERE contest_id=$1 AND enabled), coalesce((SELECT max_violations FROM exam_mode_settings WHERE contest_id=$1 AND enabled), 0)", co.ID).Scan(&ac.ExamMode, &ac.MaxViolations); err != nil {
+		return err
+	}
+	if err = s.pool.QueryRow(c, `SELECT count(*) FROM exam_violations WHERE contest_id = $1 AND student_id = $2 AND kind <> 'auto_submitted'`, co.ID, st.ID).Scan(&ac.Violations); err != nil {
 		return err
 	}
 	if sub, ok := submitted[co.ID]; ok {

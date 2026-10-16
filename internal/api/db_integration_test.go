@@ -224,8 +224,16 @@ func TestIntegrationNewFeatures(t *testing.T) {
 		t.Fatalf("teacher's question school: %v", created)
 	}
 	mine := call(t, s.adminQuestions, http.MethodGet, "/x", "", teacher, nil)["questions"].([]any)
-	if len(mine) != 1 {
-		t.Fatalf("teacher sees %d questions, want only their school's", len(mine))
+	seen := false
+	for _, q := range mine {
+		m := q.(map[string]any)
+		if m["school_id"] != "it_school" {
+			t.Fatalf("teacher sees another school's or the main office's question: %v", m)
+		}
+		seen = seen || m["id"] == qid
+	}
+	if !seen {
+		t.Fatal("teacher doesn't see their own question")
 	}
 	start, end := now.Add(-time.Minute).UTC().Format(time.RFC3339), now.Add(time.Hour).UTC().Format(time.RFC3339)
 	exam := call(t, s.adminCreateContest, http.MethodPost, "/x",
