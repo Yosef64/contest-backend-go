@@ -17,6 +17,7 @@ import (
 	"victor-contest-go/internal/content"
 	"victor-contest-go/internal/httpx"
 	"victor-contest-go/internal/live"
+	"victor-contest-go/internal/push"
 	"victor-contest-go/internal/store"
 )
 
@@ -28,9 +29,9 @@ func (s *Server) signalRoom(c *gin.Context, id string) {
 		return
 	}
 	var room live.Room
-	err := s.pool.QueryRow(c, `SELECT g.status, count(m.student_id)::int, count(m.submitted_at)::int
+	err := s.pool.QueryRow(c, `SELECT g.status, g.ends_at, count(m.student_id)::int, count(m.submitted_at)::int
 		FROM group_exams g LEFT JOIN group_exam_members m ON m.group_id = g.id
-		WHERE g.id = $1 GROUP BY g.status`, id).Scan(&room.Status, &room.Members, &room.Submitted)
+		WHERE g.id = $1 GROUP BY g.status, g.ends_at`, id).Scan(&room.Status, &room.EndsAt, &room.Members, &room.Submitted)
 	if err == nil {
 		err = s.rooms.Update(c, id, room)
 	}
@@ -44,10 +45,15 @@ func (s *Server) signalRoom(c *gin.Context, id string) {
 // A student creates a group exam with their own questions (typed one by one
 // or imported from a file in the app), shares the invitation code, and starts
 // it once friends have joined the waiting room. Everyone gets the same questions and
-// the same server-side deadline. Answers are saved as students go; when time
-// is up the last saved answers of anyone who has not submitted are scored.
-// Clients poll GET /group-exams/:id (every few seconds) and use server_now to
-// line up their countdown with the server clock.
+// the same server-side deadline. Answers stay on each phone until the student
+// submits (the app submits by itself when time is up); anyone who never
+// submits scores what the server has (nothing, from current apps) once the
+// grace period is over. Phones hear about changes through Firestore (see
+// signalRoom) and use server_now to line up their countdown with the server
+// clock.
+//
+// The creator controls the exam: exam mode (phones pinned to Victory, no
+// codes), ending it early, deleting it, and running it again as a new room.
 
 const (
 	groupCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -62,18 +68,21 @@ const (
 )
 
 type groupExam struct {
-	ID              string     `json:"id"`
-	Code            string     `json:"code"`
-	Title           string     `json:"title"`
-	Subject         string     `json:"subject"`
-	Grade           string     `json:"grade"`
-	CreatorID       string     `json:"creator_id"`
-	DurationMinutes int        `json:"duration_minutes"`
-	QuestionCount   int        `json:"question_count"`
-	Status          string     `json:"status"`
-	CreatedAt       time.Time  `json:"created_at"`
-	StartedAt       *time.Time `json:"started_at"`
-	EndsAt          *time.Time `json:"ends_at"`
+	ID              string `json:"id"`
+	Code            string `json:"code"`
+	Title           string `json:"title"`
+	Subject         string `json:"subject"`
+	Grade           string `json:"grade"`
+	CreatorID       string `json:"creator_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	QuestionCount   int    `json:"question_count"`
+	Status          string `json:"status"`
+	// ExamMode pins every phone to Victory during the exam; leaving the
+	// app counts as a break, which the creator sees.
+	ExamMode  bool       `json:"exam_mode"`
+	CreatedAt time.Time  `json:"created_at"`
+	StartedAt *time.Time `json:"started_at"`
+	EndsAt    *time.Time `json:"ends_at"`
 }
 
 type groupMember struct {
@@ -86,8 +95,10 @@ type groupMember struct {
 	Correct     *int       `json:"correct,omitempty"`
 	Total       *int       `json:"total,omitempty"`
 	TimeSeconds *int       `json:"time_seconds,omitempty"`
-	Rank        int        `json:"rank,omitempty"`
-	answers     map[string]int
+	// Breaks: times the student left the pinned app (creator only).
+	Breaks  *int `json:"breaks,omitempty"`
+	Rank    int  `json:"rank,omitempty"`
+	answers map[string]int
 }
 
 func newGroupCode() (string, error) {
@@ -104,12 +115,12 @@ func newGroupCode() (string, error) {
 
 const groupCols = `g.id, g.code, g.title, g.subject, g.grade, g.creator_id, g.duration_minutes,
 	(SELECT count(*) FROM group_exam_questions q WHERE q.group_id = g.id)::int,
-	g.status, g.created_at, g.started_at, g.ends_at`
+	g.status, g.exam_mode, g.created_at, g.started_at, g.ends_at`
 
 func scanGroup(row pgx.Row) (groupExam, error) {
 	var g groupExam
 	err := row.Scan(&g.ID, &g.Code, &g.Title, &g.Subject, &g.Grade, &g.CreatorID, &g.DurationMinutes, &g.QuestionCount,
-		&g.Status, &g.CreatedAt, &g.StartedAt, &g.EndsAt)
+		&g.Status, &g.ExamMode, &g.CreatedAt, &g.StartedAt, &g.EndsAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return g, store.ErrNotFound
 	}
@@ -121,7 +132,7 @@ func (s *Server) loadGroup(c *gin.Context, id string) (groupExam, error) {
 }
 
 func (s *Server) groupMembers(c *gin.Context, id string) ([]groupMember, error) {
-	rows, err := s.pool.Query(c, `SELECT m.student_id, st.name, st.photo_url, m.joined_at, m.answers, m.submitted_at, m.correct, m.total, m.time_seconds
+	rows, err := s.pool.Query(c, `SELECT m.student_id, st.name, st.photo_url, m.joined_at, m.answers, m.submitted_at, m.correct, m.total, m.time_seconds, m.breaks
 		FROM group_exam_members m JOIN students st ON st.id = m.student_id WHERE m.group_id = $1 ORDER BY m.joined_at`, id)
 	if err != nil {
 		return nil, err
@@ -131,12 +142,14 @@ func (s *Server) groupMembers(c *gin.Context, id string) ([]groupMember, error) 
 	for rows.Next() {
 		var m groupMember
 		var raw []byte
-		if err := rows.Scan(&m.StudentID, &m.Name, &m.PhotoURL, &m.JoinedAt, &raw, &m.SubmittedAt, &m.Correct, &m.Total, &m.TimeSeconds); err != nil {
+		var breaks int
+		if err := rows.Scan(&m.StudentID, &m.Name, &m.PhotoURL, &m.JoinedAt, &raw, &m.SubmittedAt, &m.Correct, &m.Total, &m.TimeSeconds, &breaks); err != nil {
 			return nil, err
 		}
 		m.answers = map[string]int{}
 		_ = json.Unmarshal(raw, &m.answers)
 		m.Answered = len(m.answers)
+		m.Breaks = &breaks
 		out = append(out, m)
 	}
 	return out, rows.Err()
@@ -272,6 +285,11 @@ func (s *Server) groupState(c *gin.Context, g groupExam, st store.Student) (gin.
 			members[i].Correct, members[i].Total = nil, nil
 		}
 	}
+	if g.CreatorID != st.ID || !g.ExamMode {
+		for i := range members {
+			members[i].Breaks = nil
+		}
+	}
 	out["participants"] = members
 	if g.Status == "running" && g.StartedAt != nil && !now.Before(*g.StartedAt) {
 		qs, err := s.groupQuestions(c, g)
@@ -320,6 +338,7 @@ func (s *Server) createGroupExam(c *gin.Context) error {
 		Subject         string               `json:"subject" binding:"max=40"`
 		DurationMinutes int                  `json:"duration_minutes" binding:"required,min=1,max=300"`
 		Questions       []groupQuestionInput `json:"questions"`
+		ExamMode        bool                 `json:"exam_mode"`
 	}
 	if err := httpx.Bind(c, &in); err != nil {
 		return err
@@ -388,9 +407,9 @@ func (s *Server) createGroupExam(c *gin.Context) error {
 		}
 		err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
 			var id string
-			if err := tx.QueryRow(c, `INSERT INTO group_exams (code, creator_id, title, subject, grade, duration_minutes)
-				VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-				code, st.ID, title, subject, st.Grade, in.DurationMinutes).Scan(&id); err != nil {
+			if err := tx.QueryRow(c, `INSERT INTO group_exams (code, creator_id, title, subject, grade, duration_minutes, exam_mode)
+				VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+				code, st.ID, title, subject, st.Grade, in.DurationMinutes, in.ExamMode).Scan(&id); err != nil {
 				return err
 			}
 			for i, q := range qs {
@@ -533,7 +552,7 @@ func (s *Server) listGroupExams(c *gin.Context) error {
 		var it item
 		g := &it.groupExam
 		if err := rows.Scan(&g.ID, &g.Code, &g.Title, &g.Subject, &g.Grade, &g.CreatorID, &g.DurationMinutes, &g.QuestionCount,
-			&g.Status, &g.CreatedAt, &g.StartedAt, &g.EndsAt, &it.Participants); err != nil {
+			&g.Status, &g.ExamMode, &g.CreatedAt, &g.StartedAt, &g.EndsAt, &it.Participants); err != nil {
 			return err
 		}
 		it.IsCreator = g.CreatorID == st.ID
@@ -594,6 +613,8 @@ func (s *Server) leaveGroupExam(c *gin.Context) error {
 
 type groupAnswers struct {
 	Answers map[string]int `json:"answers"`
+	// Breaks: times the student left the pinned app (exam mode).
+	Breaks int `json:"breaks" binding:"min=0,max=10000"`
 }
 
 // cleanAnswers keeps answers for this exam's questions and valid options.
@@ -666,8 +687,8 @@ func (s *Server) submitGroupExam(c *gin.Context) error {
 		spent = limit
 	}
 	tag, err := s.pool.Exec(c, `UPDATE group_exam_members SET answers = $3, saved_at = now(), submitted_at = now(),
-			correct = $4, total = $5, time_seconds = $6
-		WHERE group_id = $1 AND student_id = $2 AND submitted_at IS NULL`, g.ID, st.ID, raw, correct, len(qs), spent)
+			correct = $4, total = $5, time_seconds = $6, breaks = $7
+		WHERE group_id = $1 AND student_id = $2 AND submitted_at IS NULL`, g.ID, st.ID, raw, correct, len(qs), spent, in.Breaks)
 	if err != nil {
 		return err
 	}
@@ -680,4 +701,177 @@ func (s *Server) submitGroupExam(c *gin.Context) error {
 		return err
 	}
 	return httpx.OK(c, state)
+}
+
+// The creator's controls ------------------------------------------------------
+
+// creatorGroup loads the group for its creator; anyone else is refused.
+func (s *Server) creatorGroup(c *gin.Context) (groupExam, store.Student, error) {
+	g, st, err := s.memberGroup(c)
+	if err == nil && g.CreatorID != st.ID {
+		err = httpx.Forbidden("Only the person who created this group exam can do this.")
+	}
+	return g, st, err
+}
+
+// PUT /group-exams/:id/settings {exam_mode} — before the start.
+func (s *Server) updateGroupSettings(c *gin.Context) error {
+	var in struct {
+		ExamMode bool `json:"exam_mode"`
+	}
+	if err := httpx.Bind(c, &in); err != nil {
+		return err
+	}
+	g, st, err := s.creatorGroup(c)
+	if err != nil {
+		return err
+	}
+	tag, err := s.pool.Exec(c, `UPDATE group_exams SET exam_mode = $2 WHERE id = $1 AND status = 'waiting'`, g.ID, in.ExamMode)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.Conflict("group_not_waiting", "Settings can only change before the exam starts.")
+	}
+	s.signalRoom(c, g.ID)
+	if g, err = s.loadGroup(c, g.ID); err != nil {
+		return err
+	}
+	state, err := s.groupState(c, g, st)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, state)
+}
+
+// POST /group-exams/:id/end — ends the running exam now. Every phone submits
+// what its student has (as when time runs out); anyone who doesn't is
+// scored when the grace period is over.
+func (s *Server) endGroupExam(c *gin.Context) error {
+	g, st, err := s.creatorGroup(c)
+	if err != nil {
+		return err
+	}
+	now := s.now()
+	if g.Status != "running" || g.StartedAt == nil || now.Before(*g.StartedAt) {
+		return httpx.Conflict("group_not_running", "The exam isn't running.")
+	}
+	if _, err = s.pool.Exec(c, `UPDATE group_exams SET ends_at = $2 WHERE id = $1 AND status = 'running' AND ends_at > $2`, g.ID, now); err != nil {
+		return err
+	}
+	s.signalRoom(c, g.ID)
+	if g, err = s.loadGroup(c, g.ID); err != nil {
+		return err
+	}
+	state, err := s.groupState(c, g, st)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, state)
+}
+
+// DELETE /group-exams/:id — removes the exam, its questions and everyone's
+// results. Phones still in the room see that the host deleted it.
+func (s *Server) deleteGroupExam(c *gin.Context) error {
+	g, _, err := s.creatorGroup(c)
+	if err != nil {
+		return err
+	}
+	if _, err = s.pool.Exec(c, `DELETE FROM group_exams WHERE id = $1`, g.ID); err != nil {
+		return err
+	}
+	if err := s.rooms.Update(c, g.ID, live.Room{Status: "deleted"}); err != nil {
+		slog.Warn("group room signal", "group", g.ID, "err", err)
+	}
+	return httpx.NoContent(c)
+}
+
+// POST /group-exams/:id/again {duration_minutes?} — a new room with the same
+// questions and settings (a retake). Earlier members get a notification
+// with the new code.
+func (s *Server) runGroupExamAgain(c *gin.Context) error {
+	var in struct {
+		DurationMinutes int `json:"duration_minutes" binding:"omitempty,min=1,max=300"`
+	}
+	if c.Request.ContentLength > 0 {
+		if err := httpx.Bind(c, &in); err != nil {
+			return err
+		}
+	}
+	old, st, err := s.creatorGroup(c)
+	if err != nil {
+		return err
+	}
+	if old.Status != "finished" && old.Status != "cancelled" {
+		return httpx.Conflict("group_not_over", "Run it again once this one has ended.")
+	}
+	minutes := old.DurationMinutes
+	if in.DurationMinutes > 0 {
+		minutes = in.DurationMinutes
+	}
+	var g groupExam
+	for attempt := 0; attempt < 5 && g.ID == ""; attempt++ {
+		code, err := newGroupCode()
+		if err != nil {
+			return err
+		}
+		err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+			var id string
+			if err := tx.QueryRow(c, `INSERT INTO group_exams (code, creator_id, title, subject, grade, duration_minutes, exam_mode)
+				SELECT $2, creator_id, title, subject, grade, $3, exam_mode FROM group_exams WHERE id = $1 RETURNING id`,
+				old.ID, code, minutes).Scan(&id); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(c, `INSERT INTO group_exam_questions (group_id, position, text, options, answer_index, explanation)
+				SELECT $2, position, text, options, answer_index, explanation FROM group_exam_questions WHERE group_id = $1`, old.ID, id); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(c, `INSERT INTO group_exam_members (group_id, student_id) VALUES ($1, $2)`, id, st.ID); err != nil {
+				return err
+			}
+			g, err = scanGroup(tx.QueryRow(c, `SELECT `+groupCols+` FROM group_exams g WHERE g.id = $1`, id))
+			return err
+		})
+		if err != nil && !strings.Contains(err.Error(), "group_exams_code_key") {
+			return err
+		}
+	}
+	if g.ID == "" {
+		return errors.New("could not generate a unique group code")
+	}
+	s.signalRoom(c, g.ID)
+	s.inviteAgain(c, old.ID, st, g)
+	state, err := s.groupState(c, g, st)
+	if err != nil {
+		return err
+	}
+	return httpx.Created(c, state)
+}
+
+// inviteAgain tells the earlier members of a group exam about its retake.
+func (s *Server) inviteAgain(c *gin.Context, oldID string, host store.Student, g groupExam) {
+	if s.push == nil {
+		return
+	}
+	rows, err := s.pool.Query(c, `SELECT student_id FROM group_exam_members WHERE group_id = $1 AND student_id <> $2`, oldID, host.ID)
+	if err != nil {
+		slog.Warn("group retake invite", "err", err)
+		return
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		slog.Warn("group retake invite", "err", err)
+		return
+	}
+	first := strings.Fields(host.Name + " ")[0]
+	for _, id := range ids {
+		if _, err := s.push.Send(c, push.Message{
+			Topic: push.Topic("student", id),
+			Title: "Retake: " + g.Title,
+			Body:  fmt.Sprintf("%s opened it again. Join with code %s.", first, g.Code),
+			Data:  map[string]string{"group_code": g.Code},
+		}); err != nil {
+			slog.Warn("group retake invite", "student", id, "err", err)
+		}
+	}
 }

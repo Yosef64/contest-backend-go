@@ -150,6 +150,10 @@ func (s *Server) Router() *gin.Engine {
 	app.POST("/group-exams/:id/leave", httpx.H(s.leaveGroupExam))
 	app.PUT("/group-exams/:id/answers", httpx.H(s.saveGroupAnswers))
 	app.POST("/group-exams/:id/submit", httpx.H(s.submitGroupExam))
+	app.PUT("/group-exams/:id/settings", httpx.H(s.updateGroupSettings))
+	app.POST("/group-exams/:id/end", httpx.H(s.endGroupExam))
+	app.DELETE("/group-exams/:id", httpx.H(s.deleteGroupExam))
+	app.POST("/group-exams/:id/again", httpx.H(s.runGroupExamAgain))
 
 	app.POST("/contests/:id/exam-mode/:action", httpx.H(s.examModePassword))
 	app.POST("/contests/:id/exam-violations", httpx.H(s.appExamViolation))

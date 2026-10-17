@@ -3,10 +3,11 @@
 // (group_rooms/<group id>) instead of asking the API every few seconds;
 // when the document changes, it fetches the room from the API once.
 //
-// The documents hold no personal data: the room's status, its member and
-// submission counts, and a version that changes on every update. The API
-// stays the only source of truth. Security rules let anyone read a room
-// document by its ID (a random UUID only members know) and nobody write.
+// The documents hold no personal data: the room's status ("deleted" once the
+// creator deletes it), its member and submission counts, its end time, and a
+// version that changes on every update. The API stays the only source of
+// truth. Security rules let anyone read a room document by its ID (a random
+// UUID only members know) and nobody write.
 package live
 
 import (
@@ -62,6 +63,8 @@ type Room struct {
 	Status    string
 	Members   int
 	Submitted int
+	// EndsAt changes when the creator ends the exam early.
+	EndsAt *time.Time
 }
 
 // Update writes the room's document. It waits at most 3 seconds: a slow or
@@ -76,6 +79,7 @@ func (r *Rooms) Update(ctx context.Context, groupID string, room Room) error {
 		"status":    map[string]string{"stringValue": room.Status},
 		"members":   map[string]string{"integerValue": strconv.Itoa(room.Members)},
 		"submitted": map[string]string{"integerValue": strconv.Itoa(room.Submitted)},
+		"ends":      map[string]string{"integerValue": strconv.FormatInt(endsMillis(room.EndsAt), 10)},
 		"version":   map[string]string{"integerValue": strconv.FormatInt(time.Now().UnixMilli(), 10)},
 	}})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, r.base+url.PathEscape(groupID), bytes.NewReader(body))
@@ -93,4 +97,11 @@ func (r *Rooms) Update(ctx context.Context, groupID string, room Room) error {
 		return fmt.Errorf("firestore %d: %s", res.StatusCode, msg)
 	}
 	return nil
+}
+
+func endsMillis(t *time.Time) int64 {
+	if t == nil {
+		return 0
+	}
+	return t.UnixMilli()
 }
