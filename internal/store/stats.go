@@ -86,34 +86,43 @@ const monthly = `SELECT to_char(m, 'Mon') AS month, count(t.ts)::int AS count
 	GROUP BY m ORDER BY m`
 
 // Overview gathers dashboard numbers. The independent queries run in
-// parallel so latency is one round trip, not eight.
-func (s *Store) Overview(ctx context.Context) (Overview, error) {
+// parallel so latency is one round trip, not eight. Student and exam
+// figures are for "paid" or "free" students (anything else: everyone):
+// students by their plan now, exam entries by the plan when they were made.
+func (s *Store) Overview(ctx context.Context, plan string) (Overview, error) {
 	var o Overview
+	students := "TRUE"
+	switch plan {
+	case "paid":
+		students = PaidNow("s.id")
+	case "free":
+		students = "NOT " + PaidNow("s.id")
+	}
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		t := &o.Totals
 		return s.db.QueryRow(ctx, `SELECT
-			(SELECT count(*) FROM students),
-			(SELECT count(*) FROM students WHERE created_at > now() - interval '30 days'),
+			(SELECT count(*) FROM students s WHERE `+students+`),
+			(SELECT count(*) FROM students s WHERE s.created_at > now() - interval '30 days' AND `+students+`),
 			(SELECT count(*) FROM contests WHERE kind = 'contest' AND start_time <= now() AND end_time > now()),
 			(SELECT count(*) FROM contests WHERE kind = 'contest' AND start_time > now()),
 			(SELECT count(*) FROM courses),
 			(SELECT count(*) FROM chapters WHERE status = 'published'),
 			(SELECT count(*) FROM chapters WHERE status = 'draft'),
-			(SELECT count(*) FROM registrations WHERE registered_at > now() - interval '30 days')`).Scan(
+			(SELECT count(*) FROM registrations r JOIN students s ON s.id = r.student_id WHERE r.registered_at > now() - interval '30 days' AND `+students+`)`).Scan(
 			&t.Students, &t.NewStudents30d, &t.ActiveContests, &t.UpcomingContests, &t.Courses, &t.ChaptersPublished, &t.ChaptersDraft, &t.Registrations30d)
 	})
 	g.Go(func() (err error) {
-		o.SignupsByMonth, err = collect[MonthCount](ctx, s.db, fmt.Sprintf(monthly, `SELECT created_at FROM students`))
+		o.SignupsByMonth, err = collect[MonthCount](ctx, s.db, fmt.Sprintf(monthly, `SELECT s.created_at FROM students s WHERE `+students))
 		return
 	})
 	g.Go(func() (err error) {
-		o.ParticipationByMonth, err = collect[MonthCount](ctx, s.db, fmt.Sprintf(monthly, `SELECT submitted_at FROM submissions`))
+		o.ParticipationByMonth, err = collect[MonthCount](ctx, s.db, fmt.Sprintf(monthly, `SELECT sub.submitted_at FROM submissions sub WHERE TRUE`+planFilter("sub", plan)))
 		return
 	})
 	g.Go(func() (err error) {
 		o.StudentsByGrade, err = collect[GradeCount](ctx, s.db, `SELECT g AS grade, count(s.id)::int AS count
-			FROM unnest(ARRAY['9','10','11','12']) g LEFT JOIN students s ON s.grade = g GROUP BY g ORDER BY g::int`)
+			FROM unnest(ARRAY['9','10','11','12']) g LEFT JOIN students s ON s.grade = g AND `+students+` GROUP BY g ORDER BY g::int`)
 		return
 	})
 	g.Go(func() error {
@@ -130,7 +139,7 @@ func (s *Store) Overview(ctx context.Context) (Overview, error) {
 		return err
 	})
 	g.Go(func() (err error) {
-		o.RecentStudents, err = collect[Student](ctx, s.db, `SELECT `+studentCols+` FROM students ORDER BY created_at DESC LIMIT 6`)
+		o.RecentStudents, err = collect[Student](ctx, s.db, `SELECT `+studentCols+` FROM students s WHERE `+students+` ORDER BY created_at DESC LIMIT 6`)
 		return
 	})
 	g.Go(func() error {
@@ -221,12 +230,14 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 	if err != nil {
 		return st, err
 	}
-	_ = s.db.QueryRow(ctx, `SELECT rank FROM (`+leaderboardRanks+`) r WHERE student_id = $1`, studentID).Scan(&st.GlobalRank)
+	// Ranked on the board of the student's current plan (paid results for a
+	// student on a plan, free results otherwise).
+	_ = s.db.QueryRow(ctx, `SELECT rank FROM (SELECT sub.student_id, rank() OVER (ORDER BY sum(sub.correct) DESC, sum(sub.time_seconds) ASC)::int AS rank
+		FROM submissions sub JOIN contests c ON c.id = sub.contest_id
+		WHERE c.end_time < now() AND `+PaidAt("sub.student_id", "sub.submitted_at")+` = `+PaidNow("$1")+`
+		GROUP BY sub.student_id) r WHERE student_id = $1`, studentID).Scan(&st.GlobalRank)
 	return st, nil
 }
-
-const leaderboardRanks = `SELECT sub.student_id, rank() OVER (ORDER BY sum(sub.correct) DESC, sum(sub.time_seconds) ASC)::int AS rank
-	FROM submissions sub JOIN contests c ON c.id = sub.contest_id WHERE c.end_time < now() GROUP BY sub.student_id`
 
 // AdminStudentDetail backs the admin student profile.
 type AdminStudentDetail struct {

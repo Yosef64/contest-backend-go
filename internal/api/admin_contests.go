@@ -362,11 +362,16 @@ func (s *Server) adminStandings(c *gin.Context) error {
 	if err := s.ownsItem(c, "contests", c.Param("id")); err != nil {
 		return err
 	}
-	rows, err := s.store.Standings(c, c.Param("id"))
+	// Paid and free results are ranked apart (paid by default).
+	plan := c.DefaultQuery("plan", "paid")
+	if plan != "paid" && plan != "free" && plan != "all" {
+		return httpx.BadRequest("Invalid plan.")
+	}
+	rows, err := s.store.Standings(c, c.Param("id"), plan)
 	if err != nil {
 		return err
 	}
-	return httpx.OK(c, gin.H{"standings": rows})
+	return httpx.OK(c, gin.H{"standings": rows, "plan": plan})
 }
 
 // People ----------------------------------------------------------------------

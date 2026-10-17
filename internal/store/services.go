@@ -40,14 +40,20 @@ func (s *Store) ServiceExec(ctx context.Context, query string, args ...any) erro
 // PrivateStandings ranks every submission of a contest, then hides other
 // students' rows for school contests (each student sees only their own row,
 // but with their true rank). Ranking must happen before that filter.
+//
+// Free and paid results are ranked apart: the student sees the standings of
+// their own result's group (or, before submitting, of their current plan).
 func (s *Store) PrivateStandings(ctx context.Context, id, studentID string) ([]StandingRow, error) {
-	return collect[StandingRow](ctx, s.db, `WITH ranked AS (
+	return collect[StandingRow](ctx, s.db, `WITH mine AS (
+		SELECT coalesce((SELECT `+PaidAt("m.student_id", "m.submitted_at")+` FROM submissions m WHERE m.contest_id = $1 AND m.student_id = $2),
+			`+PaidNow("$2")+`) AS paid),
+	ranked AS (
 		SELECT rank() OVER (ORDER BY sub.correct DESC, sub.time_seconds ASC)::int AS rank,
 			st.id AS student_id, st.name, sub.correct, sub.total,
 			CASE WHEN sub.total = 0 THEN 0 ELSE round(sub.correct::numeric / sub.total * 100)::int END AS score,
 			sub.time_seconds
 		FROM submissions sub JOIN students st ON st.id = sub.student_id
-		WHERE sub.contest_id = $1)
+		WHERE sub.contest_id = $1 AND `+PaidAt("sub.student_id", "sub.submitted_at")+` = (SELECT paid FROM mine))
 	SELECT * FROM ranked
 	WHERE NOT EXISTS (SELECT 1 FROM learning_policies WHERE resource_type = 'contest' AND resource_id = $1 AND school_id IS NOT NULL)
 		OR student_id = $2
@@ -57,13 +63,18 @@ func (s *Store) PrivateStandings(ctx context.Context, id, studentID string) ([]S
 // PrivateLeaderboard ranks finished, non-school contests within one level
 // ("9", "10", "11" for high school by grade, or "entrance", "remedial",
 // "freshman" by department) and stream ("" for every stream). It returns the
-// top 50 plus the caller's own row.
-func (s *Store) PrivateLeaderboard(ctx context.Context, studentID, level, stream string) ([]StandingRow, error) {
+// top 50 plus the caller's own row. Paid and free students have separate
+// boards: paid results for students on a plan, free results otherwise.
+func (s *Store) PrivateLeaderboard(ctx context.Context, studentID, level, stream string, paid bool) ([]StandingRow, error) {
+	plan := "free"
+	if paid {
+		plan = "paid"
+	}
 	return collect[StandingRow](ctx, s.db, `WITH t AS (
 			SELECT sub.student_id, sum(sub.correct)::int AS correct, sum(sub.total)::int AS total, sum(sub.time_seconds)::int AS time_seconds
 			FROM submissions sub JOIN contests co ON co.id = sub.contest_id
 			WHERE co.end_time < now() AND co.kind = 'contest'
-				AND NOT EXISTS (SELECT 1 FROM learning_policies WHERE resource_type = 'contest' AND resource_id = co.id AND school_id IS NOT NULL)
+				AND NOT EXISTS (SELECT 1 FROM learning_policies WHERE resource_type = 'contest' AND resource_id = co.id AND school_id IS NOT NULL)`+planFilter("sub", plan)+`
 			GROUP BY sub.student_id),
 		ranked AS (
 			SELECT rank() OVER (ORDER BY t.correct DESC, t.time_seconds ASC)::int AS rank,

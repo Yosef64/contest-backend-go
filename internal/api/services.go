@@ -653,10 +653,7 @@ GROUP BY ` + keys + ` ORDER BY ` + keys
 // paidAt is an SQL condition: the student had an approved academic plan
 // when they submitted. Free and paid results are reported apart, so free
 // users never mix into paid analytics (and the other way round).
-func paidAt(student, at string) string {
-	return "EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id=" + student +
-		" AND e.module='academic' AND e.status='approved' AND e.created_at<=" + at + " AND e.expires_at>" + at + ")"
-}
+func paidAt(student, at string) string { return store.PaidAt(student, at) }
 
 // reportDimensions are the breakdowns of the master report, in its order.
 var reportDimensions = []string{"overall", "plan", "gender", "region", "city", "school", "department", "stream", "subject", "chapter", "topic", "score"}

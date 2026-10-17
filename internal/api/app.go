@@ -824,7 +824,12 @@ func (s *Server) appLeaderboard(c *gin.Context) error {
 	if stream != "" && stream != "natural" && stream != "social" {
 		return httpx.Field("stream", "Choose natural or social.")
 	}
-	rows, err := s.store.PrivateLeaderboard(c, st.ID, level, stream)
+	// Paid and free students have separate boards: the student's own plan's.
+	var paid bool
+	if err := s.pool.QueryRow(c, `SELECT `+store.PaidNow("$1"), st.ID).Scan(&paid); err != nil {
+		return err
+	}
+	rows, err := s.store.PrivateLeaderboard(c, st.ID, level, stream, paid)
 	if err != nil {
 		return err
 	}
@@ -840,5 +845,9 @@ func (s *Server) appLeaderboard(c *gin.Context) error {
 		}
 	}
 	rows = top
-	return httpx.OK(c, gin.H{"leaderboard": rows, "me": mine, "level": level, "stream": stream})
+	plan := "free"
+	if paid {
+		plan = "paid"
+	}
+	return httpx.OK(c, gin.H{"leaderboard": rows, "me": mine, "level": level, "stream": stream, "plan": plan})
 }

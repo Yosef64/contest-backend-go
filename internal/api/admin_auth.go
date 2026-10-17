@@ -148,8 +148,14 @@ func (s *Server) adminMe(c *gin.Context) error {
 	return httpx.OK(c, gin.H{"admin": currentAdmin(c)})
 }
 
+// GET /admin/overview[?plan=paid|free|all] — paid students by default, so
+// free users never mix into the academy's figures.
 func (s *Server) adminOverview(c *gin.Context) error {
-	o, err := s.store.Overview(c)
+	plan := c.DefaultQuery("plan", "paid")
+	if plan != "paid" && plan != "free" && plan != "all" {
+		return httpx.BadRequest("Invalid plan.")
+	}
+	o, err := s.store.Overview(c, plan)
 	if err != nil {
 		return err
 	}

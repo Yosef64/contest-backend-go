@@ -304,15 +304,16 @@ func (s *Store) CreateSubmission(ctx context.Context, sub Submission) error {
 	return classify(err)
 }
 
-// Standings ranks a contest by correct answers, then time.
-func (s *Store) Standings(ctx context.Context, contestID string) ([]StandingRow, error) {
+// Standings ranks a contest by correct answers, then time, among "paid" or
+// "free" results (anything else: all of them together).
+func (s *Store) Standings(ctx context.Context, contestID, plan string) ([]StandingRow, error) {
 	return collect[StandingRow](ctx, s.db, `SELECT
 		rank() OVER (ORDER BY sub.correct DESC, sub.time_seconds ASC)::int AS rank,
 		st.id AS student_id, st.name, st.photo_url, sub.correct, sub.total,
 		CASE WHEN sub.total = 0 THEN 0 ELSE round(100.0 * sub.correct / sub.total)::int END AS score,
 		sub.time_seconds
 		FROM submissions sub JOIN students st ON st.id = sub.student_id
-		WHERE sub.contest_id = $1 ORDER BY rank, st.name`, contestID)
+		WHERE sub.contest_id = $1`+planFilter("sub", plan)+` ORDER BY rank, st.name`, contestID)
 }
 
 // Leaderboard is the all-time ranking across finished contests.
