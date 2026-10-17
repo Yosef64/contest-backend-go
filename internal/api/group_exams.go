@@ -53,7 +53,7 @@ func (s *Server) signalRoom(c *gin.Context, id string) {
 // clock.
 //
 // The creator controls the exam: exam mode (phones pinned to Victory, no
-// codes), ending it early, deleting it, and running it again as a new room.
+// codes), ending it early, deleting it, and running it again (same room).
 
 const (
 	groupCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -786,9 +786,9 @@ func (s *Server) deleteGroupExam(c *gin.Context) error {
 	return httpx.NoContent(c)
 }
 
-// POST /group-exams/:id/again {duration_minutes?} — a new room with the same
-// questions and settings (a retake). Earlier members get a notification
-// with the new code.
+// POST /group-exams/:id/again {duration_minutes?} — runs the same group exam
+// again (a retake): same code, same questions and settings, and everyone who
+// took it is back in its waiting room. The previous results are replaced.
 func (s *Server) runGroupExamAgain(c *gin.Context) error {
 	var in struct {
 		DurationMinutes int `json:"duration_minutes" binding:"omitempty,min=1,max=300"`
@@ -798,62 +798,53 @@ func (s *Server) runGroupExamAgain(c *gin.Context) error {
 			return err
 		}
 	}
-	old, st, err := s.creatorGroup(c)
+	g, st, err := s.creatorGroup(c)
 	if err != nil {
 		return err
 	}
-	if old.Status != "finished" && old.Status != "cancelled" {
+	if g.Status != "finished" && g.Status != "cancelled" {
 		return httpx.Conflict("group_not_over", "Run it again once this one has ended.")
 	}
-	minutes := old.DurationMinutes
+	minutes := g.DurationMinutes
 	if in.DurationMinutes > 0 {
 		minutes = in.DurationMinutes
 	}
-	var g groupExam
-	for attempt := 0; attempt < 5 && g.ID == ""; attempt++ {
-		code, err := newGroupCode()
-		if err != nil {
+	reset := false
+	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(c, `UPDATE group_exams SET status = 'waiting', started_at = NULL, ends_at = NULL, duration_minutes = $2
+			WHERE id = $1 AND status IN ('finished', 'cancelled')`, g.ID, minutes)
+		if err != nil || tag.RowsAffected() == 0 {
 			return err
 		}
-		err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
-			var id string
-			if err := tx.QueryRow(c, `INSERT INTO group_exams (code, creator_id, title, subject, grade, duration_minutes, exam_mode)
-				SELECT $2, creator_id, title, subject, grade, $3, exam_mode FROM group_exams WHERE id = $1 RETURNING id`,
-				old.ID, code, minutes).Scan(&id); err != nil {
-				return err
-			}
-			if _, err := tx.Exec(c, `INSERT INTO group_exam_questions (group_id, position, text, options, answer_index, explanation)
-				SELECT $2, position, text, options, answer_index, explanation FROM group_exam_questions WHERE group_id = $1`, old.ID, id); err != nil {
-				return err
-			}
-			if _, err := tx.Exec(c, `INSERT INTO group_exam_members (group_id, student_id) VALUES ($1, $2)`, id, st.ID); err != nil {
-				return err
-			}
-			g, err = scanGroup(tx.QueryRow(c, `SELECT `+groupCols+` FROM group_exams g WHERE g.id = $1`, id))
-			return err
-		})
-		if err != nil && !strings.Contains(err.Error(), "group_exams_code_key") {
-			return err
-		}
+		reset = true
+		_, err = tx.Exec(c, `UPDATE group_exam_members SET answers = '{}', saved_at = NULL, submitted_at = NULL,
+			correct = NULL, total = NULL, time_seconds = NULL, breaks = 0 WHERE group_id = $1`, g.ID)
+		return err
+	})
+	if err != nil {
+		return err
 	}
-	if g.ID == "" {
-		return errors.New("could not generate a unique group code")
+	if !reset {
+		return httpx.Conflict("group_not_over", "Run it again once this one has ended.")
 	}
 	s.signalRoom(c, g.ID)
-	s.inviteAgain(c, old.ID, st, g)
+	if g, err = s.loadGroup(c, g.ID); err != nil {
+		return err
+	}
+	s.inviteAgain(c, st, g)
 	state, err := s.groupState(c, g, st)
 	if err != nil {
 		return err
 	}
-	return httpx.Created(c, state)
+	return httpx.OK(c, state)
 }
 
-// inviteAgain tells the earlier members of a group exam about its retake.
-func (s *Server) inviteAgain(c *gin.Context, oldID string, host store.Student, g groupExam) {
+// inviteAgain tells the other members of a group exam that it is on again.
+func (s *Server) inviteAgain(c *gin.Context, host store.Student, g groupExam) {
 	if s.push == nil {
 		return
 	}
-	rows, err := s.pool.Query(c, `SELECT student_id FROM group_exam_members WHERE group_id = $1 AND student_id <> $2`, oldID, host.ID)
+	rows, err := s.pool.Query(c, `SELECT student_id FROM group_exam_members WHERE group_id = $1 AND student_id <> $2`, g.ID, host.ID)
 	if err != nil {
 		slog.Warn("group retake invite", "err", err)
 		return
@@ -868,7 +859,7 @@ func (s *Server) inviteAgain(c *gin.Context, oldID string, host store.Student, g
 		if _, err := s.push.Send(c, push.Message{
 			Topic: push.Topic("student", id),
 			Title: "Retake: " + g.Title,
-			Body:  fmt.Sprintf("%s opened it again. Join with code %s.", first, g.Code),
+			Body:  fmt.Sprintf("%s is running it again. Open Group exams to take it.", first),
 			Data:  map[string]string{"group_code": g.Code},
 		}); err != nil {
 			slog.Warn("group retake invite", "student", id, "err", err)
