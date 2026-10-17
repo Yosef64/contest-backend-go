@@ -22,6 +22,7 @@ import (
 	"victor-contest-go/internal/config"
 	"victor-contest-go/internal/httpx"
 	"victor-contest-go/internal/media"
+	"victor-contest-go/internal/live"
 	"victor-contest-go/internal/push"
 	"victor-contest-go/internal/store"
 )
@@ -34,6 +35,7 @@ type Server struct {
 	pool   *pgxpool.Pool
 	ai     *ai.Client
 	push   *push.Sender
+	rooms  *live.Rooms
 	now    func() time.Time
 }
 
@@ -43,7 +45,8 @@ func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
 		slog.Error("push notifications off", "err", err)
 	}
 	s := &Server{cfg: cfg, store: store.New(pool), tokens: auth.NewTokens(cfg.JWTSecret), media: m, pool: pool,
-		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), push: sender, now: time.Now}
+		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), push: sender, now: time.Now,
+		rooms: live.New(cfg.FirebaseProjectID, cfg.FirebaseClientEmail, cfg.FirebasePrivateKey, cfg.FirestoreDatabase)}
 	if pool != nil {
 		// Subjects come from the subjects table (admins add their own).
 		subjectOK = func(name string, mixed bool) bool {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sort"
 	"strings"
@@ -15,8 +16,28 @@ import (
 
 	"victor-contest-go/internal/content"
 	"victor-contest-go/internal/httpx"
+	"victor-contest-go/internal/live"
 	"victor-contest-go/internal/store"
 )
+
+// signalRoom updates the room's Firestore document after a change (someone
+// joined or left, the exam started, someone submitted, it finished), so
+// phones in the room fetch it again instead of asking every few seconds.
+func (s *Server) signalRoom(c *gin.Context, id string) {
+	if s.rooms == nil {
+		return
+	}
+	var room live.Room
+	err := s.pool.QueryRow(c, `SELECT g.status, count(m.student_id)::int, count(m.submitted_at)::int
+		FROM group_exams g LEFT JOIN group_exam_members m ON m.group_id = g.id
+		WHERE g.id = $1 GROUP BY g.status`, id).Scan(&room.Status, &room.Members, &room.Submitted)
+	if err == nil {
+		err = s.rooms.Update(c, id, room)
+	}
+	if err != nil {
+		slog.Warn("group room signal", "group", id, "err", err)
+	}
+}
 
 // Group exams ------------------------------------------------------------------
 //
@@ -138,7 +159,7 @@ func (s *Server) finishGroupIfDue(c *gin.Context, g *groupExam) error {
 	if err != nil {
 		return err
 	}
-	return pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
 		var status string
 		if err := tx.QueryRow(c, `SELECT status FROM group_exams WHERE id = $1 FOR UPDATE`, g.ID).Scan(&status); err != nil {
 			return err
@@ -181,6 +202,10 @@ func (s *Server) finishGroupIfDue(c *gin.Context, g *groupExam) error {
 		g.Status = "finished"
 		return nil
 	})
+	if err == nil && g.Status == "finished" {
+		s.signalRoom(c, g.ID)
+	}
+	return err
 }
 
 // groupQuestions returns the exam's questions in their fixed order.
@@ -387,6 +412,7 @@ func (s *Server) createGroupExam(c *gin.Context) error {
 	if g.ID == "" {
 		return errors.New("could not generate a unique group code")
 	}
+	s.signalRoom(c, g.ID)
 	state, err := s.groupState(c, g, st)
 	if err != nil {
 		return err
@@ -443,6 +469,7 @@ func (s *Server) joinGroupExam(c *gin.Context) error {
 			}
 			return httpx.Conflict("group_full", "This group exam is full.")
 		}
+		s.signalRoom(c, g.ID)
 	}
 	state, err := s.groupState(c, g, st)
 	if err != nil {
@@ -533,6 +560,7 @@ func (s *Server) startGroupExam(c *gin.Context) error {
 	if tag.RowsAffected() == 0 {
 		return httpx.Conflict("group_not_waiting", "This group exam has already started or ended.")
 	}
+	s.signalRoom(c, g.ID)
 	g, err = s.loadGroup(c, g.ID)
 	if err != nil {
 		return err
@@ -557,6 +585,9 @@ func (s *Server) leaveGroupExam(c *gin.Context) error {
 		_, err = s.pool.Exec(c, `UPDATE group_exams SET status = 'cancelled' WHERE id = $1 AND status = 'waiting'`, g.ID)
 	} else {
 		_, err = s.pool.Exec(c, `DELETE FROM group_exam_members WHERE group_id = $1 AND student_id = $2`, g.ID, st.ID)
+	}
+	if err == nil {
+		s.signalRoom(c, g.ID)
 	}
 	return orNoContent(c, err)
 }
@@ -643,6 +674,7 @@ func (s *Server) submitGroupExam(c *gin.Context) error {
 	if tag.RowsAffected() == 0 {
 		return httpx.Conflict("already_submitted", "You have already submitted this exam.")
 	}
+	s.signalRoom(c, g.ID)
 	state, err := s.groupState(c, g, st)
 	if err != nil {
 		return err

@@ -41,6 +41,9 @@ type Config struct {
 	FirebaseProjectID   string
 	FirebaseClientEmail string
 	FirebasePrivateKey  string
+	// FirestoreDatabase is the Firestore database for live group exam rooms
+	// (FIRESTORE_DATABASE, default "(default)").
+	FirestoreDatabase string
 
 	// Media uploads go to Cloudinary when set, otherwise to local disk.
 	CloudinaryURL string
@@ -124,6 +127,7 @@ func Load() (Config, error) {
 		FirebaseProjectID:      os.Getenv("FIREBASE_PROJECT_ID"),
 		FirebaseClientEmail:    os.Getenv("FIREBASE_CLIENT_EMAIL"),
 		FirebasePrivateKey:     os.Getenv("FIREBASE_PRIVATE_KEY"),
+		FirestoreDatabase:      os.Getenv("FIRESTORE_DATABASE"),
 		CloudinaryURL:          os.Getenv("CLOUDINARY_URL"),
 		UploadDir:              env("UPLOAD_DIR", "uploads"),
 		PublicBaseURL:          strings.TrimRight(env("PUBLIC_BASE_URL", "http://localhost:8080"), "/"),

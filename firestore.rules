@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// Live group exam rooms (see internal/live). A phone in a room reads its
+// room's document by ID (a random UUID only members know); the document
+// holds no personal data. Only the API, with the service account, writes.
+// Nothing else in this database is readable or writable from phones.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /group_rooms/{room} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
