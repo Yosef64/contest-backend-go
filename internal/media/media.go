@@ -3,6 +3,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -93,7 +94,16 @@ func (s *Store) Store(ctx context.Context, fh *multipart.FileHeader) (Saved, err
 		return Saved{}, err
 	}
 	defer f.Close()
+	return s.store(ctx, f, fh.Size)
+}
 
+// StoreBytes validates and stores a file held in memory (a picture taken out
+// of a Word document).
+func (s *Store) StoreBytes(ctx context.Context, data []byte) (Saved, error) {
+	return s.store(ctx, bytes.NewReader(data), int64(len(data)))
+}
+
+func (s *Store) store(ctx context.Context, f io.ReadSeeker, size int64) (Saved, error) {
 	head := make([]byte, 512)
 	n, _ := io.ReadFull(f, head)
 	mime := strings.SplitN(http.DetectContentType(head[:n]), ";", 2)[0]
@@ -101,7 +111,7 @@ func (s *Store) Store(ctx context.Context, fh *multipart.FileHeader) (Saved, err
 	if !ok {
 		return Saved{}, ErrUnsupported
 	}
-	if (kind == "image" && fh.Size > MaxImageBytes) || (kind == "video" && fh.Size > MaxVideoBytes) {
+	if (kind == "image" && size > MaxImageBytes) || (kind == "video" && size > MaxVideoBytes) {
 		return Saved{}, fmt.Errorf("file is too large (max %d MB for %ss)", map[string]int{"image": MaxImageBytes >> 20, "video": MaxVideoBytes >> 20}[kind], kind)
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {

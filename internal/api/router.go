@@ -190,6 +190,7 @@ func (s *Server) Router() *gin.Engine {
 	ad.DELETE("/services/makeup/:id", httpx.H(s.adminCloseMakeup))
 	ad.PATCH("/services/agents/:id", httpx.H(s.adminAgentReview))
 	ad.POST("/services/chapters/import", httpx.H(s.adminBulkChapters))
+	ad.POST("/services/chapters/convert", httpx.H(s.adminConvertChapters))
 	ad.GET("/services", httpx.H(s.adminServices))
 	ad.POST("/services", httpx.H(s.adminServiceWrite))
 	ad.GET("/services/reports", httpx.H(s.adminReports))

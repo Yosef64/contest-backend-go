@@ -4,3 +4,5 @@
 uploads/
 /bin/
 *.exe
+
+__pycache__/
