@@ -109,3 +109,15 @@ func TestSanitizeKeepsEditorStyling(t *testing.T) {
 		}
 	}
 }
+
+// The admin editor reads #hex colours back as rgb(); saving must keep them.
+func TestSanitizeKeepsEditorColours(t *testing.T) {
+	in := `<p><span style="color: rgb(132, 60, 11);"><strong>Coloured</strong></span> ` +
+		`<span style="background-color: rgba(253, 230, 138, 0.5)">marked</span> rgb(1, 2, 3) stays text</p>`
+	out := SanitizeHTML(in)
+	for _, want := range []string{`style="color: #843C0B;"`, `style="background-color: #FDE68A80"`, `rgb(1, 2, 3) stays text`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in %s", want, out)
+		}
+	}
+}

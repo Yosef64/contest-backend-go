@@ -3,7 +3,10 @@
 package content
 
 import (
+	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -67,7 +70,36 @@ var svgCase = strings.NewReplacer(
 
 // SanitizeHTML strips scripts, event handlers and unsupported elements.
 func SanitizeHTML(html string) string {
-	return svgCase.Replace(policy.Sanitize(html))
+	return svgCase.Replace(policy.Sanitize(hexColours(html)))
+}
+
+var (
+	styleAttrs = regexp.MustCompile(`style="[^"]*"`)
+	rgbColour  = regexp.MustCompile(`rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+)\s*)?\)`)
+)
+
+// hexColours writes rgb()/rgba() colours in style attributes as #hex. The
+// admin editor reads a lesson's #hex colours back from the browser as rgb(),
+// so without this every colour was dropped the next time a chapter was
+// saved. Text outside style attributes is left alone.
+func hexColours(html string) string {
+	return styleAttrs.ReplaceAllStringFunc(html, func(attr string) string {
+		return rgbColour.ReplaceAllStringFunc(attr, func(c string) string {
+			m := rgbColour.FindStringSubmatch(c)
+			var b strings.Builder
+			b.WriteByte('#')
+			for _, v := range m[1:4] {
+				n, _ := strconv.Atoi(v)
+				fmt.Fprintf(&b, "%02X", min(n, 255))
+			}
+			if m[4] != "" {
+				if a, err := strconv.ParseFloat(m[4], 64); err == nil && a < 1 {
+					fmt.Fprintf(&b, "%02X", int(math.Round(max(a, 0)*255)))
+				}
+			}
+			return b.String()
+		})
+	})
 }
 
 // SanitizeText is for fields that are usually plain text but may hold
