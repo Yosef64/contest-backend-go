@@ -84,6 +84,8 @@ func (s *Server) Router() *gin.Engine {
 	// Public page behind shared referral links.
 	r.GET("/r/:owner/:chapter", s.referralLanding)
 	r.GET("/a/:code", s.agentLanding)
+	r.GET("/account-deletion", s.accountDeletionPage)
+	r.GET("/privacy", s.privacyPage)
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/site", httpx.H(s.publicSite))
@@ -110,6 +112,7 @@ func (s *Server) Router() *gin.Engine {
 	app := v1.Group("", s.tokens.Require(auth.RoleStudent))
 	app.GET("/me", httpx.H(s.getMe))
 	app.PUT("/me", httpx.H(s.putMe))
+	app.DELETE("/me", httpx.H(s.deleteMyAccount))
 	app.PUT("/me/password", httpx.H(s.changeStudentPassword))
 	app.PUT("/me/photo", httpx.H(s.putMyPhoto))
 	app.DELETE("/me/photo", httpx.H(s.deleteMyPhoto))

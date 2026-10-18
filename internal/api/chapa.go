@@ -209,7 +209,7 @@ func (s *Server) verifyChapa(c *gin.Context, txRef string) (string, error) {
 		studentID, module, status string
 		amount                    float64
 	}
-	err := s.pool.QueryRow(c, `SELECT student_id, module, status, amount::float8 FROM chapa_payments WHERE tx_ref = $1`, txRef).
+	err := s.pool.QueryRow(c, `SELECT student_id, module, status, amount::float8 FROM chapa_payments WHERE tx_ref = $1 AND student_id IS NOT NULL`, txRef).
 		Scan(&p.studentID, &p.module, &p.status, &p.amount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", store.ErrNotFound
@@ -278,7 +278,7 @@ func (s *Server) checkChapaPayment(c *gin.Context) error {
 	}
 	txRef := c.Param("tx_ref")
 	var owner string
-	if err := s.pool.QueryRow(c, `SELECT student_id FROM chapa_payments WHERE tx_ref = $1`, txRef).Scan(&owner); err != nil || owner != st.ID {
+	if err := s.pool.QueryRow(c, `SELECT student_id FROM chapa_payments WHERE tx_ref = $1 AND student_id IS NOT NULL`, txRef).Scan(&owner); err != nil || owner != st.ID {
 		return httpx.NotFound("Payment")
 	}
 	status, err := s.verifyChapa(c, txRef)
