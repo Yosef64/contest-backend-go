@@ -143,6 +143,17 @@ func (s *Server) signUpPassword(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	if email != "" {
+		// One email, one account: a Google account adds a password with
+		// Forgot password (the emailed code proves the email is theirs).
+		var google bool
+		if err := s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM google_accounts WHERE email = $1)`, login).Scan(&google); err != nil {
+			return err
+		}
+		if google {
+			return httpx.Field("login", "This email is already used with Google. Tap Continue with Google, or use Forgot password to add a password.")
+		}
+	}
 	name := strings.TrimSpace(in.Name)
 	studentID := "p_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	tag, err := s.pool.Exec(c, `INSERT INTO student_credentials (login, student_id, display_name, password_hash)

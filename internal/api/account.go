@@ -34,6 +34,9 @@ func (s *Server) deleteMyAccount(c *gin.Context) error {
 	err := pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
 		// Tables without a link to students that removes them.
 		for _, q := range []string{
+			`DELETE FROM password_resets WHERE login IN (SELECT login FROM student_credentials WHERE student_id = $1
+				UNION SELECT email FROM google_accounts WHERE student_id = $1)`,
+			`DELETE FROM google_accounts WHERE student_id = $1`,
 			`DELETE FROM student_credentials WHERE student_id = $1`,
 			`DELETE FROM habit_logs WHERE student_id = $1`,
 		} {

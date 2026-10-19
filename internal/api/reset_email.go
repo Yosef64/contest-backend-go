@@ -30,11 +30,16 @@ type resetEmailData struct {
 	// No password account uses this email (the student may have signed
 	// up with Google or Telegram): say so instead of sending a code.
 	NoAccount bool
+	// A Google account adding its first password.
+	AddPassword bool
 }
 
 func (d resetEmailData) subject() string {
-	if d.NoAccount {
+	switch {
+	case d.NoAccount:
 		return "Your Victory password reset request"
+	case d.AddPassword:
+		return d.Code + " is your Victory verification code"
 	}
 	return d.Code + " is your Victory password reset code"
 }
@@ -81,9 +86,9 @@ var resetEmailHTML = template.Must(template.New("reset").Parse(`<!doctype html>
     <p style="margin:0;font-size:14px;line-height:22px;color:#3c434a;"><strong style="color:#121715;">Didn't request this?</strong> You can safely ignore this email. Nothing has changed.</p>
   </td></tr></table>
 {{else}}
-  <h1 style="margin:0 0 20px;font-size:24px;line-height:32px;font-weight:600;color:#121715;">Reset your password</h1>
+  <h1 style="margin:0 0 20px;font-size:24px;line-height:32px;font-weight:600;color:#121715;">{{if .AddPassword}}Set a password{{else}}Reset your password{{end}}</h1>
   <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#3c434a;">Hi {{.Name}},</p>
-  <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:#3c434a;">We received a request to reset the password for your Victory account <strong style="color:#121715;">{{.Email}}</strong>. Enter this code in the Victory app to choose a new password:</p>
+  <p style="margin:0 0 24px;font-size:15px;line-height:24px;color:#3c434a;">{{if .AddPassword}}We received a request to set a password for your Victory account <strong style="color:#121715;">{{.Email}}</strong>. You sign in with Google now; with a password you can also sign in with your email. Enter this code in the Victory app to choose your password:{{else}}We received a request to reset the password for your Victory account <strong style="color:#121715;">{{.Email}}</strong>. Enter this code in the Victory app to choose a new password:{{end}}</p>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td align="center" style="background:#f0f6fb;border:1px solid #d6e6f2;border-radius:12px;padding:20px 12px;">
       <div class="code" style="font:700 34px/40px 'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:8px;color:#0d4e7f;padding-left:8px;">{{.Code}}</div>
@@ -114,10 +119,18 @@ func resetEmailText(d resetEmailData) string {
 		b.WriteString("Didn't request this? You can safely ignore this email. Nothing has changed.\n\n")
 		return resetEmailFooter(&b, d)
 	}
-	b.WriteString("Reset your password\n\n")
-	b.WriteString("Hi " + d.Name + ",\n\n")
-	b.WriteString("We received a request to reset the password for your Victory account " + d.Email + ". ")
-	b.WriteString("Enter this code in the Victory app to choose a new password:\n\n")
+	if d.AddPassword {
+		b.WriteString("Set a password\n\n")
+		b.WriteString("Hi " + d.Name + ",\n\n")
+		b.WriteString("We received a request to set a password for your Victory account " + d.Email + ". ")
+		b.WriteString("You sign in with Google now; with a password you can also sign in with your email. ")
+		b.WriteString("Enter this code in the Victory app to choose your password:\n\n")
+	} else {
+		b.WriteString("Reset your password\n\n")
+		b.WriteString("Hi " + d.Name + ",\n\n")
+		b.WriteString("We received a request to reset the password for your Victory account " + d.Email + ". ")
+		b.WriteString("Enter this code in the Victory app to choose a new password:\n\n")
+	}
 	b.WriteString("    " + d.Code + "\n\n")
 	b.WriteString("This code expires in " + strconv.Itoa(d.Minutes) + " minutes and can be used once.\n\n")
 	b.WriteString("Didn't request this? You can safely ignore this email. Your password won't change unless someone enters this code.\n\n")

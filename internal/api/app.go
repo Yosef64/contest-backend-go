@@ -2,11 +2,13 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 
 	"victor-contest-go/internal/auth"
 	"victor-contest-go/internal/httpx"
@@ -34,6 +36,11 @@ func (s *Server) completeSignIn(c *gin.Context, acc account, studentID string) e
 	}
 	var student *store.Student
 	st, err := s.store.StudentByIdentity(c, acc.Provider, acc.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		// Signed in another way than the account was made with (Google
+		// and a password on one email).
+		st, err = s.store.StudentByID(c, studentID)
+	}
 	switch {
 	case err == nil:
 		st = s.syncSignInPhoto(c, st, photo)
@@ -83,7 +90,60 @@ func (s *Server) signInGoogle(c *gin.Context) error {
 	if err != nil || !u.Verified {
 		return httpx.Unauthorized("Google sign-in could not be verified.")
 	}
-	return s.completeSignIn(c, account{Provider: "google", ID: u.Subject, DisplayName: u.Name, Email: u.Email, PhotoURL: u.Picture}, "g_"+u.Subject)
+	studentID, err := s.googleStudent(c, strings.ToLower(strings.TrimSpace(u.Email)), u.Subject)
+	if err != nil {
+		return err
+	}
+	return s.completeSignIn(c, account{Provider: "google", ID: u.Subject, DisplayName: u.Name, Email: u.Email, PhotoURL: u.Picture}, studentID)
+}
+
+// googleStudent is the account a Google sign-in opens: one email is one
+// Victory account. The first Google sign-in for an email that already has
+// a password account (and no Google account of its own) opens that account.
+// A password nobody proved owning the email for is removed then, so someone
+// who registered another person's email first can't share their account.
+func (s *Server) googleStudent(c *gin.Context, email, subject string) (string, error) {
+	googleID := "g_" + subject
+	if email == "" {
+		return googleID, nil
+	}
+	var studentID string
+	err := pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+		err := tx.QueryRow(c, `SELECT student_id FROM google_accounts WHERE email = $1`, email).Scan(&studentID)
+		if err == nil || !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		studentID = googleID
+		var hasOwn bool
+		if err := tx.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM students WHERE id = $1 OR (auth_provider = 'google' AND auth_subject = $2))`,
+			googleID, subject).Scan(&hasOwn); err != nil {
+			return err
+		}
+		if !hasOwn {
+			var passwordStudent string
+			var proven bool
+			err := tx.QueryRow(c, `SELECT student_id, email_verified_at IS NOT NULL FROM student_credentials WHERE login = $1`, email).
+				Scan(&passwordStudent, &proven)
+			switch {
+			case err == nil:
+				studentID = passwordStudent
+				if !proven {
+					if _, err := tx.Exec(c, `DELETE FROM student_credentials WHERE login = $1`, email); err != nil {
+						return err
+					}
+					slog.Info("google sign-in took over an unproven password account", "student", passwordStudent)
+				}
+			case !errors.Is(err, pgx.ErrNoRows):
+				return err
+			}
+		}
+		if _, err := tx.Exec(c, `INSERT INTO google_accounts (email, student_id) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+			email, studentID); err != nil {
+			return err
+		}
+		return tx.QueryRow(c, `SELECT student_id FROM google_accounts WHERE email = $1`, email).Scan(&studentID)
+	})
+	return studentID, err
 }
 
 func (s *Server) signInTelegram(c *gin.Context) error {

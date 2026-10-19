@@ -144,8 +144,15 @@ func (s *Server) forgotPassword(c *gin.Context) error {
 	if email != "" && s.cfg.MailEnabled() {
 		delivery = "email"
 	}
+	// A password account, or a Google account that can add a password.
 	var name string
 	err := s.pool.QueryRow(c, `SELECT display_name FROM student_credentials WHERE login = $1`, login).Scan(&name)
+	addPassword := false
+	if errors.Is(err, pgx.ErrNoRows) && email != "" {
+		err = s.pool.QueryRow(c, `SELECT coalesce((SELECT name FROM students WHERE id = g.student_id), '')
+			FROM google_accounts g WHERE g.email = $1`, login).Scan(&name)
+		addPassword = err == nil
+	}
 	exists := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -159,7 +166,7 @@ func (s *Server) forgotPassword(c *gin.Context) error {
 			slog.Info("password reset code", "login", login, "code", code)
 		}
 		if delivery == "email" {
-			d := resetEmailData{Name: firstName(name), Email: email, Code: code,
+			d := resetEmailData{Name: firstName(name), Email: email, Code: code, AddPassword: addPassword,
 				Minutes: int(resetCodeTTL.Minutes()), Year: s.now().In(addisAbaba).Year()}
 			d.support(s.pageContacts(c))
 			if err := s.sendResetEmail(c, d); err != nil {
@@ -203,12 +210,20 @@ func (s *Server) resetPassword(c *gin.Context) error {
 	}
 	invalid := httpx.Field("code", "The code is wrong or has expired. Request a new one.")
 
+	// The code is for a password account, or for a Google account adding
+	// its first password.
 	var studentID, name, hash string
 	var expires time.Time
 	var attempts int
-	err := s.pool.QueryRow(c, `SELECT sc.student_id, sc.display_name, r.code_hash, r.expires_at, r.attempts
-		FROM password_resets r JOIN student_credentials sc ON sc.login = r.login WHERE r.login = $1`, login).
-		Scan(&studentID, &name, &hash, &expires, &attempts)
+	var emailed bool
+	err := s.pool.QueryRow(c, `SELECT coalesce(sc.student_id, g.student_id), coalesce(sc.display_name, st.name, ''),
+			r.code_hash, r.expires_at, r.attempts, r.issued_by IS NULL
+		FROM password_resets r
+		LEFT JOIN student_credentials sc ON sc.login = r.login
+		LEFT JOIN google_accounts g ON g.email = r.login
+		LEFT JOIN students st ON st.id = g.student_id
+		WHERE r.login = $1 AND (sc.login IS NOT NULL OR g.email IS NOT NULL)`, login).
+		Scan(&studentID, &name, &hash, &expires, &attempts, &emailed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		auth.CheckPassword(dummyHash, in.Code)
 		passwordLimiter.fail(ipKey, loginKey)
@@ -233,7 +248,13 @@ func (s *Server) resetPassword(c *gin.Context) error {
 		return err
 	}
 	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(c, `UPDATE student_credentials SET password_hash = $1, password_changed_at = now() WHERE login = $2`, newHash, login); err != nil {
+		// A code the student got by email proves the email is theirs.
+		proven := email != "" && emailed
+		if _, err := tx.Exec(c, `INSERT INTO student_credentials (login, student_id, display_name, password_hash, email_verified_at)
+				VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END)
+			ON CONFLICT (login) DO UPDATE SET password_hash = EXCLUDED.password_hash, password_changed_at = now(),
+				email_verified_at = coalesce(EXCLUDED.email_verified_at, student_credentials.email_verified_at)`,
+			login, studentID, name, newHash, proven); err != nil {
 			return err
 		}
 		_, err := tx.Exec(c, `DELETE FROM password_resets WHERE login = $1`, login)
