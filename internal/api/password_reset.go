@@ -257,8 +257,11 @@ func (s *Server) resetPassword(c *gin.Context) error {
 			login, studentID, name, newHash, proven); err != nil {
 			return err
 		}
-		_, err := tx.Exec(c, `DELETE FROM password_resets WHERE login = $1`, login)
-		return err
+		if _, err := tx.Exec(c, `DELETE FROM password_resets WHERE login = $1`, login); err != nil {
+			return err
+		}
+		// Whoever knew the old password is signed out everywhere.
+		return signOutOthers(c, tx, studentID, "", "password_changed")
 	})
 	if err != nil {
 		return err

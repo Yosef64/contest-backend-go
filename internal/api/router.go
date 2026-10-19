@@ -48,6 +48,7 @@ func NewServer(cfg config.Config, pool *pgxpool.Pool, m *media.Store) *Server {
 		ai: ai.New(cfg.AnthropicAPIKey, cfg.AIModel, cfg.AIBaseURL), push: sender, now: time.Now,
 		rooms: live.New(cfg.FirebaseProjectID, cfg.FirebaseClientEmail, cfg.FirebasePrivateKey, cfg.FirestoreDatabase)}
 	if pool != nil {
+		s.tokens.SessionCheck = s.checkSession
 		// Subjects come from the subjects table (admins add their own).
 		subjectOK = func(name string, mixed bool) bool {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -113,6 +114,8 @@ func (s *Server) Router() *gin.Engine {
 	app.GET("/me", httpx.H(s.getMe))
 	app.PUT("/me", httpx.H(s.putMe))
 	app.DELETE("/me", httpx.H(s.deleteMyAccount))
+	app.GET("/me/sessions", httpx.H(s.mySessions))
+	app.DELETE("/me/sessions/:id", httpx.H(s.endMySession))
 	app.PUT("/me/password", httpx.H(s.changeStudentPassword))
 	app.PUT("/me/photo", httpx.H(s.putMyPhoto))
 	app.DELETE("/me/photo", httpx.H(s.deleteMyPhoto))

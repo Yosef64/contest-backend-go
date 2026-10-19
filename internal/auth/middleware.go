@@ -34,6 +34,12 @@ func (t *Tokens) Require(role Role) gin.HandlerFunc {
 			httpx.Fail(c, httpx.Unauthorized("Your session has expired. Please sign in again."))
 			return
 		}
+		if role == RoleStudent && claims.Session != "" && t.SessionCheck != nil {
+			if err := t.SessionCheck(c, claims); err != nil {
+				httpx.Fail(c, err)
+				return
+			}
+		}
 		c.Set(ctxClaims, claims)
 		c.Next()
 	}

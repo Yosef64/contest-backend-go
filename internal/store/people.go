@@ -109,6 +109,7 @@ func (s *Store) DeleteStudent(ctx context.Context, id string) error {
 			`DELETE FROM password_resets WHERE login IN (SELECT login FROM student_credentials WHERE student_id = $1
 				UNION SELECT email FROM google_accounts WHERE student_id = $1)`,
 			`DELETE FROM google_accounts WHERE student_id = $1`,
+			`DELETE FROM student_sessions WHERE student_id = $1`,
 			`DELETE FROM student_credentials WHERE student_id = $1`,
 		} {
 			if _, err := tx.Exec(ctx, q, id); err != nil {

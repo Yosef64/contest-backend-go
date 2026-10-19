@@ -231,7 +231,13 @@ func (s *Server) changeStudentPassword(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.pool.Exec(c, `UPDATE student_credentials SET password_hash = $1, password_changed_at = now() WHERE login = $2`,
-		newHash, claims.Identity)
+	// A new password signs out the account's other devices.
+	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(c, `UPDATE student_credentials SET password_hash = $1, password_changed_at = now() WHERE login = $2`,
+			newHash, claims.Identity); err != nil {
+			return err
+		}
+		return signOutOthers(c, tx, claims.Subject, claims.Session, "password_changed")
+	})
 	return orNoContent(c, err)
 }

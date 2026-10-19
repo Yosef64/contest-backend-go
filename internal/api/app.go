@@ -30,7 +30,11 @@ type account struct {
 // any. A null student means the app should show profile setup.
 func (s *Server) completeSignIn(c *gin.Context, acc account, studentID string) error {
 	photo := signInPhoto(acc)
-	token, err := s.tokens.IssueStudent(studentID, acc.DisplayName, acc.Provider, acc.ID, photo, s.cfg.StudentTokenTTL)
+	session, err := s.startSession(c, studentID)
+	if err != nil {
+		return err
+	}
+	token, err := s.tokens.IssueStudent(studentID, acc.DisplayName, acc.Provider, acc.ID, photo, session, s.cfg.StudentTokenTTL)
 	if err != nil {
 		return err
 	}

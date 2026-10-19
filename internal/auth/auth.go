@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -35,11 +36,17 @@ type Claims struct {
 	Identity string `json:"idn,omitempty"`
 	// Photo is the sign-in picture (Google), the profile's first picture.
 	Photo string `json:"pic,omitempty"`
+	// Session is the signed-in device (student tokens since device limits;
+	// older tokens have none).
+	Session string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 
 type Tokens struct {
 	secret []byte
+	// SessionCheck, when set, confirms a student token's device session is
+	// still signed in (another sign-in may have signed it out).
+	SessionCheck func(c *gin.Context, claims *Claims) error
 }
 
 func NewTokens(secret []byte) *Tokens { return &Tokens{secret: secret} }
@@ -49,8 +56,8 @@ func (t *Tokens) Issue(role Role, subject, name string, ttl time.Duration) (stri
 }
 
 // IssueStudent issues an app token for a signed-in identity.
-func (t *Tokens) IssueStudent(studentID, name, provider, identity, photo string, ttl time.Duration) (string, error) {
-	return t.issue(Claims{Role: RoleStudent, Name: name, Provider: provider, Identity: identity, Photo: photo}, studentID, ttl)
+func (t *Tokens) IssueStudent(studentID, name, provider, identity, photo, session string, ttl time.Duration) (string, error) {
+	return t.issue(Claims{Role: RoleStudent, Name: name, Provider: provider, Identity: identity, Photo: photo, Session: session}, studentID, ttl)
 }
 
 func (t *Tokens) issue(claims Claims, subject string, ttl time.Duration) (string, error) {
@@ -61,6 +68,7 @@ func (t *Tokens) issue(claims Claims, subject string, ttl time.Duration) (string
 		Provider: claims.Provider,
 		Identity: claims.Identity,
 		Photo:    claims.Photo,
+		Session:  claims.Session,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   subject,
 			Issuer:    "victory-api",
