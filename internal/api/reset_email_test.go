@@ -65,3 +65,33 @@ func TestResetEmail(t *testing.T) {
 		t.Fatalf("logo part: %v %v", err, logo.Header)
 	}
 }
+
+func TestNoAccountEmail(t *testing.T) {
+	d := resetEmailData{Email: "someone@example.com", NoAccount: true, Year: 2026}
+	raw, err := resetEmail("Victory Academy <no-reply@victory.et>", "no-reply@victory.et", d, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Header.Get("Subject"); got != "Your Victory password reset request" {
+		t.Errorf("subject %q", got)
+	}
+	body, _ := io.ReadAll(m.Body)
+	if !strings.Contains(string(body), "Continue with Google") || strings.Contains(string(body), "expires in") {
+		t.Errorf("notice should point to Google sign-in and carry no code")
+	}
+}
+
+func TestNoAccountNoticeOncePerHour(t *testing.T) {
+	l := &noticeLimiter{sent: map[string]time.Time{}}
+	now := time.Now()
+	if !l.allow("a@x.com", now) || l.allow("a@x.com", now.Add(30*time.Minute)) {
+		t.Fatal("second notice within the hour should be refused")
+	}
+	if !l.allow("b@x.com", now) || !l.allow("a@x.com", now.Add(61*time.Minute)) {
+		t.Fatal("other addresses, and the same one after an hour, are allowed")
+	}
+}

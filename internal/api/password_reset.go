@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/mail"
 	"net/smtp"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -167,6 +168,16 @@ func (s *Server) forgotPassword(c *gin.Context) error {
 			}
 		}
 	}
+	if !exists && delivery == "email" && noAccountNotices.allow(login, s.now()) {
+		// Like the big services: tell the address owner there is no
+		// password (they likely signed up with Google), rather than leave
+		// them waiting for a code. The answer to the app stays the same.
+		d := resetEmailData{Email: email, NoAccount: true, Year: s.now().In(addisAbaba).Year()}
+		d.support(s.pageContacts(c))
+		if err := s.sendResetEmail(c, d); err != nil {
+			slog.Error("send no-account reset email", "err", err)
+		}
+	}
 	return httpx.OK(c, gin.H{"delivery": delivery, "expires_in_minutes": int(resetCodeTTL.Minutes())})
 }
 
@@ -257,4 +268,28 @@ func (s *Server) adminPasswordReset(c *gin.Context) error {
 		return err
 	}
 	return httpx.Created(c, gin.H{"login": login, "code": code, "expires_at": expires})
+}
+
+// noAccountNotices sends the "no password for this email" notice at most
+// once an hour per address, so the form can't be used to flood an inbox.
+var noAccountNotices = &noticeLimiter{sent: map[string]time.Time{}}
+
+type noticeLimiter struct {
+	mu   sync.Mutex
+	sent map[string]time.Time
+}
+
+func (l *noticeLimiter) allow(key string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for k, t := range l.sent {
+		if now.Sub(t) >= time.Hour {
+			delete(l.sent, k)
+		}
+	}
+	if _, ok := l.sent[key]; ok {
+		return false
+	}
+	l.sent[key] = now
+	return true
 }
