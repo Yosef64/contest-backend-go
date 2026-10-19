@@ -82,7 +82,14 @@ func (s *Server) appUseAgentCode(c *gin.Context) error {
 	code := strings.ToUpper(strings.TrimSpace(in.Code))
 	var agentID string
 	var agentStudent *string
-	err = s.pool.QueryRow(c, `SELECT id, student_id FROM field_agents WHERE code = $1 AND status = 'approved'`, code).Scan(&agentID, &agentStudent)
+	// Whether the code is the student's own: their account, or the phone
+	// number the agent applied with or has now.
+	var ownPhone, paidBefore bool
+	err = s.pool.QueryRow(c, `SELECT f.id, f.student_id,
+			coalesce(phone_key($2) IN (phone_key(f.phone),
+				(SELECT phone_key(phone_number) FROM students WHERE id = f.student_id)), false),
+			EXISTS (SELECT 1 FROM enrollment_requests WHERE student_id = $3)
+		FROM field_agents f WHERE f.code = $1 AND f.status = 'approved'`, code, st.PhoneNumber, st.ID).Scan(&agentID, &agentStudent, &ownPhone, &paidBefore)
 	if err == pgx.ErrNoRows {
 		return httpx.Field("code", "No agent has this code. Check it and try again.")
 	}
@@ -90,8 +97,11 @@ func (s *Server) appUseAgentCode(c *gin.Context) error {
 		return err
 	}
 	switch {
-	case agentStudent != nil && *agentStudent == st.ID:
+	case agentStudent != nil && *agentStudent == st.ID, ownPhone:
 		return httpx.Field("code", "That's your own code.")
+	case paidBefore:
+		// The agent earns on students they bring in, before their first plan.
+		return httpx.Field("code", "Agent codes can be added only before your first payment.")
 	case s.now().Sub(st.CreatedAt) > referralWindow:
 		return httpx.Field("code", "Agent codes can be added in the first 14 days after joining.")
 	}
@@ -118,11 +128,11 @@ func (s *Server) agentStatsFor(c *gin.Context, agentID string) (agentStats, erro
 	var a agentStats
 	err := s.pool.QueryRow(c, `SELECT
 			(SELECT count(*) FROM agent_referrals WHERE agent_id = $1)::int,
-			(SELECT count(DISTINCT student_id) FROM agent_commissions WHERE agent_id = $1)::int,
-			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1), 0)::float8,
+			(SELECT count(DISTINCT student_id) FROM agent_commissions WHERE agent_id = $1 AND status <> 'cancelled')::int,
+			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1 AND status <> 'cancelled'), 0)::float8,
 			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1 AND status = 'pending'), 0)::float8,
 			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1 AND status = 'paid'), 0)::float8,
-			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1
+			coalesce((SELECT sum(amount) FROM agent_commissions WHERE agent_id = $1 AND status <> 'cancelled'
 				AND created_at >= date_trunc('month', now() AT TIME ZONE 'Africa/Addis_Ababa') AT TIME ZONE 'Africa/Addis_Ababa'), 0)::float8`,
 		agentID).Scan(&a.SignUps, &a.Paying, &a.Earned, &a.Pending, &a.Paid, &a.ThisMonth)
 	return a, err
@@ -139,9 +149,10 @@ func (s *Server) appAgent(c *gin.Context) error {
 	var rate float64
 	err = s.pool.QueryRow(c, `SELECT id, status, code, commission_rate::float8 FROM field_agents WHERE student_id = $1`, st.ID).Scan(&id, &status, &code, &rate)
 	if err == pgx.ErrNoRows {
-		var referred bool
-		_ = s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM agent_referrals WHERE student_id = $1)`, st.ID).Scan(&referred)
-		return httpx.OK(c, gin.H{"status": "none", "referred": referred, "can_add_code": !referred && s.now().Sub(st.CreatedAt) <= referralWindow})
+		var referred, paid bool
+		_ = s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM agent_referrals WHERE student_id = $1),
+			EXISTS (SELECT 1 FROM enrollment_requests WHERE student_id = $1)`, st.ID).Scan(&referred, &paid)
+		return httpx.OK(c, gin.H{"status": "none", "referred": referred, "can_add_code": !referred && !paid && s.now().Sub(st.CreatedAt) <= referralWindow})
 	}
 	if err != nil {
 		return err
@@ -164,7 +175,7 @@ func (s *Server) appAgent(c *gin.Context) error {
 	// Recent students: first name only, and whether they're paying.
 	recent, err := s.store.ServiceRows(c, `SELECT jsonb_build_object(
 			'name', split_part(st.name, ' ', 1), 'joined', r.created_at,
-			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = r.agent_id AND m.student_id = r.student_id), 0))
+			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = r.agent_id AND m.student_id = r.student_id AND m.status <> 'cancelled'), 0))
 		FROM agent_referrals r JOIN students st ON st.id = r.student_id
 		WHERE r.agent_id = $1 ORDER BY r.created_at DESC LIMIT 30`, id)
 	if err != nil {
@@ -179,8 +190,8 @@ func (s *Server) adminAgents(c *gin.Context) error {
 			'id', f.id, 'name', f.name, 'phone', f.phone, 'city', f.city, 'region', f.region,
 			'status', f.status, 'code', f.code, 'rate', f.commission_rate, 'created_at', f.created_at,
 			'sign_ups', (SELECT count(*) FROM agent_referrals r WHERE r.agent_id = f.id),
-			'paying', (SELECT count(DISTINCT student_id) FROM agent_commissions m WHERE m.agent_id = f.id),
-			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id), 0),
+			'paying', (SELECT count(DISTINCT student_id) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status <> 'cancelled'),
+			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status <> 'cancelled'), 0),
 			'pending', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status = 'pending'), 0))
 		FROM field_agents f ORDER BY (f.status = 'pending') DESC, f.created_at DESC`)
 	if err != nil {
@@ -206,6 +217,10 @@ func (s *Server) adminUpdateAgent(c *gin.Context) error {
 	}
 	if tag.RowsAffected() == 0 {
 		return httpx.NotFound("Agent")
+	}
+	if _, err := s.pool.Exec(c, `INSERT INTO audit_events (admin_id, action, resource) VALUES ($1, 'agents.update', $2)`,
+		currentAdmin(c).ID, c.Param("id")); err != nil {
+		return err
 	}
 	if in.Status != nil && *in.Status == "approved" {
 		if err := s.ensureAgentCode(c, c.Param("id")); err != nil {
@@ -249,7 +264,7 @@ small{display:block;color:var(--muted);margin-top:18px;font-size:13px}
 <p>Courses, live exams, past national exams and leaderboards for Grade 9–12, remedial and freshman students.</p>
 {{if .Code}}<div class="code">{{.Code}}</div>{{end}}
 <a class="btn primary" href="{{.AppLink}}">Open in the Victory app</a>
-<small>New to Victory? Install the app, create your account, then enter this code under Profile › Agent code (within 14 days of joining).</small>
+<small>New to Victory? Install the app, create your account, then enter this code under Profile › Agent code within 14 days of joining, before your first payment.</small>
 </main></body></html>`))
 
 // GET /a/:code — the public page behind an agent's link.

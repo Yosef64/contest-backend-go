@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/smtp"
 	"time"
 
@@ -53,17 +55,69 @@ func (s *Server) issueReset(ctx context.Context, login string, adminID *string) 
 	return code, expires, err
 }
 
-func (s *Server) sendResetEmail(to, code string) error {
+// sendResetEmail sends the code and waits for the mail server to accept
+// it: on Lambda nothing runs after the response is sent. Port 465 uses TLS
+// from the start; other ports (587) upgrade with STARTTLS.
+func (s *Server) sendResetEmail(ctx context.Context, d resetEmailData) error {
 	cfg := s.cfg
-	body := "Your Victory Academy password reset code is " + code + ".\r\n\r\n" +
-		"It expires in 15 minutes. If you didn't ask to reset your password, ignore this email."
-	msg := "From: " + cfg.SMTPFrom + "\r\nTo: " + to + "\r\nSubject: Your password reset code\r\n" +
-		"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + body
-	var a smtp.Auth
-	if cfg.SMTPUser != "" {
-		a = smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	addr := net.JoinHostPort(cfg.SMTPHost, cfg.SMTPPort)
+	tlsConfig := &tls.Config{ServerName: cfg.SMTPHost, MinVersion: tls.VersionTLS12}
+	var conn net.Conn
+	var err error
+	if cfg.SMTPPort == "465" {
+		conn, err = (&tls.Dialer{Config: tlsConfig}).DialContext(ctx, "tcp", addr)
+	} else {
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	}
-	return smtp.SendMail(net.JoinHostPort(cfg.SMTPHost, cfg.SMTPPort), a, cfg.SMTPFrom, []string{to}, []byte(msg))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	}
+	client, err := smtp.NewClient(conn, cfg.SMTPHost)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	if ok, _ := client.Extension("STARTTLS"); ok && cfg.SMTPPort != "465" {
+		if err := client.StartTLS(tlsConfig); err != nil {
+			return err
+		}
+	}
+	if cfg.SMTPUser != "" {
+		if err := client.Auth(smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)); err != nil {
+			return err
+		}
+	}
+	from, err := mail.ParseAddress(cfg.SMTPFrom)
+	if err != nil {
+		return fmt.Errorf("SMTP_FROM: %w", err)
+	}
+	if err := client.Mail(from.Address); err != nil {
+		return err
+	}
+	if err := client.Rcpt(d.Email); err != nil {
+		return err
+	}
+	w, err := client.Data()
+	if err != nil {
+		return err
+	}
+	msg, err := resetEmail(cfg.SMTPFrom, from.Address, d, s.now())
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(msg); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 }
 
 // forgotPassword always answers the same way for a given login format, so
@@ -89,8 +143,10 @@ func (s *Server) forgotPassword(c *gin.Context) error {
 	if email != "" && s.cfg.MailEnabled() {
 		delivery = "email"
 	}
-	var exists bool
-	if err := s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM student_credentials WHERE login = $1)`, login).Scan(&exists); err != nil {
+	var name string
+	err := s.pool.QueryRow(c, `SELECT display_name FROM student_credentials WHERE login = $1`, login).Scan(&name)
+	exists := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 	if exists && (delivery == "email" || s.cfg.IsDev()) {
@@ -102,11 +158,13 @@ func (s *Server) forgotPassword(c *gin.Context) error {
 			slog.Info("password reset code", "login", login, "code", code)
 		}
 		if delivery == "email" {
-			go func() {
-				if err := s.sendResetEmail(email, code); err != nil {
-					slog.Error("send password reset email", "err", err)
-				}
-			}()
+			d := resetEmailData{Name: firstName(name), Email: email, Code: code,
+				Minutes: int(resetCodeTTL.Minutes()), Year: s.now().In(addisAbaba).Year()}
+			d.support(s.pageContacts(c))
+			if err := s.sendResetEmail(c, d); err != nil {
+				slog.Error("send password reset email", "err", err)
+				return httpx.NewError(http.StatusBadGateway, "email_failed", "We couldn't send the email just now. Try again in a minute.")
+			}
 		}
 	}
 	return httpx.OK(c, gin.H{"delivery": delivery, "expires_in_minutes": int(resetCodeTTL.Minutes())})
