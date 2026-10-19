@@ -169,6 +169,30 @@ type StudentStats struct {
 	Chapters          map[string]SubjectStat `json:"chapters"`
 	Topics            map[string]SubjectStat `json:"topics"`
 	Trend             []TrendPoint           `json:"trend"`
+	// Questions left unanswered.
+	Skipped int `json:"skipped"`
+	// Chapters by subject (Chapters mixes subjects; kept for older apps).
+	ChaptersBySubject map[string]map[string]SubjectStat `json:"chapters_by_subject"`
+	Learning          Learning                          `json:"learning"`
+}
+
+// Learning is what the student has read and finished: courses of their
+// level, chapters and topics, and trainings.
+type Learning struct {
+	CoursesDone    int               `json:"courses_done"`
+	CoursesTotal   int               `json:"courses_total"`
+	ChaptersDone   int               `json:"chapters_done"`
+	ChaptersTotal  int               `json:"chapters_total"`
+	TopicsDone     int               `json:"topics_done"`
+	TrainingsDone  int               `json:"trainings_done"`
+	TrainingsTotal int               `json:"trainings_total"`
+	Subjects       []SubjectLearning `json:"subjects"`
+}
+
+type SubjectLearning struct {
+	Subject       string `json:"subject"`
+	ChaptersDone  int    `json:"chapters_done"`
+	ChaptersTotal int    `json:"chapters_total"`
 }
 
 type TrendPoint struct {
@@ -179,7 +203,8 @@ type TrendPoint struct {
 
 // StudentStats is computed from the student's submissions.
 func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStats, error) {
-	st := StudentStats{Subjects: map[string]SubjectStat{}, Chapters: map[string]SubjectStat{}, Topics: map[string]SubjectStat{}, Trend: []TrendPoint{}}
+	st := StudentStats{Subjects: map[string]SubjectStat{}, Chapters: map[string]SubjectStat{}, Topics: map[string]SubjectStat{},
+		Trend: []TrendPoint{}, ChaptersBySubject: map[string]map[string]SubjectStat{}, Learning: Learning{Subjects: []SubjectLearning{}}}
 	err := s.db.QueryRow(ctx, `SELECT count(*)::int, coalesce(sum(total), 0)::int, coalesce(sum(correct), 0)::int,
 		CASE WHEN coalesce(sum(total), 0) = 0 THEN 0 ELSE (sum(time_seconds) / sum(total))::int END,
 		(SELECT count(*)::int FROM chapter_progress WHERE student_id = $1)
@@ -218,6 +243,13 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 		inc(st.Subjects, subject)
 		inc(st.Chapters, chapter)
 		inc(st.Topics, subject+" / "+chapter+" / "+topic)
+		if st.ChaptersBySubject[subject] == nil {
+			st.ChaptersBySubject[subject] = map[string]SubjectStat{}
+		}
+		inc(st.ChaptersBySubject[subject], chapter)
+		if ok == nil {
+			st.Skipped++
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return st, err
@@ -228,6 +260,9 @@ func (s *Store) StudentStats(ctx context.Context, studentID string) (StudentStat
 		FROM submissions WHERE student_id = $1 AND submitted_at > now() - interval '6 months'
 		GROUP BY date_trunc('month', submitted_at) ORDER BY date_trunc('month', submitted_at)`, studentID)
 	if err != nil {
+		return st, err
+	}
+	if st.Learning, err = s.studentLearning(ctx, studentID); err != nil {
 		return st, err
 	}
 	// Ranked on the board of the student's current plan (paid results for a
@@ -269,4 +304,52 @@ func (s *Store) AdminStudentDetail(ctx context.Context, id string) (AdminStudent
 	d.Submissions, err = collect[SubmissionRow](ctx, s.db, `SELECT sub.contest_id, c.title AS contest_title, sub.correct, sub.total, sub.time_seconds, c.subject, sub.submitted_at
 		FROM submissions sub JOIN contests c ON c.id = sub.contest_id WHERE sub.student_id = $1 ORDER BY sub.submitted_at DESC`, id)
 	return d, err
+}
+
+// studentLearning counts what the student finished among the published
+// courses of their level, and the trainings.
+func (s *Store) studentLearning(ctx context.Context, studentID string) (Learning, error) {
+	l := Learning{Subjects: []SubjectLearning{}}
+	rows, err := s.db.Query(ctx, `SELECT c.subject, count(ch.id)::int, count(p.chapter_id)::int
+		FROM courses c
+		JOIN chapters ch ON ch.course_id = c.id AND ch.status = 'published'
+		LEFT JOIN chapter_progress p ON p.chapter_id = ch.id AND p.student_id = $1
+		WHERE c.grade = (SELECT grade FROM students WHERE id = $1)
+		GROUP BY c.id, c.subject ORDER BY c.subject`, studentID)
+	if err != nil {
+		return l, err
+	}
+	bySubject := map[string]int{} // subject -> index in l.Subjects
+	for rows.Next() {
+		var subject string
+		var total, done int
+		if err := rows.Scan(&subject, &total, &done); err != nil {
+			rows.Close()
+			return l, err
+		}
+		l.CoursesTotal++
+		if done == total {
+			l.CoursesDone++
+		}
+		l.ChaptersTotal += total
+		l.ChaptersDone += done
+		i, seen := bySubject[subject]
+		if !seen {
+			i = len(l.Subjects)
+			bySubject[subject] = i
+			l.Subjects = append(l.Subjects, SubjectLearning{Subject: subject})
+		}
+		l.Subjects[i].ChaptersTotal += total
+		l.Subjects[i].ChaptersDone += done
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return l, err
+	}
+	err = s.db.QueryRow(ctx, `SELECT
+			coalesce((SELECT sum(cardinality(topics)) FROM topic_progress WHERE student_id = $1), 0)::int,
+			(SELECT count(*) FROM trainings WHERE status = 'published')::int,
+			(SELECT count(*) FROM training_progress tp JOIN trainings t ON t.id = tp.training_id AND t.status = 'published'
+				WHERE tp.student_id = $1)::int`, studentID).Scan(&l.TopicsDone, &l.TrainingsTotal, &l.TrainingsDone)
+	return l, err
 }

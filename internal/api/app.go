@@ -346,7 +346,27 @@ func (s *Server) getMyProgress(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	return httpx.OK(c, gin.H{"completed_chapter_ids": ids})
+	topics, err := s.store.TopicsDone(c, st.ID)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, gin.H{"completed_chapter_ids": ids, "topics": topics})
+}
+
+// PUT /me/progress/:chapterID/topics {topic, total} — a finished topic.
+func (s *Server) putMyTopic(c *gin.Context) error {
+	var in struct {
+		Topic string `json:"topic" binding:"required,max=300"`
+		Total int    `json:"total" binding:"min=1,max=500"`
+	}
+	if err := httpx.Bind(c, &in); err != nil {
+		return err
+	}
+	st, err := s.me(c)
+	if err != nil {
+		return err
+	}
+	return orNoContent(c, storeErr(s.store.FinishTopic(c, st.ID, c.Param("chapterID"), strings.TrimSpace(in.Topic), in.Total), "Chapter"))
 }
 
 func (s *Server) putMyProgress(c *gin.Context) error {

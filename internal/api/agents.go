@@ -2,10 +2,13 @@ package api
 
 import (
 	"crypto/rand"
+	"errors"
 	"html/template"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -181,7 +184,111 @@ func (s *Server) appAgent(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	return httpx.OK(c, gin.H{"status": "approved", "code": code, "link": agentLink(c, *code), "rate": rate, "stats": stats, "recent": recent})
+	payout, err := s.agentPayout(c, id)
+	if err != nil {
+		return err
+	}
+	payouts, err := s.agentPayouts(c, id, 20)
+	if err != nil {
+		return err
+	}
+	for i := range payouts {
+		payouts[i].PaidBy = "" // the agent sees the academy, not the admin
+	}
+	return httpx.OK(c, gin.H{"status": "approved", "code": code, "link": agentLink(c, *code), "rate": rate, "stats": stats,
+		"recent": recent, "payout": payout, "payouts": payouts})
+}
+
+// agentPayoutDetails is where an agent's commission is sent.
+type agentPayoutDetails struct {
+	Method    string     `json:"method"`
+	Bank      string     `json:"bank"`
+	Account   string     `json:"account"`
+	Name      string     `json:"name"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+func (s *Server) agentPayout(c *gin.Context, agentID string) (agentPayoutDetails, error) {
+	var p agentPayoutDetails
+	err := s.pool.QueryRow(c, `SELECT payout_method, payout_bank, payout_account, payout_name, payout_updated_at
+		FROM field_agents WHERE id = $1`, agentID).Scan(&p.Method, &p.Bank, &p.Account, &p.Name, &p.UpdatedAt)
+	return p, err
+}
+
+var (
+	digitsOnly  = regexp.MustCompile(`^[0-9]+$`)
+	payoutBanks = map[string]bool{
+		"Commercial Bank of Ethiopia": true, "Awash Bank": true, "Bank of Abyssinia": true, "Dashen Bank": true,
+		"Hibret Bank": true, "Wegagen Bank": true, "Nib International Bank": true, "Cooperative Bank of Oromia": true,
+		"Lion International Bank": true, "Oromia Bank": true, "Zemen Bank": true, "Bunna Bank": true,
+		"Berhan Bank": true, "Abay Bank": true, "Addis International Bank": true, "Enat Bank": true,
+		"Global Bank Ethiopia": true, "Amhara Bank": true, "Siinqee Bank": true, "Tsehay Bank": true,
+		"Ahadu Bank": true, "Gadaa Bank": true, "Hijra Bank": true, "ZamZam Bank": true, "Goh Betoch Bank": true,
+		"Shabelle Bank": true, "Rammis Bank": true, "Tsedey Bank": true, "Sidama Bank": true, "Omo Bank": true,
+		"Development Bank of Ethiopia": true,
+	}
+)
+
+// PUT /me/agent/payout {method, bank, account, name} — where the agent is
+// paid. Recorded with its time, and in the audit log, so the academy sees
+// details changed shortly before a payout.
+func (s *Server) appAgentPayout(c *gin.Context) error {
+	st, err := s.me(c)
+	if err != nil {
+		return err
+	}
+	var in struct {
+		Method  string `json:"method" binding:"required,oneof=bank telebirr cbe_birr"`
+		Bank    string `json:"bank" binding:"max=80"`
+		Account string `json:"account" binding:"required,max=40"`
+		Name    string `json:"name" binding:"required,max=120"`
+	}
+	if err := httpx.Bind(c, &in); err != nil {
+		return err
+	}
+	in.Account = strings.Join(strings.Fields(strings.ReplaceAll(in.Account, "-", "")), "")
+	in.Name = strings.Join(strings.Fields(in.Name), " ")
+	in.Bank = strings.TrimSpace(in.Bank)
+	fields := map[string]string{}
+	switch in.Method {
+	case "bank":
+		if !payoutBanks[in.Bank] {
+			fields["bank"] = "Choose your bank."
+		}
+		if !digitsOnly.MatchString(in.Account) || len(in.Account) < 8 || len(in.Account) > 20 {
+			fields["account"] = "Enter the account number (8 to 20 digits)."
+		}
+	default:
+		// telebirr and CBE Birr pay to a phone number.
+		in.Bank = ""
+		if p, ok := ethiopianMobile(in.Account); ok {
+			in.Account = p
+		} else {
+			fields["account"] = "Enter the phone number of the wallet (09… or 07…)."
+		}
+	}
+	if len([]rune(in.Name)) < 3 {
+		fields["name"] = "Enter the full name on the account."
+	}
+	if len(fields) > 0 {
+		return httpx.Invalid(fields)
+	}
+	var agentID string
+	err = s.pool.QueryRow(c, `UPDATE field_agents SET payout_method = $2, payout_bank = $3, payout_account = $4,
+			payout_name = $5, payout_updated_at = now()
+		WHERE student_id = $1 AND status = 'approved' RETURNING id`, st.ID, in.Method, in.Bank, in.Account, in.Name).Scan(&agentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return httpx.Forbidden("Only approved agents can add payout details.")
+	}
+	if err != nil {
+		return err
+	}
+	slog.Info("agent payout details changed", "agent", agentID)
+	payout, err := s.agentPayout(c, agentID)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, gin.H{"payout": payout})
 }
 
 // GET /admin/agents — every agent with their numbers.
@@ -192,7 +299,9 @@ func (s *Server) adminAgents(c *gin.Context) error {
 			'sign_ups', (SELECT count(*) FROM agent_referrals r WHERE r.agent_id = f.id),
 			'paying', (SELECT count(DISTINCT student_id) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status <> 'cancelled'),
 			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status <> 'cancelled'), 0),
-			'pending', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status = 'pending'), 0))
+			'pending', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = f.id AND m.status = 'pending'), 0),
+			'payout', jsonb_build_object('method', f.payout_method, 'bank', f.payout_bank, 'account', f.payout_account,
+				'name', f.payout_name, 'updated_at', f.payout_updated_at))
 		FROM field_agents f ORDER BY (f.status = 'pending') DESC, f.created_at DESC`)
 	if err != nil {
 		return err
@@ -231,19 +340,122 @@ func (s *Server) adminUpdateAgent(c *gin.Context) error {
 }
 
 // POST /admin/agents/:id/payout — marks everything owed as paid.
+// POST /admin/agents/:id/payout {reference?} — records a payout of
+// everything owed: the amount, where it was sent (the agent's details as
+// they are now) and the transfer reference.
 func (s *Server) adminAgentPayout(c *gin.Context) error {
-	var paid float64
-	if err := s.pool.QueryRow(c, `WITH p AS (
-			UPDATE agent_commissions SET status = 'paid', paid_at = now()
-			WHERE agent_id = $1 AND status = 'pending' RETURNING amount)
-		SELECT coalesce(sum(amount), 0)::float8 FROM p`, c.Param("id")).Scan(&paid); err != nil {
+	var in struct {
+		Reference string `json:"reference" binding:"max=120"`
+	}
+	if err := httpx.Bind(c, &in); err != nil && c.Request.ContentLength > 0 {
 		return err
 	}
-	if _, err := s.pool.Exec(c, `INSERT INTO audit_events (admin_id, action, resource) VALUES ($1, 'agents.payout', $2)`,
-		currentAdmin(c).ID, c.Param("id")); err != nil {
+	admin := currentAdmin(c)
+	var payout agentPayoutRecord
+	err := pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
+		// Lock the agent so two payouts can't settle the same commissions.
+		var p agentPayoutDetails
+		err := tx.QueryRow(c, `SELECT payout_method, payout_bank, payout_account, payout_name FROM field_agents
+			WHERE id = $1 FOR UPDATE`, c.Param("id")).Scan(&p.Method, &p.Bank, &p.Account, &p.Name)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return httpx.NotFound("Agent")
+		}
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRow(c, `WITH owed AS (
+				SELECT id, amount FROM agent_commissions WHERE agent_id = $1 AND status = 'pending'),
+			payout AS (
+				INSERT INTO agent_payouts (agent_id, amount, commissions, method, bank, account, account_name, reference, paid_by)
+				SELECT $1, sum(amount), count(*), $2, $3, $4, $5, $6, $7 FROM owed HAVING count(*) > 0
+				RETURNING id, amount::float8, commissions, method, bank, account, account_name, reference, created_at),
+			settled AS (
+				UPDATE agent_commissions m SET status = 'paid', paid_at = now(), payout_id = (SELECT id FROM payout)
+				WHERE m.id IN (SELECT id FROM owed) AND EXISTS (SELECT 1 FROM payout))
+			SELECT id, amount, commissions, method, bank, account, account_name, reference, created_at FROM payout`,
+			c.Param("id"), p.Method, p.Bank, p.Account, p.Name, strings.TrimSpace(in.Reference), admin.ID).
+			Scan(&payout.ID, &payout.Amount, &payout.Commissions, &payout.Method, &payout.Bank, &payout.Account,
+				&payout.AccountName, &payout.Reference, &payout.CreatedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return httpx.Conflict("nothing_owed", "Nothing is owed to this agent.")
+		}
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(c, `INSERT INTO audit_events (admin_id, action, resource) VALUES ($1, 'agents.payout', $2)`,
+			admin.ID, c.Param("id"))
+		return err
+	})
+	if err != nil {
 		return err
 	}
-	return httpx.OK(c, gin.H{"paid": paid})
+	return httpx.OK(c, gin.H{"paid": payout.Amount, "payout": payout})
+}
+
+// agentPayoutRecord is one payout to an agent.
+type agentPayoutRecord struct {
+	ID          int64     `json:"id"`
+	Amount      float64   `json:"amount"`
+	Commissions int       `json:"commissions"`
+	Method      string    `json:"method"`
+	Bank        string    `json:"bank"`
+	Account     string    `json:"account"`
+	AccountName string    `json:"account_name"`
+	Reference   string    `json:"reference"`
+	PaidBy      string    `json:"paid_by,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func (s *Server) agentPayouts(c *gin.Context, agentID string, limit int) ([]agentPayoutRecord, error) {
+	rows, err := s.pool.Query(c, `SELECT p.id, p.amount::float8, p.commissions, p.method, p.bank, p.account, p.account_name,
+			p.reference, coalesce(a.name, ''), p.created_at
+		FROM agent_payouts p LEFT JOIN admins a ON a.id = p.paid_by
+		WHERE p.agent_id = $1 ORDER BY p.created_at DESC LIMIT $2`, agentID, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := []agentPayoutRecord{}
+	for rows.Next() {
+		var p agentPayoutRecord
+		if err := rows.Scan(&p.ID, &p.Amount, &p.Commissions, &p.Method, &p.Bank, &p.Account, &p.AccountName,
+			&p.Reference, &p.PaidBy, &p.CreatedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// GET /admin/agents/:id — the students an agent brought in (with what each
+// earned them) and the agent's payouts.
+func (s *Server) adminAgentDetail(c *gin.Context) error {
+	id := c.Param("id")
+	var exists bool
+	if err := s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM field_agents WHERE id = $1)`, id).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return httpx.NotFound("Agent")
+	}
+	students, err := s.store.ServiceRows(c, `SELECT jsonb_build_object(
+			'id', st.id, 'name', st.name, 'phone', st.phone_number, 'grade', st.grade, 'joined', r.created_at,
+			'plans', (SELECT count(*) FROM agent_commissions m WHERE m.agent_id = r.agent_id AND m.student_id = r.student_id
+				AND m.status <> 'cancelled'),
+			'earned', coalesce((SELECT sum(amount) FROM agent_commissions m WHERE m.agent_id = r.agent_id
+				AND m.student_id = r.student_id AND m.status <> 'cancelled'), 0),
+			'paying', EXISTS (SELECT 1 FROM enrollment_requests e WHERE e.student_id = r.student_id AND e.status = 'approved'
+				AND e.expires_at > now()))
+		FROM agent_referrals r JOIN students st ON st.id = r.student_id
+		WHERE r.agent_id = $1 ORDER BY r.created_at DESC`, id)
+	if err != nil {
+		return err
+	}
+	payouts, err := s.agentPayouts(c, id, 100)
+	if err != nil {
+		return err
+	}
+	return httpx.OK(c, gin.H{"students": students, "payouts": payouts})
 }
 
 var agentPage = template.Must(template.New("a").Parse(`<!doctype html>
@@ -285,4 +497,14 @@ func (s *Server) agentLanding(c *gin.Context) {
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Status(http.StatusOK)
 	_ = agentPage.Execute(c.Writer, data)
+}
+
+// ethiopianMobile returns a wallet phone number as 09… or 07… (how telebirr
+// and CBE Birr show it), from any common way of writing it.
+func ethiopianMobile(raw string) (string, bool) {
+	m := ethioPhone.FindStringSubmatch(phoneSeparators.ReplaceAllString(strings.TrimSpace(raw), ""))
+	if m == nil {
+		return "", false
+	}
+	return "0" + m[1], true
 }

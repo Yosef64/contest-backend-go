@@ -296,3 +296,42 @@ func (s *Store) SetChapterCompleted(ctx context.Context, studentID, chapterID st
 func levelOrder(col string) string {
 	return "CASE " + col + " WHEN 'remedial' THEN 13 WHEN 'freshman' THEN 14 ELSE " + col + "::int END"
 }
+
+// TopicProgress is the finished topics of one chapter.
+type TopicProgress struct {
+	Done  []string `json:"done"`
+	Total int      `json:"total"`
+}
+
+// TopicsDone maps chapter ID to the student's finished topics.
+func (s *Store) TopicsDone(ctx context.Context, studentID string) (map[string]TopicProgress, error) {
+	rows, err := s.db.Query(ctx, `SELECT chapter_id, topics, total FROM topic_progress WHERE student_id = $1`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]TopicProgress{}
+	for rows.Next() {
+		var id string
+		var p TopicProgress
+		if err := rows.Scan(&id, &p.Done, &p.Total); err != nil {
+			return nil, err
+		}
+		out[id] = p
+	}
+	return out, rows.Err()
+}
+
+// FinishTopic records a finished topic of a published chapter.
+func (s *Store) FinishTopic(ctx context.Context, studentID, chapterID, topic string, total int) error {
+	tag, err := s.db.Exec(ctx, `INSERT INTO topic_progress (student_id, chapter_id, topics, total)
+		SELECT $1, id, ARRAY[$3::text], $4 FROM chapters WHERE id = $2 AND status = 'published'
+		ON CONFLICT (student_id, chapter_id) DO UPDATE SET
+			topics = CASE WHEN $3 = ANY (topic_progress.topics) THEN topic_progress.topics
+				ELSE topic_progress.topics || $3::text END,
+			total = $4, updated_at = now()`, studentID, chapterID, topic, total)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return classify(err)
+}
