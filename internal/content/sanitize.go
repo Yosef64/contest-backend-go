@@ -27,7 +27,9 @@ var styleAttr = regexp.MustCompile(`^\s*((` + strings.Join([]string{
 
 func newPolicy() *bluemonday.Policy {
 	p := bluemonday.UGCPolicy()
-	p.AllowAttrs("data-tex").OnElements("span", "div")
+	// Equations: their TeX (an equation on a diagram is a <g> of shapes
+	// that keeps its TeX so it can be edited again).
+	p.AllowAttrs("data-tex").OnElements("span", "div", "g")
 	p.AllowStyling() // class attributes
 	p.AllowElements("figure", "figcaption", "mark", "u", "s", "sub", "sup")
 	p.AllowAttrs("style").Matching(styleAttr).Globally()
@@ -49,6 +51,9 @@ func newPolicy() *bluemonday.Policy {
 	// Inline SVG diagrams: shapes and text only (no scripts, no foreign content).
 	svgEls := []string{"svg", "g", "rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text", "tspan", "defs", "lineargradient", "stop"}
 	p.AllowElements(svgEls...)
+	// A group with no attributes still groups (equations drawn on diagrams
+	// nest them; dropping one moves everything after it).
+	p.AllowNoAttrs().OnElements("g")
 	p.AllowAttrs(
 		"viewbox", "width", "height", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry",
 		"points", "d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray",
