@@ -23,6 +23,7 @@ var styleAttr = regexp.MustCompile(`^\s*((` + strings.Join([]string{
 	`width:\s*\d{1,3}%`,
 	`font-size:\s*\d{1,2}(\.\d{1,2})?(px|em|rem)`,
 	`font-family:\s*(serif|sans-serif|monospace|cursive)`,
+	`line-height:\s*[12](\.\d{1,2})?`,
 }, "|") + `);?\s*)+$`)
 
 func newPolicy() *bluemonday.Policy {

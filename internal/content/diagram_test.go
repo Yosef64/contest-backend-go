@@ -33,3 +33,10 @@ func TestDrawnDiagramSurvivesSanitizing(t *testing.T) {
 		t.Errorf("unbalanced groups:\n%s", out)
 	}
 }
+
+func TestLineSpacingKept(t *testing.T) {
+	out := SanitizeHTML(`<p style="line-height: 1.5">Hello</p><h2 style="line-height: 2">T</h2><p style="line-height: 9">x</p>`)
+	if !strings.Contains(out, `line-height: 1.5`) || !strings.Contains(out, `line-height: 2`) || strings.Contains(out, `line-height: 9`) {
+		t.Fatal(out)
+	}
+}
