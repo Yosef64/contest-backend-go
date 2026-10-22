@@ -323,13 +323,13 @@ func (s *Server) aiReviewQuiz(c *gin.Context) error {
 			JOIN contests co ON co.id = sub.contest_id
 			JOIN contest_questions cq ON cq.contest_id = co.id
 			JOIN questions q ON q.id = cq.question_id
-			WHERE sub.student_id = $1 AND (co.kind = 'national' OR co.end_time < now())
+			WHERE sub.student_id = $1 AND (co.kind <> 'contest' OR co.end_time < now())
 			AND coalesce((sub.answers ->> q.id)::int, -1) <> q.answer_index),
 		fresh AS (
 			SELECT q.id, 1 AS pri FROM questions q
 			WHERE q.chapter = ANY($2) AND q.grade = $3
 			AND NOT EXISTS (SELECT 1 FROM contest_questions cq JOIN contests co ON co.id = cq.contest_id
-				WHERE cq.question_id = q.id AND co.kind <> 'national' AND co.end_time > now())),
+				WHERE cq.question_id = q.id AND co.kind = 'contest' AND co.end_time > now())),
 		pick AS (SELECT id, min(pri) AS pri FROM (SELECT * FROM missed UNION ALL SELECT * FROM fresh) x GROUP BY id)
 		SELECT q.id, q.text, q.options, q.answer_index, q.explanation, q.subject, q.chapter, q.grade, q.image_url
 		FROM pick JOIN questions q ON q.id = pick.id

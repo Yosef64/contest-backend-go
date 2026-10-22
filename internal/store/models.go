@@ -151,8 +151,9 @@ type Contest struct {
 	Attempts int    `json:"attempts" db:"attempts"`
 	Phase    string `json:"phase" db:"-"`
 
-	// "contest" (scheduled) or "national" (past national exam, timed practice
-	// open between StartTime and EndTime).
+	// "contest" (scheduled); or timed practice open between StartTime and
+	// EndTime: "national" (past national exam), "model" (model exam) or
+	// "challenge" (a challenge day's quiz or weekly exam).
 	Kind            string `json:"kind" db:"kind"`
 	ExamYear        *int   `json:"exam_year" db:"exam_year"`
 	Stream          string `json:"stream" db:"stream"`
@@ -169,7 +170,10 @@ type Contest struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-func (c *Contest) IsNational() bool { return c.Kind == "national" }
+// IsNational reports a self-paced exam: a past national set, a model exam, or
+// a challenge quiz or weekly exam. Each student gets a timed attempt and sees
+// the score at once.
+func (c *Contest) IsNational() bool { return c.Kind != "contest" }
 
 // PhaseAt is computed from the schedule, never stored.
 func (c *Contest) PhaseAt(now time.Time) string {

@@ -85,6 +85,7 @@ func (s *Server) Router() *gin.Engine {
 	// Public page behind shared referral links.
 	r.GET("/r/:owner/:chapter", s.referralLanding)
 	r.GET("/a/:code", s.agentLanding)
+	r.GET("/c/:owner/:challenge/:kind/:unit", s.challengeInviteLanding)
 	r.GET("/account-deletion", s.accountDeletionPage)
 	r.GET("/privacy", s.privacyPage)
 
@@ -181,6 +182,12 @@ func (s *Server) Router() *gin.Engine {
 	app.PUT("/learning-hub/targets", httpx.H(s.saveTarget))
 	app.PUT("/learning-hub/habits/:id", httpx.H(s.logHabit))
 	app.POST("/learning-hub/referrals", httpx.H(s.referralVisit))
+	app.GET("/challenges", httpx.H(s.appChallenges))
+	app.POST("/challenges/referrals", httpx.H(s.appChallengeReferral))
+	app.GET("/challenges/:id", httpx.H(s.appChallenge))
+	app.GET("/challenges/:id/days/:day", httpx.H(s.appChallengeDay))
+	app.POST("/challenges/:id/days/:day/steps/:step", httpx.H(s.appChallengeStep))
+	app.GET("/challenges/:id/days/:day/leaderboard", httpx.H(s.appChallengeLeaderboard))
 
 	// Admin sign-in (public).
 	adminAuth := v1.Group("/admin/auth")
@@ -254,6 +261,18 @@ func (s *Server) Router() *gin.Engine {
 	ad.GET("/contests/:id/violations", httpx.H(s.adminExamViolations))
 	ad.GET("/contests/:id/questions", httpx.H(s.adminContestQuestions))
 	ad.POST("/contests/:id/questions/import", httpx.H(s.adminImportContestQuestions))
+
+	ad.GET("/challenges", httpx.H(s.adminChallenges))
+	ad.PUT("/challenge-settings", httpx.H(s.adminChallengeSettings))
+	ad.POST("/challenges", httpx.H(s.adminCreateChallenge))
+	ad.GET("/challenges/:id", httpx.H(s.adminChallenge))
+	ad.PUT("/challenges/:id", httpx.H(s.adminUpdateChallenge))
+	ad.DELETE("/challenges/:id", httpx.H(s.adminDeleteChallenge))
+	ad.GET("/challenges/:id/report", httpx.H(s.adminChallengeReport))
+	ad.GET("/challenges/:id/days/:day", httpx.H(s.adminChallengeDay))
+	ad.PUT("/challenges/:id/days/:day", httpx.H(s.adminSaveChallengeDay))
+	ad.PUT("/challenges/:id/days/:day/quiz", httpx.H(s.adminSaveChallengeQuiz))
+	ad.DELETE("/challenges/:id/days/:day/quiz", httpx.H(s.adminDeleteChallengeQuiz))
 
 	ad.GET("/questions", httpx.H(s.adminQuestions))
 	ad.POST("/questions", httpx.H(s.adminCreateQuestion))

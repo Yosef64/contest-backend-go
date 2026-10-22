@@ -77,7 +77,49 @@ type Overview struct {
 	RecentContests       []Contest    `json:"recent_contests"`
 	RecentStudents       []Student    `json:"recent_students"`
 	Earnings             Earnings     `json:"earnings"`
+	Growth               Growth       `json:"growth"`
 }
+
+// GrowthPoint is one day or month: students who joined, by stream (grades
+// 9-10 have none), and the money taken.
+type GrowthPoint struct {
+	Period   string  `json:"period" db:"period"`
+	Natural  int     `json:"natural" db:"natural"`
+	Social   int     `json:"social" db:"social"`
+	NoStream int     `json:"no_stream" db:"no_stream"`
+	Revenue  float64 `json:"revenue" db:"revenue"`
+}
+
+// Growth: the last 30 days and the last 12 months, oldest first.
+type Growth struct {
+	Daily   []GrowthPoint `json:"daily"`
+	Monthly []GrowthPoint `json:"monthly"`
+}
+
+// growthQuery fills %[1]s (the step: day or month) over the series from
+// %[2]s. Times are bucketed in Addis Ababa time.
+const growthQuery = `WITH price AS (
+		SELECT
+			coalesce((SELECT CASE WHEN value ~ '^[0-9]+(\.[0-9]+)?$' THEN value::numeric END FROM site_settings WHERE key = 'price_academic'), 0) AS academic,
+			coalesce((SELECT CASE WHEN value ~ '^[0-9]+(\.[0-9]+)?$' THEN value::numeric END FROM site_settings WHERE key = 'price_training'), 0) AS training
+	), paid AS (
+		SELECT coalesce(verified_at, created_at) AS at, amount FROM chapa_payments WHERE status = 'success'
+		UNION ALL
+		SELECT e.created_at, CASE e.module WHEN 'academic' THEN p.academic ELSE p.training END
+		FROM enrollment_requests e CROSS JOIN price p
+		WHERE e.status = 'approved' AND e.reference NOT LIKE 'Chapa %%'
+	), series AS (
+		SELECT generate_series(%[2]s, date_trunc('%[1]s', now() AT TIME ZONE 'Africa/Addis_Ababa'), interval '1 %[1]s') AS p
+	)
+	SELECT to_char(series.p, '%[3]s') AS period,
+		count(st.id) FILTER (WHERE ap.stream = 'natural')::int AS natural,
+		count(st.id) FILTER (WHERE ap.stream = 'social')::int AS social,
+		count(st.id) FILTER (WHERE coalesce(ap.stream, '') = '')::int AS no_stream,
+		coalesce((SELECT sum(amount) FROM paid WHERE date_trunc('%[1]s', paid.at AT TIME ZONE 'Africa/Addis_Ababa') = series.p), 0)::float8 AS revenue
+	FROM series
+	LEFT JOIN students st ON date_trunc('%[1]s', st.created_at AT TIME ZONE 'Africa/Addis_Ababa') = series.p
+	LEFT JOIN academic_profiles ap ON ap.student_id = st.id
+	GROUP BY series.p ORDER BY series.p`
 
 // monthly counts for the last six months, including empty months.
 const monthly = `SELECT to_char(m, 'Mon') AS month, count(t.ts)::int AS count
@@ -148,6 +190,16 @@ func (s *Store) Overview(ctx context.Context, plan string) (Overview, error) {
 		err := s.db.QueryRow(ctx, earningsQuery).Scan(&e.Online, &e.OnlineCount, &e.Manual, &e.ManualCount, &e.ThisMonth, &e.LastMonth)
 		e.Total = e.Online + e.Manual
 		return err
+	})
+	g.Go(func() (err error) {
+		o.Growth.Daily, err = collect[GrowthPoint](ctx, s.db, fmt.Sprintf(growthQuery, "day",
+			`date_trunc('day', now() AT TIME ZONE 'Africa/Addis_Ababa') - interval '29 days'`, "YYYY-MM-DD"))
+		return
+	})
+	g.Go(func() (err error) {
+		o.Growth.Monthly, err = collect[GrowthPoint](ctx, s.db, fmt.Sprintf(growthQuery, "month",
+			`date_trunc('month', now() AT TIME ZONE 'Africa/Addis_Ababa') - interval '11 months'`, "YYYY-MM"))
+		return
 	})
 	return o, g.Wait()
 }

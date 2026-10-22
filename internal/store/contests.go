@@ -86,14 +86,15 @@ func withPhase(cs []Contest) []Contest {
 	return cs
 }
 
-// Contests lists all contests and national exam sets; grade filters for the
+// Contests lists all contests, national exam sets and model exams (challenge
+// quizzes and weekly exams belong to their challenge); grade filters for the
 // student app.
 func (s *Store) Contests(ctx context.Context, grade string, departments ...string) ([]Contest, error) {
 	department := ""
 	if len(departments) > 0 {
 		department = departments[0]
 	}
-	cs, err := collect[Contest](ctx, s.db, contestSelect+` WHERE ($1 = '' OR c.grade = $1 OR c.grade = $2)
+	cs, err := collect[Contest](ctx, s.db, contestSelect+` WHERE c.kind <> 'challenge' AND ($1 = '' OR c.grade = $1 OR c.grade = $2)
 		ORDER BY c.kind, c.exam_year DESC NULLS LAST, c.start_time DESC`, grade, department)
 	return withPhase(cs), err
 }

@@ -115,6 +115,10 @@ func managerSchool(c *gin.Context) (string, bool) {
 
 func (s *Server) checkLearningAccess(c *gin.Context, st store.Student, kind, id string) error {
 	if kind == "contest" {
+		// A challenge's quizzes and exams follow the challenge's rules.
+		if handled, err := s.challengeContestAccess(c, st, id); handled {
+			return err
+		}
 		if err := s.checkLearningGroup(c, st, kind, id); err != nil {
 			return err
 		}
@@ -638,7 +642,7 @@ func (s *Server) reportData(c *gin.Context, group string) ([]map[string]any, err
 SELECT sub.contest_id,sub.student_id,sub.submitted_at,sub.time_seconds,q.subject,coalesce(nullif(q.chapter,''),'Uncategorized') AS chapter,` + topic + ` AS topic,
 count(*) AS total,count(*) FILTER(WHERE sub.answers->>q.id=q.answer_index::text) AS correct
 FROM submissions sub JOIN contests co ON co.id=sub.contest_id JOIN contest_questions cq ON cq.contest_id=co.id JOIN questions q ON q.id=cq.question_id
-WHERE co.end_time<now() OR co.kind='national' GROUP BY sub.contest_id,sub.student_id,sub.submitted_at,sub.time_seconds,q.subject,` + inner + `)
+WHERE co.end_time<now() OR co.kind<>'contest' GROUP BY sub.contest_id,sub.student_id,sub.submitted_at,sub.time_seconds,q.subject,` + inner + `)
 SELECT jsonb_build_object('group',` + label + `,'attempts',count(*),'students',count(DISTINCT b.student_id),
 'accuracy',round(sum(b.correct)::numeric/nullif(sum(b.total),0)*100,2),
 'pass',count(*) FILTER(WHERE b.correct*2>=b.total),'fail',count(*) FILTER(WHERE b.correct*2<b.total),'average_seconds',round(avg(b.time_seconds)))
@@ -1148,7 +1152,7 @@ func (s *Server) examModePassword(c *gin.Context) error {
 		return httpx.Conflict("not_active", "Exam mode is available during the scheduled exam.")
 	}
 	// Past national exams are taken without registering.
-	if co.Kind != "national" {
+	if !co.IsNational() {
 		var registered bool
 		if err = s.pool.QueryRow(c, "SELECT EXISTS(SELECT 1 FROM registrations WHERE contest_id=$1 AND student_id=$2)", co.ID, st.ID).Scan(&registered); err != nil {
 			return err

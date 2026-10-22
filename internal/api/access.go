@@ -16,7 +16,9 @@ const premiumModule = "academic"
 // defaultAccessSQL is the access a resource has without a policy row, for a
 // query that has the resource's kind as `kind` and, for contests, the
 // contest row as `co`.
-const defaultContestAccessSQL = `CASE WHEN co.kind = 'national' OR co.school_id IS NOT NULL THEN 'free' ELSE '` + premiumModule + `' END`
+// Self-paced exams are free here: past national sets are free, and a
+// challenge's quizzes and model exams follow the challenge's own rules.
+const defaultContestAccessSQL = `CASE WHEN co.kind <> 'contest' OR co.school_id IS NOT NULL THEN 'free' ELSE '` + premiumModule + `' END`
 
 // defaultAccess returns the access a resource without a policy requires.
 func (s *Server) defaultAccess(c *gin.Context, kind, id string) (string, error) {

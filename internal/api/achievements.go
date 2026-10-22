@@ -91,10 +91,10 @@ func (s *Server) achievements(c *gin.Context, studentID string) (gin.H, error) {
 	var chapters, contests, nationals, sharp, sessions, habitDays int
 	err = s.pool.QueryRow(c, `SELECT
 			(SELECT count(*) FROM chapter_progress WHERE student_id = $1)::int,
-			(SELECT count(*) FROM submissions s JOIN contests co ON co.id = s.contest_id WHERE s.student_id = $1 AND co.kind <> 'national')::int,
-			(SELECT count(*) FROM submissions s JOIN contests co ON co.id = s.contest_id WHERE s.student_id = $1 AND co.kind = 'national')::int,
+			(SELECT count(*) FROM submissions s JOIN contests co ON co.id = s.contest_id WHERE s.student_id = $1 AND co.kind = 'contest')::int,
+			(SELECT count(*) FROM submissions s JOIN contests co ON co.id = s.contest_id WHERE s.student_id = $1 AND co.kind <> 'contest')::int,
 			(SELECT count(*) FROM submissions s JOIN contests co ON co.id = s.contest_id WHERE s.student_id = $1
-				AND s.total > 0 AND s.correct * 10 >= s.total * 9 AND (co.kind = 'national' OR co.end_time < now()))::int,
+				AND s.total > 0 AND s.correct * 10 >= s.total * 9 AND (co.kind <> 'contest' OR co.end_time < now()))::int,
 			(SELECT count(*) FROM study_sessions WHERE student_id = $1 AND done)::int,
 			(SELECT count(*) FROM habit_logs WHERE student_id = $1 AND cardinality(checked) > 0)::int`, studentID).
 		Scan(&chapters, &contests, &nationals, &sharp, &sessions, &habitDays)

@@ -117,7 +117,7 @@ func (s *Server) adminStudentInsights(c *gin.Context) error {
 			count(*) FILTER (WHERE sub.answers->>q.id = q.answer_index::text)::int, count(*)::int
 		FROM submissions sub JOIN contests co ON co.id = sub.contest_id
 		JOIN contest_questions cq ON cq.contest_id = co.id JOIN questions q ON q.id = cq.question_id
-		WHERE sub.student_id = $1 AND (co.end_time < now() OR co.kind = 'national')
+		WHERE sub.student_id = $1 AND (co.end_time < now() OR co.kind <> 'contest')
 		GROUP BY 1, 2`, id)
 	if err != nil {
 		return err

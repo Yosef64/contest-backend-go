@@ -224,9 +224,10 @@ type contestInput struct {
 	// Per-student order of questions and options (default on).
 	ShuffleQuestions *bool `json:"shuffle_questions"`
 	ShuffleOptions   *bool `json:"shuffle_options"`
-	// "national" marks a past national entrance exam set: students take it
-	// as timed practice any time between start_time and end_time.
-	Kind            string `json:"kind" binding:"omitempty,oneof=contest national"`
+	// "national" marks a past national entrance exam set and "model" a model
+	// exam for challenges: students take them as timed practice any time
+	// between start_time and end_time.
+	Kind            string `json:"kind" binding:"omitempty,oneof=contest national model"`
 	ExamYear        *int   `json:"exam_year" binding:"omitempty,min=1990,max=2100"`
 	Stream          string `json:"stream" binding:"omitempty,oneof=natural social"`
 	DurationMinutes *int   `json:"duration_minutes" binding:"omitempty,min=1,max=600"`
@@ -237,7 +238,7 @@ func (in *contestInput) toContest() (store.Contest, error) {
 	if in.Grade == "remedial" || in.Grade == "freshman" {
 		grade = in.Grade
 	}
-	national := in.Kind == "national"
+	national := in.Kind == "national" || in.Kind == "model"
 	switch {
 	case grade == "":
 		return store.Contest{}, httpx.Field("grade", "Choose grade 9, 10, 11, 12, remedial or freshman.")
@@ -247,7 +248,7 @@ func (in *contestInput) toContest() (store.Contest, error) {
 		return store.Contest{}, httpx.Field("end_time", "An exam can last at most 24 hours.")
 	case !national && len(in.QuestionIDs) == 0:
 		return store.Contest{}, httpx.Field("question_ids", "Choose at least one question.")
-	case national && in.ExamYear == nil:
+	case in.Kind == "national" && in.ExamYear == nil:
 		return store.Contest{}, httpx.Field("exam_year", "Enter the year of the national exam.")
 	case national && in.DurationMinutes == nil:
 		return store.Contest{}, httpx.Field("duration_minutes", "Enter the time allowed in minutes.")
@@ -257,7 +258,7 @@ func (in *contestInput) toContest() (store.Contest, error) {
 		stream = ""
 	}
 	if national {
-		kind, year, stream, duration = "national", in.ExamYear, in.Stream, in.DurationMinutes
+		kind, year, stream, duration = in.Kind, in.ExamYear, in.Stream, in.DurationMinutes
 	}
 	seen := map[string]bool{}
 	for _, id := range in.QuestionIDs {

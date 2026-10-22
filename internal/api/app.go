@@ -615,6 +615,9 @@ func (s *Server) appContests(c *gin.Context) error {
 		if co.Stream != "" && co.Stream != myStream {
 			continue
 		}
+		if co.Kind == "model" {
+			continue // offered at the end of a challenge
+		}
 		if co.IsNational() && len(co.QuestionIDs) == 0 {
 			continue // still being prepared
 		}
