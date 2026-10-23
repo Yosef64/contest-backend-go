@@ -64,7 +64,7 @@ func (s *Server) Router() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery(), httpx.ServerTime(time.Now))
+	r.Use(gin.Logger(), gin.Recovery(), httpx.ServerTime(time.Now), httpx.Gzip())
 	_ = r.SetTrustedProxies(nil)
 	r.MaxMultipartMemory = 16 << 20
 	r.Use(cors.New(cors.Config{
