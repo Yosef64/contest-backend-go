@@ -110,6 +110,9 @@ type challengeDayState struct {
 	Title   string     `json:"title"`
 	Subject string     `json:"subject"`
 	Minutes int        `json:"minutes"`
+	// The day's own access ('' follows the challenge's rules): "free",
+	// "referral" or "premium".
+	Access string `json:"access"`
 
 	HasLesson bool     `json:"has_lesson"`
 	HasNote   bool     `json:"has_note"`
@@ -203,7 +206,7 @@ func (s *Server) challengeStateFor(c *gin.Context, st store.Student, ch challeng
 		cs.Days = append(cs.Days, ds)
 	}
 
-	rows, err := s.pool.Query(c, `SELECT d.day, d.title, d.subject, d.minutes, d.lesson_html <> '', d.note_html <> '',
+	rows, err := s.pool.Query(c, `SELECT d.day, d.title, d.subject, d.minutes, d.access, d.lesson_html <> '', d.note_html <> '',
 			d.quiz_id, coalesce(co.duration_minutes, 0),
 			(SELECT count(*) FROM contest_questions cq WHERE cq.contest_id = d.quiz_id)::int,
 			sub.correct, sub.total,
@@ -218,11 +221,11 @@ func (s *Server) challengeStateFor(c *gin.Context, st store.Student, ch challeng
 	}
 	for rows.Next() {
 		var day, minutes, duration, questions int
-		var title, subject string
+		var title, subject, access string
 		var lesson, note, lessonDone, noteDone bool
 		var quizID *string
 		var correct, total *int
-		if err := rows.Scan(&day, &title, &subject, &minutes, &lesson, &note, &quizID, &duration, &questions,
+		if err := rows.Scan(&day, &title, &subject, &minutes, &access, &lesson, &note, &quizID, &duration, &questions,
 			&correct, &total, &lessonDone, &noteDone); err != nil {
 			rows.Close()
 			return nil, err
@@ -231,7 +234,7 @@ func (s *Server) challengeStateFor(c *gin.Context, st store.Student, ch challeng
 		if ds == nil {
 			continue // past the challenge's length
 		}
-		ds.Title, ds.Subject, ds.Minutes = title, subject, minutes
+		ds.Title, ds.Subject, ds.Minutes, ds.Access = title, subject, minutes, access
 		ds.HasLesson, ds.HasNote = lesson, note
 		ds.LessonDone, ds.NoteDone = lessonDone, noteDone
 		// A quiz without questions is still being prepared.
@@ -307,7 +310,22 @@ func (s *Server) challengeStateFor(c *gin.Context, st store.Student, ch challeng
 
 // dayLock is the payment / invite lock on a day the student has reached.
 func (cs *challengeState) dayLock(ds *challengeDayState) *challengeLock {
-	if cs.Paid || ds.Day <= cs.FreeDays {
+	if cs.Paid {
+		return nil
+	}
+	// A day's own access wins over the general rules.
+	switch ds.Access {
+	case "free":
+		return nil
+	case "premium":
+		return &challengeLock{Reason: "premium"}
+	case "referral":
+		if !cs.Referrals {
+			return &challengeLock{Reason: "premium"}
+		}
+		return cs.inviteLock("day", ds.Day, "day")
+	}
+	if ds.Day <= cs.FreeDays {
 		return nil
 	}
 	if cs.PremiumFromDay != nil && ds.Day >= *cs.PremiumFromDay {
@@ -372,7 +390,8 @@ func lockError(l *challengeLock) error {
 
 // visibleTo: published, for the student's grade and (when set) stream.
 func (s *Server) challengeVisible(c *gin.Context, st store.Student, ch challenge) error {
-	if ch.Status != "published" || ch.Grade != st.Grade {
+	// For the student's grade, or their department (remedial, freshman).
+	if ch.Status != "published" || ch.Grade != st.Grade && ch.Grade != s.studentDepartment(c, st.ID) {
 		return httpx.NotFound("Challenge")
 	}
 	if ch.Stream == "" {
@@ -387,6 +406,14 @@ func (s *Server) challengeVisible(c *gin.Context, st store.Student, ch challenge
 		return httpx.NotFound("Challenge")
 	}
 	return nil
+}
+
+// studentDepartment is "entrance", "remedial" or "freshman" ("" without a
+// profile).
+func (s *Server) studentDepartment(c *gin.Context, studentID string) string {
+	var dep string
+	_ = s.pool.QueryRow(c, `SELECT department FROM academic_profiles WHERE student_id = $1`, studentID).Scan(&dep)
+	return dep
 }
 
 // Student API ---------------------------------------------------------------
@@ -407,8 +434,8 @@ func (s *Server) appChallenges(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	rows, err := s.pool.Query(c, `SELECT `+challengeCols+` FROM challenges WHERE status = 'published' AND grade = $1
-		ORDER BY position, created_at DESC`, st.Grade)
+	rows, err := s.pool.Query(c, `SELECT `+challengeCols+` FROM challenges WHERE status = 'published' AND (grade = $1 OR grade = $2)
+		ORDER BY position, created_at DESC`, st.Grade, s.studentDepartment(c, st.ID))
 	if err != nil {
 		return err
 	}
@@ -745,7 +772,7 @@ func (s *Server) appChallengeReferral(c *gin.Context) error {
 	var in struct {
 		OwnerID     string `json:"owner_id" binding:"required,max=120"`
 		ChallengeID string `json:"challenge_id" binding:"required,max=120"`
-		Kind        string `json:"kind" binding:"required,oneof=lesson exam final"`
+		Kind        string `json:"kind" binding:"required,oneof=lesson exam final day"`
 		Unit        int    `json:"unit" binding:"min=0,max=1000"`
 	}
 	if err := httpx.Bind(c, &in); err != nil {
@@ -766,6 +793,13 @@ func (s *Server) appChallengeReferral(c *gin.Context) error {
 		return err
 	}
 	enabled := map[string]bool{"lesson": ch.ReferralEnabled, "exam": ch.ExamReferralEnabled, "final": ch.FinalAccess == "referral"}[in.Kind]
+	if in.Kind == "day" {
+		// A day set to "invite" on its own.
+		if err := s.pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM challenge_days WHERE challenge_id = $1 AND day = $2 AND access = 'referral')`,
+			ch.ID, in.Unit).Scan(&enabled); err != nil {
+			return err
+		}
+	}
 	if ch.Status != "published" || !on || !enabled {
 		return httpx.Conflict("referrals_off", "Invites aren't open for this challenge right now.")
 	}

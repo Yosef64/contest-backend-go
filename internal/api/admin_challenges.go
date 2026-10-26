@@ -41,8 +41,11 @@ type challengeInput struct {
 
 func (in *challengeInput) validate() (grade string, starts *time.Time, err error) {
 	grade = NormalizeGrade(in.Grade)
+	if in.Grade == "remedial" || in.Grade == "freshman" {
+		grade = in.Grade
+	}
 	if grade == "" {
-		return "", nil, httpx.Field("grade", "Choose grade 9, 10, 11 or 12.")
+		return "", nil, httpx.Field("grade", "Choose grade 9, 10, 11 or 12, remedial or freshman.")
 	}
 	if (grade == "9" || grade == "10") && in.Stream != "" {
 		return "", nil, httpx.Field("stream", "Grades 9 and 10 have no stream.")
@@ -77,7 +80,7 @@ func (s *Server) adminChallengeRows(c *gin.Context, where string, args ...any) (
 			(SELECT count(*) FROM challenge_days d WHERE d.challenge_id = challenges.id AND d.day <= challenges.weeks * 7
 				AND (d.lesson_html <> '' OR d.note_html <> '' OR EXISTS (SELECT 1 FROM contest_questions cq WHERE cq.contest_id = d.quiz_id)))::int,
 			coalesce((SELECT array_agg(contest_id ORDER BY position) FROM challenge_final_exams f WHERE f.challenge_id = challenges.id), '{}')
-		FROM challenges `+where+` ORDER BY grade::int, position, created_at DESC`, args...)
+		FROM challenges `+where+` ORDER BY CASE grade WHEN 'remedial' THEN 13 WHEN 'freshman' THEN 14 ELSE grade::int END, position, created_at DESC`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +122,7 @@ func (s *Server) adminChallenge(c *gin.Context) error {
 		return httpx.NotFound("Challenge")
 	}
 	days, err := s.store.ServiceRows(c, `SELECT jsonb_build_object('day', d.day, 'title', d.title, 'subject', d.subject,
-			'minutes', d.minutes, 'has_lesson', d.lesson_html <> '', 'has_note', d.note_html <> '', 'quiz_id', d.quiz_id,
+			'minutes', d.minutes, 'access', d.access, 'has_lesson', d.lesson_html <> '', 'has_note', d.note_html <> '', 'quiz_id', d.quiz_id,
 			'quiz_questions', (SELECT count(*) FROM contest_questions cq WHERE cq.contest_id = d.quiz_id),
 			'completed', (SELECT count(*) FROM challenge_steps x WHERE x.challenge_id = d.challenge_id AND x.day = d.day AND x.step = 'lesson'),
 			'quiz_takers', (SELECT count(*) FROM submissions sub WHERE sub.contest_id = d.quiz_id),
@@ -261,21 +264,21 @@ func (s *Server) adminChallengeDay(c *gin.Context) error {
 		return err
 	}
 	out := gin.H{"day": day, "week": weekOf(day), "month": monthOf(day), "is_exam": isExamDay(day),
-		"title": "", "subject": "", "minutes": 30, "lesson_html": "", "note_html": "", "quiz": nil,
+		"title": "", "subject": "", "minutes": 30, "access": "", "lesson_html": "", "note_html": "", "quiz": nil,
 		"challenge": gin.H{"id": ch.ID, "title": ch.Title, "grade": ch.Grade, "stream": ch.Stream, "days": ch.days()}}
-	var title, subject, lesson, note, updatedBy string
+	var title, subject, access, lesson, note, updatedBy string
 	var minutes int
 	var quizID *string
 	var updated time.Time
-	err = s.pool.QueryRow(c, `SELECT title, subject, minutes, lesson_html, note_html, quiz_id, updated_at, updated_by
+	err = s.pool.QueryRow(c, `SELECT title, subject, minutes, access, lesson_html, note_html, quiz_id, updated_at, updated_by
 		FROM challenge_days WHERE challenge_id = $1 AND day = $2`, ch.ID, day).
-		Scan(&title, &subject, &minutes, &lesson, &note, &quizID, &updated, &updatedBy)
+		Scan(&title, &subject, &minutes, &access, &lesson, &note, &quizID, &updated, &updatedBy)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
 		return err
 	default:
-		out["title"], out["subject"], out["minutes"] = title, subject, minutes
+		out["title"], out["subject"], out["minutes"], out["access"] = title, subject, minutes, access
 		out["lesson_html"], out["note_html"] = lesson, note
 		out["updated_at"], out["updated_by"] = updated, updatedBy
 		if quizID != nil {
@@ -296,9 +299,11 @@ func (s *Server) adminChallengeDay(c *gin.Context) error {
 // PUT /admin/challenges/:id/days/:day — title, subject, lesson and note.
 func (s *Server) adminSaveChallengeDay(c *gin.Context) error {
 	var in struct {
-		Title      string `json:"title" binding:"max=160"`
-		Subject    string `json:"subject" binding:"max=80"`
-		Minutes    int    `json:"minutes" binding:"min=1,max=600"`
+		Title   string `json:"title" binding:"max=160"`
+		Subject string `json:"subject" binding:"max=80"`
+		Minutes int    `json:"minutes" binding:"min=1,max=600"`
+		// '' follows the challenge's rules.
+		Access     string `json:"access" binding:"omitempty,oneof=free referral premium"`
 		LessonHTML string `json:"lesson_html" binding:"max=2000000"`
 		NoteHTML   string `json:"note_html" binding:"max=2000000"`
 	}
@@ -319,11 +324,11 @@ func (s *Server) adminSaveChallengeDay(c *gin.Context) error {
 	if strings.TrimSpace(stripTags(note)) == "" && !strings.Contains(note, "<img") && !strings.Contains(note, "<svg") {
 		note = ""
 	}
-	if _, err := s.pool.Exec(c, `INSERT INTO challenge_days (challenge_id, day, title, subject, minutes, lesson_html, note_html, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	if _, err := s.pool.Exec(c, `INSERT INTO challenge_days (challenge_id, day, title, subject, minutes, lesson_html, note_html, updated_by, access)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (challenge_id, day) DO UPDATE SET title = $3, subject = $4, minutes = $5, lesson_html = $6, note_html = $7,
-			updated_by = $8, updated_at = now()`, ch.ID, day, strings.TrimSpace(in.Title), in.Subject, in.Minutes, lesson, note,
-		currentAdmin(c).Name); err != nil {
+			updated_by = $8, access = $9, updated_at = now()`, ch.ID, day, strings.TrimSpace(in.Title), in.Subject, in.Minutes, lesson, note,
+		currentAdmin(c).Name, in.Access); err != nil {
 		return err
 	}
 	return s.adminChallengeDay(c)
@@ -563,7 +568,7 @@ func (s *Server) challengeInviteLanding(c *gin.Context) {
 		WHERE st.id = $1 AND ch.id = $2 AND ch.status = 'published'`, owner, id).Scan(&name, &title); err == nil {
 		data.Inviter = strings.Fields(name + " ")[0]
 		data.Challenge = title
-		if kind == "lesson" || kind == "exam" || kind == "final" {
+		if kind == "lesson" || kind == "exam" || kind == "final" || kind == "day" {
 			q := url.Values{"owner": {owner}, "challenge": {id}, "kind": {kind}, "unit": {strconv.Itoa(unit)}}
 			data.AppLink = template.URL("victory://challenge-invite?" + q.Encode())
 		}
