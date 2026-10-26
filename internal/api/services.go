@@ -257,6 +257,10 @@ func (s *Server) saveAcademicProfile(c *gin.Context) error {
 	err = s.store.ServiceExec(c, "INSERT INTO academic_profiles(student_id,department,stream,school_id) VALUES($1,$2,$3,$4) ON CONFLICT(student_id) DO UPDATE SET department=$2,stream=$3,school_id=$4,updated_at=now()", st.ID, in.Department, in.Stream, school)
 	return orNoContent(c, err)
 }
+
+// addisTime is the academy's clock (EAT, UTC+3, no daylight saving).
+var addisTime = time.FixedZone("EAT", 3*60*60)
+
 func (s *Server) requestEnrollment(c *gin.Context) error {
 	st, err := s.me(c)
 	if err != nil {
@@ -270,11 +274,43 @@ func (s *Server) requestEnrollment(c *gin.Context) error {
 	if err = httpx.Bind(c, &in); err != nil {
 		return err
 	}
+	ref := strings.TrimSpace(in.Reference)
+	// Each plan once: not while one is waiting for review, not while the plan
+	// is active (a renewal is welcome in its last week), and never the same
+	// payment reference twice (unless it was rejected). The "both" plan asks
+	// only for the plans the student still needs.
+	var modules []string
+	var reason error
+	for _, module := range planModules(in.Module) {
+		var pending, reused bool
+		var activeUntil *time.Time
+		if err := s.pool.QueryRow(c, `SELECT
+				EXISTS (SELECT 1 FROM enrollment_requests WHERE student_id = $1 AND module = $2 AND status = 'pending'),
+				(SELECT max(expires_at) FROM enrollment_requests WHERE student_id = $1 AND module = $2 AND status = 'approved' AND expires_at > now()),
+				EXISTS (SELECT 1 FROM enrollment_requests WHERE student_id = $1 AND module = $2 AND status <> 'rejected' AND lower(reference) = lower($3))`,
+			st.ID, module, ref).Scan(&pending, &activeUntil, &reused); err != nil {
+			return err
+		}
+		name := map[string]string{"academic": "Academic", "training": "Training"}[module]
+		switch {
+		case reused:
+			reason = httpx.Conflict("reference_used", "This payment reference was already sent. Check the reference, or wait for the academy to review it.")
+		case pending:
+			reason = httpx.Conflict("already_pending", "Your "+name+" payment is already waiting for review. You'll be told when it's approved.")
+		case activeUntil != nil && activeUntil.After(s.now().AddDate(0, 0, 7)):
+			reason = httpx.Conflict("already_active", "You already have the "+name+" plan until "+activeUntil.In(addisTime).Format("2 Jan 2006")+". You can renew it in its last week.")
+		default:
+			modules = append(modules, module)
+		}
+	}
+	if len(modules) == 0 {
+		return reason
+	}
 	// The "both" plan is one request per plan, with the same reference, so
 	// the academy reviews each.
 	err = pgx.BeginFunc(c, s.pool, func(tx pgx.Tx) error {
-		for _, module := range planModules(in.Module) {
-			if _, err := tx.Exec(c, "INSERT INTO enrollment_requests(student_id,module,reference,proof_url) VALUES($1,$2,$3,$4)", st.ID, module, strings.TrimSpace(in.Reference), in.ProofURL); err != nil {
+		for _, module := range modules {
+			if _, err := tx.Exec(c, "INSERT INTO enrollment_requests(student_id,module,reference,proof_url) VALUES($1,$2,$3,$4)", st.ID, module, ref, in.ProofURL); err != nil {
 				return err
 			}
 		}
